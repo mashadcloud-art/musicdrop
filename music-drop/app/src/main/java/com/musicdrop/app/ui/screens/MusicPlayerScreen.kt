@@ -57,6 +57,9 @@ import com.musicdrop.app.ui.components.WaveformVisualizer
 import com.musicdrop.app.ui.theme.*
 import com.musicdrop.app.ui.viewmodel.MainViewModel
 import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.musicdrop.app.R
 
 /**
  * Visual styles for the "DISC" tab's album art, cycled by tapping the cover
@@ -1544,7 +1547,7 @@ fun MusicPlayerScreen(
                             )
                         }
 
-                        // (▶) MusicDrop YouTube-Music Style Brand Badge
+                        // MusicDrop Brand Mascot Badge
                         Surface(
                             shape = RoundedCornerShape(16.dp),
                             color = Color.Black.copy(alpha = 0.65f),
@@ -1553,22 +1556,13 @@ fun MusicPlayerScreen(
                             Row(
                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(15.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFFF0000)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.PlayArrow,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(10.dp)
-                                    )
-                                }
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_musicdrop_bird),
+                                    contentDescription = "MusicDrop",
+                                    modifier = Modifier.size(16.dp)
+                                )
                                 Text(
                                     text = "MusicDrop",
                                     color = Color.White,

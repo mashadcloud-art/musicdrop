@@ -22,7 +22,7 @@ android {
         applicationId = "com.musicdrop.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 137
+        versionCode = 138
         versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
