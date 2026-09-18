@@ -5,9 +5,12 @@ import android.graphics.Color
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import java.io.ByteArrayInputStream
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -104,6 +107,34 @@ fun YouTubeIFramePlayer(
                 </div>
             </div>
             <script>
+                // Continuous Ad Skipper & Fast-Forward Engine
+                function autoSkipAds() {
+                    try {
+                        var p = document.getElementById('player');
+                        var docs = [document];
+                        if (p) {
+                            try { if (p.contentDocument) docs.push(p.contentDocument); } catch(e) {}
+                        }
+                        for (var d = 0; d < docs.length; d++) {
+                            var doc = docs[d];
+                            var skipBtns = doc.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .videoAdUiSkipButton, .ytp-skip-ad-button, button.ytp-ad-skip-button, .ytp-ad-overlay-close-button');
+                            for (var b = 0; b < skipBtns.length; b++) {
+                                try { skipBtns[b].click(); } catch(e) {}
+                            }
+                            var ad = doc.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay');
+                            var v = doc.querySelector('video');
+                            if (ad && v) {
+                                v.muted = true;
+                                v.playbackRate = 16.0;
+                                if (isFinite(v.duration) && v.duration > 0) {
+                                    v.currentTime = v.duration;
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+                setInterval(autoSkipAds, 150);
+
                 var scaleMode = $resizeMode; // 0: Fit (16:9), 1: Fill (Zoom), 2: Wide
                 function applyStageScale() {
                     var w = window.innerWidth || document.documentElement.clientWidth;
@@ -272,7 +303,27 @@ fun YouTubeIFramePlayer(
                         loadWithOverviewMode = true
                     }
                     webChromeClient = WebChromeClient()
-                    webViewClient = object : WebViewClient() {}
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldInterceptRequest(
+                            view: WebView?,
+                            request: WebResourceRequest?
+                        ): WebResourceResponse? {
+                            val url = request?.url?.toString().orEmpty()
+                            if (url.contains("doubleclick.net") ||
+                                url.contains("googleads") ||
+                                url.contains("pagead2.googlesyndication.com") ||
+                                url.contains("/api/stats/ads") ||
+                                url.contains("/pagead/") ||
+                                url.contains("adservice.google.") ||
+                                url.contains("youtube.com/ptracking") ||
+                                url.contains("youtube.com/get_midroll_info") ||
+                                url.contains("googlesyndication.com")
+                            ) {
+                                return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+                            }
+                            return super.shouldInterceptRequest(view, request)
+                        }
+                    }
                     tag = cleanVideoId
                     webViewRef.value = this
                     loadDataWithBaseURL("https://www.youtube.com", htmlData, "text/html", "UTF-8", null)

@@ -204,6 +204,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         try {
             checkForAppUpdate()
         } catch (_: Throwable) {}
+
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                _ytPoToken.value = poTokenManager.getPoToken()
+                android.util.Log.d("MainViewModel", "PoToken generated on startup: ${_ytPoToken.value?.token?.take(10)}...")
+            } catch (e: Exception) {
+                android.util.Log.w("MainViewModel", "PoToken startup init: ${e.message}")
+            }
+        }
     }
 
     fun getSafeMusicDir(): java.io.File {

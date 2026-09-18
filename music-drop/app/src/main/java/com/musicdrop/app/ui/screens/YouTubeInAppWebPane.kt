@@ -7,6 +7,9 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import java.io.ByteArrayInputStream
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -175,8 +178,51 @@ fun YouTubeInAppWebPane(
                         }, "android")
 
                         webViewClient = object : WebViewClient() {
+                            override fun shouldInterceptRequest(
+                                view: WebView?,
+                                request: WebResourceRequest?
+                            ): WebResourceResponse? {
+                                val url = request?.url?.toString().orEmpty()
+                                if (url.contains("doubleclick.net") ||
+                                    url.contains("googleads") ||
+                                    url.contains("pagead2.googlesyndication.com") ||
+                                    url.contains("/api/stats/ads") ||
+                                    url.contains("/pagead/") ||
+                                    url.contains("adservice.google.") ||
+                                    url.contains("youtube.com/ptracking") ||
+                                    url.contains("youtube.com/get_midroll_info") ||
+                                    url.contains("googlesyndication.com")
+                                ) {
+                                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+                                }
+                                return super.shouldInterceptRequest(view, request)
+                            }
+
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
+                                val adSkipJs = """
+                                    (function() {
+                                        if (window.__adSkipperInstalled) return;
+                                        window.__adSkipperInstalled = true;
+                                        setInterval(function() {
+                                            try {
+                                                var skipBtns = document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .videoAdUiSkipButton, .ytp-skip-ad-button, button.ytp-ad-skip-button, .ytp-ad-overlay-close-button');
+                                                skipBtns.forEach(function(b) { b.click(); });
+                                                var ad = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay');
+                                                var v = document.querySelector('video');
+                                                if (ad && v) {
+                                                    v.muted = true;
+                                                    v.playbackRate = 16.0;
+                                                    if (isFinite(v.duration) && v.duration > 0) {
+                                                        v.currentTime = v.duration;
+                                                    }
+                                                }
+                                            } catch(e) {}
+                                        }, 200);
+                                    })();
+                                """.trimIndent()
+                                view?.evaluateJavascript(adSkipJs, null)
+
                                 if (defaultWebJs.isNotBlank()) {
                                     val proxy = """
                                         if (!window.WebViewJavascriptBridge) {
