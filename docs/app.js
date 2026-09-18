@@ -382,10 +382,19 @@ class MusicDropEngine {
     this.fullModeVideo.classList.toggle('active', isVideo);
     this.dockVideoBtn.classList.toggle('active', isVideo);
 
+    const engineWrap = document.getElementById('yt-engine-wrap');
+    const videoView = document.getElementById('video-view');
+
     if (isVideo) {
+      if (engineWrap && videoView && engineWrap.parentElement !== videoView) {
+        videoView.appendChild(engineWrap);
+      }
       this.videoView.classList.add('active');
       this.discView.classList.add('hidden');
     } else {
+      if (engineWrap && engineWrap.parentElement !== document.body) {
+        document.body.appendChild(engineWrap);
+      }
       this.videoView.classList.remove('active');
       this.discView.classList.remove('hidden');
     }
@@ -677,34 +686,40 @@ class MusicDropEngine {
   }
 
   /* YOUTUBE IFRAME ENGINE (OPTIMIZED FOR IOS SAFARI) */
+  /* YOUTUBE IFRAME ENGINE (OPTIMIZED FOR IOS SAFARI & MOBILE) */
   initYouTube() {
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    const firstScript = document.getElementsByTagName('script')[0];
-    firstScript.parentNode.insertBefore(tag, firstScript);
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScript = document.getElementsByTagName('script')[0];
+      firstScript.parentNode.insertBefore(tag, firstScript);
+    }
 
-    window.onYouTubeIframeAPIReady = () => {
+    const setupPlayer = () => {
+      if (this.ytPlayer) return;
       this.ytPlayer = new YT.Player('yt-player-frame', {
         height: '100%',
         width: '100%',
         videoId: this.queue[0].id,
-        host: 'https://www.youtube-nocookie.com',
         playerVars: {
           autoplay: 0,
           controls: 1,
           playsinline: 1,
           rel: 0,
+          fs: 0,
           modestbranding: 1,
           enablejsapi: 1,
-          iv_load_policy: 3,
-          origin: window.location.origin
+          iv_load_policy: 3
         },
         events: {
-          onReady: () => {
+          onReady: (event) => {
             this.ytReady = true;
+            console.log('YouTube Audio/Video Engine Ready');
             if (this.pendingTrackId) {
-              this.ytPlayer.loadVideoById(this.pendingTrackId);
+              const tid = this.pendingTrackId;
               this.pendingTrackId = null;
+              this.ytPlayer.loadVideoById(tid);
+              try { this.ytPlayer.playVideo(); } catch(e) {}
             }
           },
           onStateChange: (event) => {
@@ -715,32 +730,50 @@ class MusicDropEngine {
             } else if (event.data === YT.PlayerState.ENDED) {
               this.playNext();
             }
+          },
+          onError: (event) => {
+            console.warn('Playback error encountered, advancing track:', event.data);
+            this.playNext();
           }
         }
       });
     };
+
+    if (window.YT && window.YT.Player) {
+      setupPlayer();
+    } else {
+      window.onYouTubeIframeAPIReady = () => {
+        setupPlayer();
+      };
+    }
   }
 
   loadTrack(track, autoPlay = true) {
     this.updateTrackUI(track);
 
-    if (this.ytPlayer && this.ytReady && this.ytPlayer.loadVideoById) {
+    if (this.ytPlayer && this.ytReady && typeof this.ytPlayer.loadVideoById === 'function') {
       if (autoPlay) {
         this.ytPlayer.loadVideoById(track.id);
-        this.ytPlayer.playVideo();
-        this.onPlayStarted();
+        try { this.ytPlayer.playVideo(); } catch(e) {}
       } else {
         this.ytPlayer.cueVideoById(track.id);
       }
     } else {
       this.pendingTrackId = track.id;
+      if (!this.ytPlayer && window.YT && window.YT.Player) {
+        this.initYouTube();
+      }
     }
 
     this.updateMediaSession(track);
   }
 
   togglePlay() {
-    if (!this.ytReady || !this.ytPlayer) return;
+    if (!this.ytPlayer || !this.ytReady) {
+      const cur = this.queue[this.currentIndex] || this.queue[0];
+      if (cur) this.loadTrack(cur, true);
+      return;
+    }
     const state = this.ytPlayer.getPlayerState ? this.ytPlayer.getPlayerState() : -1;
     if (state === YT.PlayerState.PLAYING) {
       this.ytPlayer.pauseVideo();

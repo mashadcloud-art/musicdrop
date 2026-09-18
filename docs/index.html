@@ -312,7 +312,7 @@
 
         <!-- Video Player Frame (Video Mode) -->
         <div class="video-view" id="video-view">
-          <div id="yt-player-frame"></div>
+          <!-- Dynamically slotted by yt-engine-wrap in Video Mode -->
         </div>
 
       </div>
@@ -455,6 +455,11 @@
 
       <button class="btn-dismiss-sheet" id="btn-dismiss-sheet">Got It!</button>
     </div>
+  </div>
+
+  <!-- Persistent Audio & Video Playback Engine (iOS Safari / WebKit Safe) -->
+  <div class="yt-engine-wrap" id="yt-engine-wrap">
+    <div id="yt-player-frame"></div>
   </div>
 
   <script src="app.js"></script>
