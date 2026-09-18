@@ -1,8 +1,8 @@
 {
-  "versionCode": 139,
-  "versionName": "1.2",
-  "title": "MusicDrop v1.2 Available",
-  "changelog": "• YouTube Ad-Skipping Engine (fast-forwards & auto-skips video ads)\n• Pre-Warmed PoToken (instant stream extraction with no bot throttling)\n• New Trending Variety Refresh & Regional Guitar Collections\n• Search Results with Top Artist Card & Albums Shelf\n• Background & Minimize Audio Stability",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.2/MusicDrop-v1.2.apk",
+  "versionCode": 140,
+  "versionName": "1.3",
+  "title": "MusicDrop v1.3 Available",
+  "changelog": "• Official Pink Bird Mascot Icon & Branding\n• Video Mode Next Song Fix: Seamless Auto-Transition to Audio Mode\n• Dedicated Search Tab in Bottom Navigation Bar\n• Dynamic Auto-Changing Cover & Fresh Tracks for India Trending Mix\n• Fixed Desi Hip Hop Covers + Mallu & Tamil Rappers Shelves\n• Hide / Delete Unwanted Songs from Category Feeds with Undo",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3/MusicDrop-v1.3.apk",
   "forceUpdate": false
 }

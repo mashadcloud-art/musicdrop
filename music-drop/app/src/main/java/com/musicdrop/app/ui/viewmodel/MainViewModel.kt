@@ -118,6 +118,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _savedAlbums = MutableStateFlow<List<com.musicdrop.app.data.repository.SavedAlbumItem>>(emptyList())
     val savedAlbums: StateFlow<List<com.musicdrop.app.data.repository.SavedAlbumItem>> = _savedAlbums.asStateFlow()
 
+    // ---- Hidden / Deleted Tracks (Filter unwanted songs from category feeds) ----
+    private val _hiddenTrackKeys = MutableStateFlow<Set<String>>(com.musicdrop.app.data.repository.HiddenTracksStore.getHiddenKeys(application))
+    val hiddenTrackKeys: StateFlow<Set<String>> = _hiddenTrackKeys.asStateFlow()
+
+    fun hideTrack(track: UnifiedTrack) {
+        val ctx = getApplication<Application>()
+        com.musicdrop.app.data.repository.HiddenTracksStore.hideTrack(ctx, track.key)
+        com.musicdrop.app.data.repository.HiddenTracksStore.hideTrack(ctx, "yt:${track.key}")
+        if (track.title.isNotBlank()) {
+            com.musicdrop.app.data.repository.HiddenTracksStore.hideTrack(ctx, track.title.trim().lowercase())
+        }
+        _hiddenTrackKeys.value = com.musicdrop.app.data.repository.HiddenTracksStore.getHiddenKeys(ctx)
+    }
+
+    fun hideTrackByKey(key: String, title: String? = null) {
+        val ctx = getApplication<Application>()
+        com.musicdrop.app.data.repository.HiddenTracksStore.hideTrack(ctx, key)
+        if (!title.isNullOrBlank()) {
+            com.musicdrop.app.data.repository.HiddenTracksStore.hideTrack(ctx, title.trim().lowercase())
+        }
+        _hiddenTrackKeys.value = com.musicdrop.app.data.repository.HiddenTracksStore.getHiddenKeys(ctx)
+    }
+
+    fun unhideTrack(key: String) {
+        val ctx = getApplication<Application>()
+        com.musicdrop.app.data.repository.HiddenTracksStore.unhideTrack(ctx, key)
+        _hiddenTrackKeys.value = com.musicdrop.app.data.repository.HiddenTracksStore.getHiddenKeys(ctx)
+    }
+
     // ---- Multi-Region Quick Picks (India, Pakistan, Malayalam, Tamil) ----
     private val _indiaQuickPicks = MutableStateFlow<List<YouTubeSearchResult>>(emptyList())
     val indiaQuickPicks: StateFlow<List<YouTubeSearchResult>> = _indiaQuickPicks.asStateFlow()
@@ -1062,16 +1091,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         "AE", "SA" -> "arabic gulf trending music 2026"
                         "US" -> "billboard hot 100 music 2026"
                         "GB" -> "uk top 40 official singles 2026"
-                        else -> "india trending songs 2026"
+                        else -> listOf(
+                            "india trending songs 2026",
+                            "latest bollywood superhits 2026",
+                            "top hindi songs trending",
+                            "punjabi and hindi chartbusters 2026",
+                            "viral hits india 2026"
+                        ).random()
                     }
                     when (val outcome = YouTubeSearchRepository.search(q, maxResults = 25)) {
                         is YouTubeSearchOutcome.Success -> outcome.results
                         is YouTubeSearchOutcome.Error -> emptyList()
                     }
                 }
-                if (force && songs.isNotEmpty()) {
-                    val extra = varietySearch(varietyQueriesFor(code).random())
-                    songs = shuffleWithPinnedHead(songs, extra, keyOf = { it.videoId })
+                if (songs.isNotEmpty()) {
+                    val varietyPool = varietyQueriesFor(code)
+                    if (varietyPool.isNotEmpty()) {
+                        val extra = varietySearch(varietyPool.random())
+                        if (extra.isNotEmpty()) {
+                            songs = shuffleWithPinnedHead(songs, extra, keyOf = { it.videoId })
+                        }
+                    }
                 }
                 if (songs.isNotEmpty()) {
                     regionTrendingCache[code] = songs
@@ -1085,6 +1125,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _regionTrendingLoading.value = false
             }
         }
+    }
+
+    fun rotateTrendingMix() {
+        val code = _selectedCountry.value.uppercase()
+        regionTrendingCache.remove(code)
+        loadRegionTrending(country = code, force = true)
     }
 
     fun setCountry(country: String) {
@@ -1929,6 +1975,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * lock screen controls, the queue and stream caching all keep working exactly as
      * they do for audio. Seamlessly preserves current timestamp so playback doesn't restart.
      */
+    fun setVideoMode(enabled: Boolean) {
+        if (_isVideoMode.value == enabled) return
+        if (!enabled) {
+            _userWantsVideoMode.value = false
+            _isVideoMode.value = false
+        } else {
+            toggleVideoMode()
+        }
+    }
+
     fun toggleVideoMode() {
         val curTrack = playbackConnection.currentTrack.value ?: return
 

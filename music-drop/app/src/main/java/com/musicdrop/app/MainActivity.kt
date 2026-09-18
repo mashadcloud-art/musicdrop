@@ -49,6 +49,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 
 enum class NavigationTab(val label: String, val icon: ImageVector) {
     HOME    ("Home",    Icons.Default.Home),
+    SEARCH  ("Search",  Icons.Default.Search),
     EXPLORE ("Explore", Icons.Outlined.Explore),
     LIBRARY ("Library", Icons.Default.LibraryMusic)
 }
@@ -365,7 +366,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                         onOpenSearchWithQuery = { query ->
                             searchPreFill = query
                             viewModel.setYtSearchQuery(query)
-                            isSearchOpen = true
+                            currentTab = NavigationTab.SEARCH
                         },
                         onOpenPlaylist = { playlist -> openPlaylist = playlist },
                         onOpenSource = { source -> openSource = source },
@@ -373,12 +374,20 @@ fun MainAppContent(viewModel: MainViewModel) {
                         onOpenAlbum = { openAlbum = it },
                         onOpenSettings = { showSettingsOverlay = true }
                     )
+                    NavigationTab.SEARCH -> SearchDashboardScreen(
+                        viewModel = viewModel,
+                        initialQuery = searchPreFill,
+                        onBack = { currentTab = NavigationTab.HOME },
+                        onOpenYouTube = {},
+                        onOpenArtist = { openArtist = it },
+                        onOpenAlbum = { openAlbum = it }
+                    )
                     NavigationTab.EXPLORE -> ExploreScreen(
                         viewModel = viewModel,
                         onOpenSearch = { query ->
                             searchPreFill = query
                             if (query.isNotBlank()) viewModel.setYtSearchQuery(query)
-                            isSearchOpen = true
+                            currentTab = NavigationTab.SEARCH
                         }
                     )
                     NavigationTab.LIBRARY -> LibraryScreen(
@@ -386,7 +395,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                         onOpenSearch = { query ->
                             searchPreFill = query
                             if (query.isNotBlank()) viewModel.setYtSearchQuery(query)
-                            isSearchOpen = true
+                            currentTab = NavigationTab.SEARCH
                         },
                         onOpenArtist = { openArtist = it },
                         onOpenAlbum = { openAlbum = it }
@@ -395,7 +404,7 @@ fun MainAppContent(viewModel: MainViewModel) {
             }
         }
 
-        // Search Overlay
+        // Search Overlay (if opened as modal)
         if (isSearchOpen) {
             Box(modifier = Modifier.fillMaxSize()) {
                 SearchDashboardScreen(

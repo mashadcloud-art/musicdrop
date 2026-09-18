@@ -230,6 +230,34 @@ fun DiscoverScreen(
     val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
     var isDiscoverRefreshing by remember { mutableStateOf(false) }
 
+    val hiddenTrackKeys by viewModel.hiddenTrackKeys.collectAsState()
+    val isTrackVisible: (UnifiedTrack) -> Boolean = remember(hiddenTrackKeys) {
+        { track ->
+            if (hiddenTrackKeys.isEmpty()) true
+            else {
+                val key = track.key
+                val norm = track.title.trim().lowercase()
+                key !in hiddenTrackKeys && "yt:$key" !in hiddenTrackKeys && (norm.isEmpty() || norm !in hiddenTrackKeys)
+            }
+        }
+    }
+
+    val handleHideTrack: (UnifiedTrack) -> Unit = { track ->
+        viewModel.hideTrack(track)
+        coroutineScope.launch {
+            val res = snackbarHostState.showSnackbar(
+                message = "Removed \"${track.title.take(24)}\" from category",
+                actionLabel = "Undo",
+                duration = androidx.compose.material3.SnackbarDuration.Short
+            )
+            if (res == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                viewModel.unhideTrack(track.key)
+                viewModel.unhideTrack("yt:${track.key}")
+                viewModel.unhideTrack(track.title.trim().lowercase())
+            }
+        }
+    }
+
     // ── Dynamic Rotating Search Placeholder Hints ───────────────────────────
     val searchHints = remember {
         listOf(
@@ -332,15 +360,43 @@ fun DiscoverScreen(
 
     val desiHipHopStars = remember {
         listOf(
-            HipHopArtistData("DIVINE", "Gully Gang · Mumbai", "7.4M", "https://cdn-images.dzcdn.net/images/artist/593847e68cf6dc81728c4603ba0f5cb6/250x250-000000-80-0-0.jpg", "DIVINE rap songs"),
-            HipHopArtistData("Naezy", "The Baa · Aafat", "1.8M", "https://cdn-images.dzcdn.net/images/artist/fa63a43585098ffb418a09f307a51373/250x250-000000-80-0-0.jpg", "Naezy rap songs"),
-            HipHopArtistData("Emiway Bantai", "Bantai Records · Machayenge", "8.2M", "https://cdn-images.dzcdn.net/images/artist/b81aa661be46d1bf2b918dbec434eb07/250x250-000000-80-0-0.jpg", "Emiway Bantai songs"),
-            HipHopArtistData("Seedhe Maut", "Calm & Encore · Nayaab", "3.5M", "https://cdn-images.dzcdn.net/images/artist/d9b4b025bfa178e63a352ca85860d5fb/250x250-000000-80-0-0.jpg", "Seedhe Maut songs"),
-            HipHopArtistData("KR" + "$" + "NA", "Kalamkaar · Still Here", "4.1M", "https://cdn-images.dzcdn.net/images/artist/e13f412ba77ee2d7c4900c7764fba282/250x250-000000-80-0-0.jpg", "KRSNA rap songs"),
-            HipHopArtistData("MC Stan", "Tadipaar · Insaan", "12.5M", "https://cdn-images.dzcdn.net/images/artist/27e57c638e4df5e2fb167098e6ae7fc9/250x250-000000-80-0-0.jpg", "MC Stan songs"),
-            HipHopArtistData("Raftaar", "Kalamkaar · Hard Drive", "5.9M", "https://cdn-images.dzcdn.net/images/artist/95a52eb2ea6fcae3ecadad695b174577/250x250-000000-80-0-0.jpg", "Raftaar rap songs"),
-            HipHopArtistData("Badshah", "Desi Hip Hop · 3:00 AM", "14.2M", "https://cdn-images.dzcdn.net/images/artist/62b66cbdf68903c72b22bb8be21bc563/250x250-000000-80-0-0.jpg", "Badshah top songs"),
-            HipHopArtistData("Yo Yo Honey Singh", "Glory · Desi Kalakaar", "16.8M", "https://cdn-images.dzcdn.net/images/artist/33e680a6c6e7f1e7845a70fe6f600490/250x250-000000-80-0-0.jpg", "Yo Yo Honey Singh songs")
+            HipHopArtistData("DIVINE", "Gully Gang · Mumbai", "7.4M", "https://i.ytimg.com/vi/3AtDnEC4zak/hqdefault.jpg", "DIVINE rap songs"),
+            HipHopArtistData("Naezy", "The Baa · Aafat", "1.8M", "https://i.ytimg.com/vi/u_L1rJ32iG8/hqdefault.jpg", "Naezy rap songs"),
+            HipHopArtistData("Emiway Bantai", "Bantai Records · Machayenge", "8.2M", "https://i.ytimg.com/vi/k4yXQkG2s1E/hqdefault.jpg", "Emiway Bantai songs"),
+            HipHopArtistData("Seedhe Maut", "Calm & Encore · Nayaab", "3.5M", "https://i.ytimg.com/vi/BddP6PYo2gs/hqdefault.jpg", "Seedhe Maut songs"),
+            HipHopArtistData("KR" + "$" + "NA", "Kalamkaar · Still Here", "4.1M", "https://i.ytimg.com/vi/OQv37Xo55v8/hqdefault.jpg", "KRSNA rap songs"),
+            HipHopArtistData("MC Stan", "Tadipaar · Insaan", "12.5M", "https://i.ytimg.com/vi/qG4l8_WbAis/hqdefault.jpg", "MC Stan songs"),
+            HipHopArtistData("Raftaar", "Kalamkaar · Hard Drive", "5.9M", "https://i.ytimg.com/vi/oM-225i_d-g/hqdefault.jpg", "Raftaar rap songs"),
+            HipHopArtistData("Badshah", "Desi Hip Hop · 3:00 AM", "14.2M", "https://i.ytimg.com/vi/Gkyv1KvdzZg/hqdefault.jpg", "Badshah top songs"),
+            HipHopArtistData("Yo Yo Honey Singh", "Glory · Desi Kalakaar", "16.8M", "https://i.ytimg.com/vi/KhnVcVyLmsQ/hqdefault.jpg", "Yo Yo Honey Singh songs"),
+            HipHopArtistData("King", "New Life · Maan Meri Jaan", "6.2M", "https://i.ytimg.com/vi/VuG7FT9dUJ4/hqdefault.jpg", "King hip hop songs")
+        )
+    }
+
+    val malluRappers = remember {
+        listOf(
+            HipHopArtistData("Hanumankind", "Big Dawgs · Kerala", "9.8M", "https://i.ytimg.com/vi/hOHKltAiKXQ/hqdefault.jpg", "Hanumankind songs"),
+            HipHopArtistData("Dabzee", "Manavalan Thug · Malappuram", "4.5M", "https://i.ytimg.com/vi/oQ2nO1J0-R8/hqdefault.jpg", "Dabzee rap songs"),
+            HipHopArtistData("Fejo", "Aparaada · Kochi Rap", "2.1M", "https://i.ytimg.com/vi/4y3m2D5k5Z8/hqdefault.jpg", "Fejo malayalam rap"),
+            HipHopArtistData("ThirumaLi", "Malayali Da · Kottayam", "2.8M", "https://i.ytimg.com/vi/sQk4eR9r2_M/hqdefault.jpg", "ThirumaLi songs"),
+            HipHopArtistData("Baby Jean", "Kathanar · Wayanad", "1.9M", "https://i.ytimg.com/vi/y8t8kP11m0o/hqdefault.jpg", "Baby Jean malayalam rap"),
+            HipHopArtistData("Vedan", "Voice of the Voiceless", "1.7M", "https://i.ytimg.com/vi/qG-t1aZ3Rrg/hqdefault.jpg", "Vedan rap songs"),
+            HipHopArtistData("Neeraj Madhav (NJ)", "Panipaali · Kozhikode", "3.2M", "https://i.ytimg.com/vi/7yK0Jk4U18I/hqdefault.jpg", "Neeraj Madhav NJ songs"),
+            HipHopArtistData("MC Couper", "Kallanum Polisum · TVM", "920K", "https://i.ytimg.com/vi/aZ3G4Q0n7qE/hqdefault.jpg", "MC Couper rap"),
+            HipHopArtistData("Street Academics", "Kalapila · Kerala Hip Hop", "1.2M", "https://i.ytimg.com/vi/N9H8sP0p0mI/hqdefault.jpg", "Street Academics songs")
+        )
+    }
+
+    val tamilRappers = remember {
+        listOf(
+            HipHopArtistData("Arivu", "Enjoy Enjaami · Therukural", "5.4M", "https://i.ytimg.com/vi/eYq7WapuDLU/hqdefault.jpg", "Arivu rap songs"),
+            HipHopArtistData("Paal Dabba", "Kathu Mela · 170CM", "3.1M", "https://i.ytimg.com/vi/sL5K7Z2T6z0/hqdefault.jpg", "Paal Dabba songs"),
+            HipHopArtistData("Asal Kolaar", "Jorthaala · Vada Chennai", "2.6M", "https://i.ytimg.com/vi/d_2R8I6C6kQ/hqdefault.jpg", "Asal Kolaar songs"),
+            HipHopArtistData("Hiphop Tamizha", "Club Le Mabbu Le · Pioneer", "11.2M", "https://i.ytimg.com/vi/v2Eshm8H2r4/hqdefault.jpg", "Hiphop Tamizha songs"),
+            HipHopArtistData("Yogi B & Natchatra", "Madai Thiranthu · Legend", "2.9M", "https://i.ytimg.com/vi/kQe3_c5Yl5g/hqdefault.jpg", "Yogi B Natchatra songs"),
+            HipHopArtistData("ADK", "Aathichudi · Colombo/Chennai", "1.8M", "https://i.ytimg.com/vi/yT2z8g5B_6k/hqdefault.jpg", "ADK tamil rap"),
+            HipHopArtistData("OfRo", "Therukural · Producer/MC", "1.5M", "https://i.ytimg.com/vi/K1m4p2r5Z0k/hqdefault.jpg", "OfRo songs"),
+            HipHopArtistData("Ken Karunas", "Vada Chennai · Asuran", "1.1M", "https://i.ytimg.com/vi/bV6n5M7t_0Q/hqdefault.jpg", "Ken Karunas rap")
         )
     }
 
@@ -384,16 +440,17 @@ fun DiscoverScreen(
         (popular.drop(10).take(15) + likedTracks).distinctBy { it.key }.take(15)
     }
 
-    val trendingUnified = remember(regionTrendingSongs, southIndiaTrending, popular) {
+    val trendingUnified = remember(regionTrendingSongs, southIndiaTrending, popular, hiddenTrackKeys) {
         val regionTracks = regionTrendingSongs.map { UnifiedTrack.Youtube(it) }
         val southTracks = southIndiaTrending.map { UnifiedTrack.Youtube(it) }
-        (regionTracks + southTracks + popular.drop(5)).distinctBy { it.key }.take(15)
+        (regionTracks + southTracks + popular.drop(5)).distinctBy { it.key }.filter(isTrackVisible).take(15)
     }
 
-    val countryTrendingTracks = remember(regionTrendingSongs, ytMusicResults, popular, selectedCountry) {
-        if (regionTrendingSongs.isNotEmpty()) regionTrendingSongs.map { UnifiedTrack.Youtube(it) }
+    val countryTrendingTracks = remember(regionTrendingSongs, ytMusicResults, popular, selectedCountry, hiddenTrackKeys) {
+        val list = if (regionTrendingSongs.isNotEmpty()) regionTrendingSongs.map { UnifiedTrack.Youtube(it) }
         else if (ytMusicResults.isNotEmpty()) ytMusicResults.map { UnifiedTrack.Youtube(it) }
         else popular
+        list.filter(isTrackVisible)
     }
 
     val moodData = remember(selectedMoodChip, popular, ytMusicResults, regionTrendingSongs, lofiQuickPicks, remixQuickPicks, coverQuickPicks) {
@@ -507,6 +564,7 @@ fun DiscoverScreen(
         else popular.take(15)
     }
 
+        CompositionLocalProvider(LocalOnDeleteTrack provides handleHideTrack) {
             PullToRefreshBox(
                 isRefreshing = isDiscoverRefreshing,
                 onRefresh = {
@@ -754,6 +812,8 @@ fun DiscoverScreen(
                                     tracks = countryTrendingTracks,
                                     onPlayAll = { viewModel.playUnified(countryTrendingTracks.first(), countryTrendingTracks) },
                                     onTrackClick = { track -> viewModel.playUnified(track, countryTrendingTracks) },
+                                    onDeleteTrack = { track -> handleHideTrack(track) },
+                                    onRotateMix = { viewModel.rotateTrendingMix() },
                                     onSeeMore = { onOpenSearchWithQuery(mixTitle) }
                                 )
                             }
@@ -1446,6 +1506,118 @@ fun DiscoverScreen(
                             }
                         }
 
+                        // ── Shelf 7B-2: Mallu Rappers • Kerala Hip-Hop (Hanumankind, Dabzee, Fejo, etc.) ──
+                        item {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                YouTubeShelfHeader(
+                                    title = "Mallu Rappers • Kerala Hip-Hop",
+                                    subtitle = "HANUMANKIND, DABZEE, FEJO & KERALA RAP STARS 🌴🔥",
+                                    onSeeAll = { onOpenSearchWithQuery("Malayalam Hip Hop Rap") }
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    items(malluRappers) { artist ->
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier
+                                                .width(96.dp)
+                                                .clickable { onOpenSearchWithQuery(artist.query) }
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(86.dp)
+                                                    .clip(CircleShape)
+                                                    .background(appColors.surfaceElevated)
+                                                    .border(2.dp, Brush.linearGradient(listOf(Color(0xFF00C853), Color(0xFF64DD17))), CircleShape)
+                                            ) {
+                                                AsyncImage(
+                                                    model = artist.imageUrl,
+                                                    contentDescription = artist.name,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            }
+                                            Spacer(Modifier.height(6.dp))
+                                            Text(
+                                                artist.name,
+                                                color = appColors.textPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                artist.followers,
+                                                color = Color(0xFF00E676),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 7B-3: Tamil Rappers • Tamil Hip-Hop (Arivu, Paal Dabba, Hiphop Tamizha, etc.) ──
+                        item {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                YouTubeShelfHeader(
+                                    title = "Tamil Rappers • Tamil Hip-Hop",
+                                    subtitle = "ARIVU, PAAL DABBA, HIPHOP TAMIZHA & CHENNAI CYPHER ⚡",
+                                    onSeeAll = { onOpenSearchWithQuery("Tamil Hip Hop Rap") }
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    items(tamilRappers) { artist ->
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier
+                                                .width(96.dp)
+                                                .clickable { onOpenSearchWithQuery(artist.query) }
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(86.dp)
+                                                    .clip(CircleShape)
+                                                    .background(appColors.surfaceElevated)
+                                                    .border(2.dp, Brush.linearGradient(listOf(Color(0xFFFF3D00), Color(0xFFFF9100))), CircleShape)
+                                            ) {
+                                                AsyncImage(
+                                                    model = artist.imageUrl,
+                                                    contentDescription = artist.name,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            }
+                                            Spacer(Modifier.height(6.dp))
+                                            Text(
+                                                artist.name,
+                                                color = appColors.textPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                artist.followers,
+                                                color = Color(0xFFFF9100),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // ── Shelf 7C: Acoustic & Guitar Sessions ──
                         if (guitarTracks.isNotEmpty()) {
                             item {
@@ -1803,6 +1975,7 @@ fun DiscoverScreen(
                     }
                 }
             }
+        }
 
         // Snackbar Host
         SnackbarHost(
@@ -2319,7 +2492,7 @@ fun SpotlightArtistsSection(
     }
 }
 
-// ── YOUTUBE MIX PREVIEW CARD (Matching Screenshot 1 "हिंदी Indie") ─────────────
+// ── YOUTUBE MIX PREVIEW CARD (Dynamic Rotating Cover + Refresh Mix + Delete Option) ─────────────
 @Composable
 fun YouTubeMixPreviewCard(
     title: String,
@@ -2329,11 +2502,25 @@ fun YouTubeMixPreviewCard(
     onPlayAll: () -> Unit,
     onTrackClick: (UnifiedTrack) -> Unit,
     onSeeMore: () -> Unit,
+    onDeleteTrack: ((UnifiedTrack) -> Unit)? = null,
+    onRotateMix: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     var isSaved by remember { mutableStateOf(false) }
     val displayTracks = if (isExpanded) tracks.take(15) else tracks.take(3)
+
+    // Dynamic auto-changing cover: cycles smoothly through top trending songs every 3.5s
+    var activeCoverIndex by remember(tracks) { mutableIntStateOf(0) }
+    LaunchedEffect(tracks) {
+        if (tracks.size > 1) {
+            while (true) {
+                delay(3500)
+                activeCoverIndex = (activeCoverIndex + 1) % minOf(tracks.size, 6)
+            }
+        }
+    }
+    val currentCover = tracks.getOrNull(activeCoverIndex)?.thumbnailUrl?.ifBlank { coverUrl } ?: coverUrl
 
     Box(
         modifier = modifier
@@ -2345,11 +2532,10 @@ fun YouTubeMixPreviewCard(
             .padding(16.dp)
     ) {
         Column {
-            // Header: Cover + Title + Subtitle
+            // Header: Cover + Title + Subtitle + Refresh Mix Button
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onPlayAll() },
+                    .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -2357,18 +2543,40 @@ fun YouTubeMixPreviewCard(
                         .size(72.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF282828))
+                        .clickable { onPlayAll() }
                 ) {
                     AsyncImage(
-                        model = coverUrl,
+                        model = currentCover,
                         contentDescription = title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
+                    // Auto-rotating badge indicator
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(4.dp)
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.7f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.GraphicEq,
+                            contentDescription = null,
+                            tint = Color(0xFFFF5722),
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
                 }
 
                 Spacer(Modifier.width(14.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onPlayAll() }
+                ) {
                     Text(
                         text = title,
                         color = Color.White,
@@ -2384,10 +2592,27 @@ fun YouTubeMixPreviewCard(
                         fontSize = 13.sp
                     )
                     Text(
-                        text = "${tracks.size.coerceAtLeast(15)} songs",
+                        text = "${tracks.size.coerceAtLeast(15)} songs • Auto-updating",
                         color = Color(0xFF757575),
                         fontSize = 12.sp
                     )
+                }
+
+                if (onRotateMix != null) {
+                    IconButton(
+                        onClick = onRotateMix,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0x22FFFFFF))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = "Rotate Mix",
+                            tint = Color(0xFFFF5722),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -2407,6 +2632,7 @@ fun YouTubeMixPreviewCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 displayTracks.forEach { track ->
+                    var showRowMenu by remember { mutableStateOf(false) }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2445,16 +2671,42 @@ fun YouTubeMixPreviewCard(
                             )
                         }
 
-                        IconButton(
-                            onClick = { onTrackClick(track) },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.MoreVert,
-                                contentDescription = "More",
-                                tint = Color(0xFFAAAAAA),
-                                modifier = Modifier.size(20.dp)
-                            )
+                        Box {
+                            IconButton(
+                                onClick = { showRowMenu = true },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.MoreVert,
+                                    contentDescription = "More",
+                                    tint = Color(0xFFAAAAAA),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showRowMenu,
+                                onDismissRequest = { showRowMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Play Song") },
+                                    leadingIcon = { Icon(Icons.Rounded.PlayArrow, contentDescription = null) },
+                                    onClick = {
+                                        showRowMenu = false
+                                        onTrackClick(track)
+                                    }
+                                )
+                                if (onDeleteTrack != null) {
+                                    DropdownMenuItem(
+                                        text = { Text("Hide / Delete from Mix", color = Color(0xFFFF5252)) },
+                                        leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = Color(0xFFFF5252)) },
+                                        onClick = {
+                                            showRowMenu = false
+                                            onDeleteTrack(track)
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -2638,6 +2890,9 @@ private fun sourceBadge(sourceName: String): Pair<ImageVector, Color> = when (so
     else          -> Icons.Filled.MusicNote to Color(0xFF888888)
 }
 
+val LocalOnDeleteTrack = compositionLocalOf<((UnifiedTrack) -> Unit)?> { null }
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun UnifiedMusicCard(
     track: UnifiedTrack,
@@ -2646,16 +2901,23 @@ fun UnifiedMusicCard(
     onPlay: () -> Unit,
     onDownload: () -> Unit,
     isPreparing: Boolean = false,
-    cardWidth: androidx.compose.ui.unit.Dp = 114.dp
+    cardWidth: androidx.compose.ui.unit.Dp = 114.dp,
+    onDelete: (() -> Unit)? = null
 ) {
     val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
+    var showMenu by remember { mutableStateOf(false) }
+    val effectiveOnDelete = onDelete ?: LocalOnDeleteTrack.current?.let { handler -> { handler(track) } }
+
     Column(modifier = Modifier.width(cardWidth)) {
         Box(
             modifier = Modifier
                 .size(cardWidth)
                 .clip(RoundedCornerShape(12.dp))
                 .background(appColors.surfaceElevated)
-                .clickable { onPlay() }
+                .combinedClickable(
+                    onClick = { onPlay() },
+                    onLongClick = { showMenu = true }
+                )
         ) {
             AsyncImage(
                 model = track.thumbnailUrl,
@@ -2688,6 +2950,59 @@ fun UnifiedMusicCard(
                     )
                 }
             }
+
+            // Top-Right 3-dots menu button for options including Delete / Hide
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .clickable { showMenu = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.MoreVert,
+                    contentDescription = "Options",
+                    tint = Color.White,
+                    modifier = Modifier.size(15.dp)
+                )
+
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Play Now") },
+                        leadingIcon = { Icon(Icons.Rounded.PlayArrow, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            onPlay()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (isDownloaded) "Downloaded" else "Download") },
+                        leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null) },
+                        enabled = !isDownloading && !isDownloaded,
+                        onClick = {
+                            showMenu = false
+                            onDownload()
+                        }
+                    )
+                    if (effectiveOnDelete != null) {
+                        DropdownMenuItem(
+                            text = { Text("Hide / Delete from Feed", color = Color(0xFFFF5252)) },
+                            leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = Color(0xFFFF5252)) },
+                            onClick = {
+                                showMenu = false
+                                effectiveOnDelete()
+                            }
+                        )
+                    }
+                }
+            }
+
             // Bottom-Right Download Button
             Box(
                 modifier = Modifier

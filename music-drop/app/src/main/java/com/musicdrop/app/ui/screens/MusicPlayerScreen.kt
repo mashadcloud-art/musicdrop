@@ -125,6 +125,18 @@ fun MusicPlayerScreen(
     var isFullscreenVideo by remember { mutableStateOf(false) }
     androidx.activity.compose.BackHandler(enabled = isFullscreenVideo) { isFullscreenVideo = false }
 
+    // Auto-switch to Audio Mode when skipping track to guarantee smooth, instant playback without video error screen
+    var lastTrackKey by remember { mutableStateOf(currentTrack?.id) }
+    LaunchedEffect(currentTrack?.id) {
+        val curId = currentTrack?.id
+        if (curId != null && lastTrackKey != null && curId != lastTrackKey) {
+            if (isVideoMode) {
+                viewModel.setVideoMode(false)
+            }
+        }
+        lastTrackKey = curId
+    }
+
     // Once playback begins, automatically shrink details to minimal music control bar after 2.5s
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
@@ -312,11 +324,28 @@ fun MusicPlayerScreen(
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 } else {
-                                    Text(
-                                        "Loading video...",
-                                        color = Color.White.copy(alpha = 0.6f),
-                                        fontSize = 14.sp
-                                    )
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            CircularProgressIndicator(
+                                                color = Color(0xFFFF0033),
+                                                modifier = Modifier.size(32.dp),
+                                                strokeWidth = 2.5.dp
+                                            )
+                                            Spacer(Modifier.height(10.dp))
+                                            Text(
+                                                "Loading HD Video...",
+                                                color = Color.White.copy(alpha = 0.85f),
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
                                 }
 
                                 // Bottom Overlay Controls: Fullscreen (Left) and Fill/Crop/Fit Mode (Right)

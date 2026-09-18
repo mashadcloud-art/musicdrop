@@ -90,7 +90,7 @@ fun YouTubeIFramePlayer(
                     border: none;
                     display: block;
                 }
-                #error-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #1E172E, #0A0812); flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; z-index: 99; }
+                #error-overlay { display: none !important; }
             </style>
         </head>
         <body>
@@ -203,15 +203,7 @@ fun YouTubeIFramePlayer(
                                 }
                             },
                             'onError': function(event) {
-                                setTimeout(function() {
-                                    try {
-                                        if (player && typeof player.loadVideoById === 'function') {
-                                            player.loadVideoById('$cleanVideoId');
-                                            player.mute();
-                                            player.playVideo();
-                                        }
-                                    } catch(e) {}
-                                }, 600);
+                                console.log('YouTube iframe error code: ' + event.data);
                             }
                         }
                     });
