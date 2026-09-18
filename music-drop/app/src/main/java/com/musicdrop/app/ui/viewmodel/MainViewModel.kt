@@ -204,15 +204,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         try {
             checkForAppUpdate()
         } catch (_: Throwable) {}
-
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                _ytPoToken.value = poTokenManager.getPoToken()
-                android.util.Log.d("MainViewModel", "PoToken generated on startup: ${_ytPoToken.value?.token?.take(10)}...")
-            } catch (e: Exception) {
-                android.util.Log.w("MainViewModel", "PoToken startup init: ${e.message}")
-            }
-        }
     }
 
     fun getSafeMusicDir(): java.io.File {
@@ -914,16 +905,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _southIndiaTrending = MutableStateFlow<List<YouTubeSearchResult>>(emptyList())
     val southIndiaTrending: StateFlow<List<YouTubeSearchResult>> = _southIndiaTrending.asStateFlow()
 
+    // ── Refresh variety ─────────────────────────────────────────────────────
+    // Hitting "refresh" on a trending shelf used to just re-fetch the exact
+    // same real chart, so users saw the same songs every time (the chart
+    // itself only moves daily/weekly). This blends in a rotating, genuinely
+    // different search each time refresh is tapped (force = true) so the
+    // shelf visibly changes, while keeping the top of the real chart pinned
+    // first so it still reads as an accurate trending list. Official ranked
+    // charts (Top Charts daily/weekly) are left untouched — those show a real
+    // ranking and shouldn't be shuffled.
+    private val varietyQueryPools: Map<String, List<String>> = mapOf(
+        "IN" to listOf("bollywood viral songs 2026", "hindi new released songs", "punjabi trending hits 2026", "india music charts this week"),
+        "PK" to listOf("pakistan viral songs 2026", "coke studio new songs", "pakistani new released tracks", "urdu trending music 2026"),
+        "US" to listOf("us viral hits 2026", "billboard new releases", "top 40 radio hits 2026", "american pop trending songs"),
+        "GB" to listOf("uk viral songs 2026", "uk new music releases", "official uk trending hits", "british pop chart hits 2026"),
+        "AE" to listOf("khaleeji trending songs", "arabic viral hits 2026", "gulf new music releases", "arabic pop trending 2026"),
+        "SA" to listOf("saudi trending songs", "arabic viral hits 2026", "khaleeji new releases", "gulf pop hits 2026")
+    )
+    private fun varietyQueriesFor(code: String): List<String> =
+        varietyQueryPools[code.uppercase()] ?: listOf("trending music 2026", "viral songs this week", "new music releases", "top hits right now")
+
+    /** Keeps [pinnedCount] items from the real/primary list first (so ranking still
+     *  reads as authentic), then shuffles the rest of primary + extra together. */
+    private fun <T> shuffleWithPinnedHead(
+        primary: List<T>,
+        extra: List<T>,
+        keyOf: (T) -> String,
+        pinnedCount: Int = 6,
+        cap: Int = 30
+    ): List<T> {
+        if (primary.isEmpty() && extra.isEmpty()) return emptyList()
+        val pinned = primary.take(pinnedCount)
+        val pinnedKeys = pinned.map(keyOf).toSet()
+        val pool = (primary.drop(pinnedCount) + extra)
+            .distinctBy(keyOf)
+            .filterNot { pinnedKeys.contains(keyOf(it)) }
+            .shuffled()
+        return (pinned + pool).distinctBy(keyOf).take(cap)
+    }
+
+    private suspend fun varietySearch(query: String, maxResults: Int = 20): List<YouTubeSearchResult> = try {
+        when (val outcome = YouTubeSearchRepository.search(query, maxResults = maxResults)) {
+            is YouTubeSearchOutcome.Success -> outcome.results
+            is YouTubeSearchOutcome.Error -> emptyList()
+        }
+    } catch (_: Exception) {
+        emptyList()
+    }
+
     fun loadSouthIndiaTrending(force: Boolean = false) {
         if (!force && _southIndiaTrending.value.isNotEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val res = com.musicdrop.app.data.repository.YtMusicApiRepository.search("tamil trending songs")
-                val songs = if (res.songs.isNotEmpty()) res.songs else {
+                var songs = if (res.songs.isNotEmpty()) res.songs else {
                     when (val outcome = YouTubeSearchRepository.search("tamil trending songs 2026", maxResults = 20)) {
                         is YouTubeSearchOutcome.Success -> outcome.results
                         is YouTubeSearchOutcome.Error -> emptyList()
                     }
+                }
+                if (force && songs.isNotEmpty()) {
+                    val extraQuery = listOf(
+                        "telugu trending songs 2026", "malayalam trending songs 2026",
+                        "kannada trending songs 2026", "south indian viral hits 2026"
+                    ).random()
+                    val extra = varietySearch(extraQuery)
+                    songs = shuffleWithPinnedHead(songs, extra, keyOf = { it.videoId })
                 }
                 if (songs.isNotEmpty()) {
                     _southIndiaTrending.value = songs
@@ -963,7 +1010,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val apiSongs = try {
                     com.musicdrop.app.data.repository.YtMusicApiRepository.getTrending(code, force = force)
                 } catch (_: Exception) { emptyList() }
-                val songs = if (apiSongs.isNotEmpty()) apiSongs else {
+                var songs = if (apiSongs.isNotEmpty()) apiSongs else {
                     val q = when (code) {
                         "PK" -> "pakistan trending songs 2026"
                         "AE", "SA" -> "arabic gulf trending music 2026"
@@ -975,6 +1022,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         is YouTubeSearchOutcome.Success -> outcome.results
                         is YouTubeSearchOutcome.Error -> emptyList()
                     }
+                }
+                if (force && songs.isNotEmpty()) {
+                    val extra = varietySearch(varietyQueriesFor(code).random())
+                    songs = shuffleWithPinnedHead(songs, extra, keyOf = { it.videoId })
                 }
                 if (songs.isNotEmpty()) {
                     regionTrendingCache[code] = songs
@@ -1007,8 +1058,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             _ytMusicError.value = null
             try {
-                val items = com.musicdrop.app.data.repository.YtMusicApiRepository.getTrending(country, force = force)
+                var items = com.musicdrop.app.data.repository.YtMusicApiRepository.getTrending(country, force = force)
                 if (items.isNotEmpty()) {
+                    if (force) {
+                        val extra = varietySearch(varietyQueriesFor(country.uppercase()).random())
+                        items = shuffleWithPinnedHead(items, extra, keyOf = { it.videoId })
+                    }
                     _ytMusicResults.value = items
                 } else {
                     val page = YouTubeMusicRepository.getTrending()
