@@ -1,8 +1,8 @@
 {
-  "versionCode": 138,
-  "versionName": "1.1",
-  "title": "MusicDrop v1.1",
-  "changelog": "• Official Bird App Logo\n• Edge-to-Edge Borderless Video Player\n• Background & Minimize Seamless Resume\n• Instant Next & Previous Track Sync\n• 1-Tap In-App Updates",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.1/MusicDrop-v1.1.apk",
+  "versionCode": 139,
+  "versionName": "1.2",
+  "title": "MusicDrop v1.2 Available",
+  "changelog": "• YouTube Ad-Skipping Engine (fast-forwards & auto-skips video ads)\n• Pre-Warmed PoToken (instant stream extraction with no bot throttling)\n• New Trending Variety Refresh & Regional Guitar Collections\n• Search Results with Top Artist Card & Albums Shelf\n• Background & Minimize Audio Stability",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.2/MusicDrop-v1.2.apk",
   "forceUpdate": false
 }
