@@ -135,6 +135,16 @@ class MusicDropEngine {
     this.dlStatusToast = document.getElementById('dl-status-toast');
     this.btnCloseDl = document.getElementById('btn-close-dl');
 
+    // Search Artist and Albums Shelves
+    this.searchArtistCard = document.getElementById('search-artist-card');
+    this.searchArtistAvatar = document.getElementById('search-artist-avatar');
+    this.searchArtistName = document.getElementById('search-artist-name');
+    this.searchArtistSubs = document.getElementById('search-artist-subs');
+    this.btnExploreArtist = document.getElementById('btn-explore-artist');
+    this.searchAlbumsSection = document.getElementById('search-albums-section');
+    this.searchAlbumsRow = document.getElementById('search-albums-row');
+    this.searchSongsTitle = document.getElementById('search-songs-title');
+
     // iOS Install Modal
     this.iosModal = document.getElementById('ios-modal');
     this.btnInstallHeader = document.getElementById('btn-install-header');
@@ -424,10 +434,15 @@ class MusicDropEngine {
     this.suggestionsBox.classList.add('open');
   }
 
-  /* Live YouTube Music Search */
+  /* Live YouTube Music Search (Artists, Albums & Tracks) */
   async executeSearch(query) {
+    if (!query || !query.trim()) return;
+    query = query.trim();
     this.searchLoading.style.display = 'flex';
     this.searchGrid.innerHTML = '';
+    if (this.searchArtistCard) this.searchArtistCard.style.display = 'none';
+    if (this.searchAlbumsSection) this.searchAlbumsSection.style.display = 'none';
+    if (this.searchSongsTitle) this.searchSongsTitle.style.display = 'none';
     this.searchCount.textContent = `Searching for "${query}"...`;
 
     try {
@@ -437,32 +452,106 @@ class MusicDropEngine {
       const json = await resp.json();
 
       let songs = [];
-      if (json && Array.isArray(json.data)) {
-        songs = json.data
-          .filter(item => item.videoId)
-          .map(item => {
-            const thumbUrl = (item.thumbnails && item.thumbnails.length > 0)
-              ? item.thumbnails[item.thumbnails.length - 1].url
-              : `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`;
+      let topArtist = null;
+      let albums = [];
 
+      if (json && Array.isArray(json.data)) {
+        for (const item of json.data) {
+          const rType = (item.resultType || '').toLowerCase();
+          const cat = (item.category || '').toLowerCase();
+          const thumb = (item.thumbnails && item.thumbnails.length > 0)
+            ? item.thumbnails[item.thumbnails.length - 1].url
+            : 'mascot.png';
+
+          // 1. Top Result Artist
+          if (!topArtist && (rType === 'artist' || cat.includes('top result') || cat.includes('artist'))) {
+            const artistName = (item.artists && item.artists[0] && item.artists[0].name) || item.title || item.name || query;
+            const subs = item.subscribers || (item.artists && item.artists[0] && item.artists[0].subscribers) || 'Popular YouTube Music Artist';
+            topArtist = {
+              name: artistName,
+              subscribers: subs,
+              thumb: thumb,
+              browseId: (item.artists && item.artists[0] && item.artists[0].id) || item.browseId || ''
+            };
+          }
+
+          // 2. Albums & Singles
+          if (rType === 'album' || cat.includes('album') || cat.includes('single')) {
+            albums.push({
+              title: item.title || 'Album',
+              year: item.year || '',
+              type: item.type || 'Album',
+              thumb: thumb,
+              browseId: item.browseId || item.audioPlaylistId || ''
+            });
+          }
+
+          // 3. Songs & Videos
+          if (item.videoId) {
             const artistName = (item.artists && Array.isArray(item.artists))
               ? item.artists.map(a => a.name).join(', ')
               : (item.artist || 'YouTube Artist');
 
-            return {
+            songs.push({
               id: item.videoId,
               title: item.title || 'Untitled',
               artist: artistName,
-              thumb: thumbUrl,
+              thumb: thumb,
               duration: item.duration || '3:30'
-            };
-          });
+            });
+          }
+        }
       }
 
       this.searchLoading.style.display = 'none';
 
+      // Render Top Artist Card
+      if (topArtist && this.searchArtistCard) {
+        this.searchArtistAvatar.src = topArtist.thumb;
+        this.searchArtistName.textContent = topArtist.name;
+        this.searchArtistSubs.textContent = topArtist.subscribers ? `Artist • ${topArtist.subscribers}` : 'Verified YouTube Music Artist';
+        this.searchArtistCard.style.display = 'flex';
+        this.btnExploreArtist.onclick = () => {
+          this.largeSearchInput.value = topArtist.name;
+          this.executeSearch(topArtist.name);
+        };
+      } else if (this.searchArtistCard) {
+        this.searchArtistCard.style.display = 'none';
+      }
+
+      // Render Albums Shelf
+      if (albums.length > 0 && this.searchAlbumsSection && this.searchAlbumsRow) {
+        this.searchAlbumsRow.innerHTML = '';
+        albums.forEach(album => {
+          const card = document.createElement('div');
+          card.className = 'album-card';
+          card.innerHTML = `
+            <div class="album-thumb-wrap">
+              <img class="album-thumb" src="${album.thumb}" alt="${album.title}" loading="lazy" />
+              <div class="card-play-overlay">
+                <div class="play-circle-btn">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+              </div>
+            </div>
+            <div class="album-title" title="${album.title}">${album.title}</div>
+            <div class="album-sub">${[album.type, album.year].filter(Boolean).join(' • ')}</div>
+          `;
+          card.addEventListener('click', () => {
+            this.largeSearchInput.value = album.title;
+            this.executeSearch(album.title);
+          });
+          this.searchAlbumsRow.appendChild(card);
+        });
+        this.searchAlbumsSection.style.display = 'block';
+      } else if (this.searchAlbumsSection) {
+        this.searchAlbumsSection.style.display = 'none';
+      }
+
+      // Render Songs
       if (songs.length > 0) {
-        this.searchCount.textContent = `Found ${songs.length} real YouTube tracks for "${query}"`;
+        if (this.searchSongsTitle) this.searchSongsTitle.style.display = 'block';
+        this.searchCount.textContent = `Found ${songs.length} real tracks for "${query}"`;
         this.queue = songs;
         this.renderTracksToGrid(this.searchGrid, songs);
       } else {
@@ -599,6 +688,7 @@ class MusicDropEngine {
         height: '100%',
         width: '100%',
         videoId: this.queue[0].id,
+        host: 'https://www.youtube-nocookie.com',
         playerVars: {
           autoplay: 0,
           controls: 1,
@@ -606,6 +696,7 @@ class MusicDropEngine {
           rel: 0,
           modestbranding: 1,
           enablejsapi: 1,
+          iv_load_policy: 3,
           origin: window.location.origin
         },
         events: {

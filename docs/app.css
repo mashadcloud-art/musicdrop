@@ -719,6 +719,134 @@ body {
   font-size: 0.86rem;
 }
 
+/* Search Artist Profile Banner */
+.search-artist-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(84, 6, 60, 0.35), rgba(251, 145, 0, 0.15));
+  border: 1px solid rgba(251, 145, 0, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.search-artist-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--brand-orange);
+  box-shadow: 0 4px 15px rgba(251, 145, 0, 0.3);
+}
+
+.search-artist-info {
+  flex: 1;
+}
+
+.search-artist-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--brand-orange);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  display: block;
+}
+
+.search-artist-name {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.search-artist-subs {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.btn-explore-artist {
+  background: var(--brand-orange);
+  color: #FFFFFF;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* Albums & Singles Shelf */
+.search-albums-section {
+  margin-bottom: 24px;
+}
+
+.search-shelf-title {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.albums-scroll-row {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scrollbar-width: none;
+}
+.albums-scroll-row::-webkit-scrollbar {
+  display: none;
+}
+
+.album-card {
+  flex-shrink: 0;
+  width: 130px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.album-card:hover {
+  transform: translateY(-3px);
+}
+
+.album-thumb-wrap {
+  width: 130px;
+  height: 130px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 6px;
+  background: #111624;
+  border: 1px solid var(--border);
+}
+
+.album-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.album-title {
+  font-family: var(--font-heading);
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.album-meta {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .search-loading {
   display: flex;
   align-items: center;
