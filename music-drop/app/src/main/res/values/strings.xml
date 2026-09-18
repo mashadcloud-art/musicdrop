@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Music Drop</string>
+    <string name="accessibility_service_description">Enables MusicDrop Video Overlay for Android Auto car display</string>
+</resources>

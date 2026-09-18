@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Permissions for local media indexing -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" tools:ignore="ScopedStorage" />
+    <!-- Broadest file access permission — required to list all Downloads / Documents.
+         Not restricted for sideloaded / non-Play-Store builds. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
+
+    <!-- Notification & Background Audio / Transfer Services -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- Networking for P2P Transfer & Discovery -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" tools:targetApi="33" />
+
+    <!-- Camera for QR Code scanning -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- Install APK packages directly -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Phone Clone: read/write contacts for export & import -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+
+    <!-- Phone Clone: enumerate installed apps so their APKs can be cloned to a new device.
+         Not distributed via Play Store, so the QUERY_ALL_PACKAGES review restriction doesn't apply. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+
+    <!-- Android Auto: declares hardware type as optional so app installs on phones too -->
+    <uses-feature android:name="android.hardware.type.automotive" android:required="false" />
+
+    <application
+        android:name=".FileDropApp"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/file_paths"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.FileDrop"
+        android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="34">
+
+        <meta-data android:name="android.max_aspect" android:value="2.5" />
+        <!-- Xiaomi MIUI notch cutout full screen adaptation (prevents black bar at top on Xiaomi/Redmi/Poco) -->
+        <meta-data android:name="notch.config" android:value="portrait|landscape" />
+        <!-- Huawei / Honor notch cutout adaptation -->
+        <meta-data android:name="android.notch_support" android:value="true" />
+        <!-- Android Auto: point to the automotive app descriptor -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
+        <activity
+            android:name=".MainActivity"
+            android:supportsPictureInPicture="true"
+            android:exported="true"
+            android:theme="@style/Theme.FileDrop"
+            android:resizeableActivity="true"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Receive a single file shared from another app (e.g. Photos, Files by Google) -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <!-- Receive multiple files shared from another app -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
+        <!-- AndroidX Media3 Background Audio Playback Service -->
+        <service
+            android:name=".playback.FileDropMediaService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback"
+            tools:ignore="ExportedService">
+            <!-- Standard Media3 session (phone notification controls) -->
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+            <!-- Android Auto media browser connection -->
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
+        <!-- Background P2P Transfer & 5GHz Hotspot Persistence Service -->
+        <service
+            android:name=".data.p2p.TransferForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|connectedDevice" />
+
+        <!-- Allow the zxing QR scanner camera to rotate smoothly with the device orientation -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="fullSensor"
+            android:stateNotNeeded="true"
+            android:theme="@style/zxing_CaptureTheme"
+            android:windowSoftInputMode="stateAlwaysHidden"
+            tools:replace="screenOrientation" />
+
+        <!-- FileProvider for Sharing Binary Files to WhatsApp / Telegram -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- BroadcastReceiver for Transfer Notification Action buttons (Accept, Decline, Cancel, Copy Password, Stop Hotspot) -->
+        <receiver
+            android:name=".data.p2p.TransferActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.musicdrop.app.ACTION_ACCEPT_TRANSFER" />
+                <action android:name="com.musicdrop.app.ACTION_DECLINE_TRANSFER" />
+                <action android:name="com.musicdrop.app.ACTION_CANCEL_TRANSFER" />
+                <action android:name="com.musicdrop.app.ACTION_COPY_HOTSPOT_PASSWORD" />
+                <action android:name="com.musicdrop.app.ACTION_STOP_HOTSPOT" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Android Auto Car App Service -->
+        <service
+            android:name=".auto.FileDropCarService"
+            android:exported="true"
+            android:label="MusicDrop Auto">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.POI" />
+            </intent-filter>
+        </service>
+
+        <!-- Video Overlay Service with OLED Blackout screen-off mode -->
+        <service
+            android:name=".auto.VideoOverlayService"
+            android:exported="false" />
+
+    </application>
+
+</manifest>

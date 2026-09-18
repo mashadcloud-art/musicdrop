@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/music-stream/"
+title = "Music Stream"
+description = "A polished mobile music streaming experience inspired by YouTube Music, with discovery, search, library, playlists, favorites, and a persistent mini-player using local sample data."
+version = "1.0.0"
+id = "artifacts/music-stream"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/music-stream/" ]
+localPort = 24114
+
+[services.development]
+run = "pnpm --filter @workspace/music-stream run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/music-stream", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/music-stream", "run", "serve" ]
+
+[services.env]
+PORT = "24114"
+BASE_PATH = "/music-stream/"

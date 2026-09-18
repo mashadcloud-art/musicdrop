@@ -1,0 +1,3422 @@
+package com.musicdrop.app.ui.screens
+
+import android.widget.Toast
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.musicdrop.app.data.model.UnifiedTrack
+import com.musicdrop.app.data.repository.MusiXServerRepository
+import com.musicdrop.app.data.youtube.YouTubeSearchResult
+import com.musicdrop.app.R
+import com.musicdrop.app.ui.components.AddToPlaylistDialog
+import com.musicdrop.app.ui.components.ShortsFullScreenPlayer
+import com.musicdrop.app.ui.viewmodel.MainViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.util.Calendar
+import kotlin.random.Random
+
+data class MusicCardItem(
+    val title: String,
+    val subtitle: String,
+    val imageUrl: String,
+    val query: String
+)
+
+data class MoodChip(
+    val icon: ImageVector,
+    val label: String,
+    val tint: Color
+)
+
+data class FeaturedMusicDrop(
+    val badge: String,
+    val title: String,
+    val subtitle: String,
+    val imageUrl: String,
+    val gradient: List<Color>,
+    val actionType: DropActionType,
+    val targetId: String = "",
+    val targetName: String = "",
+    val searchQuery: String = ""
+)
+
+enum class DropActionType {
+    ARTIST,
+    ALBUM,
+    SONG,
+    SEARCH
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+
+private data class MoodShelfData(
+    val shelf1: String,
+    val shelf2: String,
+    val tracks1: List<UnifiedTrack>,
+    val tracks2: List<UnifiedTrack>
+)
+
+@Composable
+fun YouTubeShelfHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    avatarUrl: String? = null,
+    avatarInitial: String? = null,
+    subtitle: String? = null,
+    onSeeAll: (() -> Unit)? = null
+) {
+    val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(enabled = onSeeAll != null) { onSeeAll?.invoke() }
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (!avatarUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = avatarUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+            )
+            Spacer(Modifier.width(10.dp))
+        } else if (!avatarInitial.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(appColors.surfaceElevated),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = avatarInitial,
+                    color = appColors.textPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle.uppercase(),
+                    color = appColors.textSecondary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+            }
+            Text(
+                text = title,
+                color = appColors.textPrimary,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Icon(
+            Icons.Rounded.ChevronRight,
+            contentDescription = "More",
+            tint = appColors.textSecondary,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun DiscoverScreen(
+    viewModel: MainViewModel,
+    onOpenSearchWithQuery: (String) -> Unit,
+    onOpenPlaylist: (MusiXServerRepository.CuratedPlaylist) -> Unit = {},
+    onOpenSource: (MusicSource) -> Unit = {},
+    onOpenArtist: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist) -> Unit = {},
+    onOpenAlbum: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtCardItem) -> Unit = {},
+    onOpenSettings: () -> Unit = {}
+) {
+    LaunchedEffect(Unit) {
+        viewModel.refreshAllDashboardCategories(force = true)
+        viewModel.syncLocalDownloadedFiles()
+    }
+
+    val context = LocalContext.current
+    val saavnTrending by viewModel.saavnTrending.collectAsState()
+    val isRefreshingDashboard by viewModel.isRefreshingDashboard.collectAsState()
+    val madeForYouRecommendations by viewModel.madeForYouRecommendations.collectAsState()
+    val madeForYouTitle by viewModel.madeForYouTitle.collectAsState()
+    val popular by viewModel.popularUnified.collectAsState()
+    val recent by viewModel.recentUnified.collectAsState()
+    val likedMusic by viewModel.likedMusic.collectAsState()
+    val downloadedTracks by viewModel.downloadedTracks.collectAsState()
+    val curatedPlaylists by viewModel.curatedPlaylists.collectAsState()
+    val preparingKey by viewModel.preparingKey.collectAsState()
+    val selectedCountry by viewModel.selectedCountry.collectAsState()
+    val chartsArtists by viewModel.chartsArtists.collectAsState()
+    val chartsDaily by viewModel.chartsDaily.collectAsState()
+    val chartsWeekly by viewModel.chartsWeekly.collectAsState()
+    val chartsGenres by viewModel.chartsGenres.collectAsState()
+    val exploreNewReleases by viewModel.exploreNewReleases.collectAsState()
+    val musicFeed by viewModel.musicFeed.collectAsState()
+    val ytMusicResults by viewModel.ytMusicResults.collectAsState()
+    val southIndiaTrending by viewModel.southIndiaTrending.collectAsState()
+    val regionTrendingSongs by viewModel.regionTrendingSongs.collectAsState()
+    val regionTrendingLoading by viewModel.regionTrendingLoading.collectAsState()
+    val indiaQuickPicks by viewModel.indiaQuickPicks.collectAsState()
+    val pakistanQuickPicks by viewModel.pakistanQuickPicks.collectAsState()
+    val malayalamQuickPicks by viewModel.malayalamQuickPicks.collectAsState()
+    val tamilQuickPicks by viewModel.tamilQuickPicks.collectAsState()
+    val teluguQuickPicks by viewModel.teluguQuickPicks.collectAsState()
+    val downloadTargetTrack = remember { mutableStateOf<UnifiedTrack?>(null) }
+    val coverQuickPicks by viewModel.coverQuickPicks.collectAsState()
+    val guitarQuickPicks by viewModel.guitarQuickPicks.collectAsState()
+    val ukuleleQuickPicks by viewModel.ukuleleQuickPicks.collectAsState()
+    val shortsQuickPicks by viewModel.shortsQuickPicks.collectAsState()
+    val remixQuickPicks by viewModel.remixQuickPicks.collectAsState()
+    val lofiQuickPicks by viewModel.lofiQuickPicks.collectAsState()
+    var selectedShortIndex by remember { mutableStateOf<Int?>(null) }
+
+    val downloadingKeys = remember { mutableStateOf(setOf<String>()) }
+    val screenWidthDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+    val threeCardsWidth = ((screenWidthDp - 32.dp - 16.dp) / 3).coerceIn(100.dp, 126.dp)
+    val playlistTrack = remember { mutableStateOf<UnifiedTrack?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
+    var isDiscoverRefreshing by remember { mutableStateOf(false) }
+
+    // ── Dynamic Rotating Search Placeholder Hints ───────────────────────────
+    val searchHints = remember {
+        listOf(
+            "Search 'Arijit Singh'...",
+            "Search 'Anuv Jain'...",
+            "Search 'Sushin Shyam'...",
+            "Search 'Anirudh Ravichander'...",
+            "Search 'Taylor Swift'...",
+            "Search 'Top 2026 Hits'...",
+            "Search 'The Weeknd'...",
+            "Search 'Bollywood Romance'...",
+            "Search songs, albums, artists..."
+        )
+    }
+    var currentHintIndex by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3200)
+            currentHintIndex = (currentHintIndex + 1) % searchHints.size
+        }
+    }
+
+    // ── Dynamic Multi-Region Quick Picks (India, Pakistan, Malayalam, Tamil) ──
+    var quickPicksSeed by rememberSaveable { mutableLongStateOf(System.currentTimeMillis()) }
+    var selectedRegionIdx by rememberSaveable { mutableIntStateOf(0) }
+
+    val quickPickRegions = remember(
+        indiaQuickPicks, pakistanQuickPicks, malayalamQuickPicks, tamilQuickPicks,
+        coverQuickPicks, remixQuickPicks, lofiQuickPicks, ytMusicResults, popular, quickPicksSeed
+    ) {
+        // Each lane falls back to the app's general "popular" feed when its own source
+        // is empty — NOT to another lane's list, which is what previously made every
+        // region pill silently show India's songs whenever its own fetch failed.
+        val popularFallback = popular.take(20)
+        val inList = (indiaQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { popularFallback }).take(20)
+        val pkList = (pakistanQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { popularFallback }).take(20)
+        val malList = (malayalamQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { popularFallback }).take(20)
+        val tamList = (tamilQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { popularFallback }).take(20)
+        val telList = (teluguQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { popularFallback }).take(20)
+        val coverList = (coverQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { popularFallback }).take(20)
+        val remixList = (remixQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { popularFallback }).take(20)
+        val lofiList = (lofiQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { popularFallback }).take(20)
+
+        listOf(
+            "India 🇮🇳" to inList,
+            "Pakistan 🇵🇰" to pkList,
+            "Malayalam 🌴" to malList,
+            "Tamil 🔥" to tamList,
+            "Telugu ⚡" to telList,
+            "Cover 🎤" to coverList,
+            "Remix 🎛️" to remixList,
+            "Lofi 🌙" to lofiList
+        )
+    }
+
+    val greeting = remember {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        when (hour) {
+            in 5..11 -> "Good morning"
+            in 12..16 -> "Good afternoon"
+            in 17..22 -> "Good evening"
+            else -> "Late Night Music"
+        }
+    }
+
+    val ytMoodChips = remember {
+        listOf(
+            "Podcasts",
+            "Energize",
+            "Feel good",
+            "Relax",
+            "Workout",
+            "Focus",
+            "Party",
+            "Romance",
+            "Commute"
+        )
+    }
+    var selectedMoodChip by remember { mutableStateOf<String?>(null) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(appColors.background)
+    ) {
+
+
+
+
+            
+            
+    
+    data class HipHopArtistData(
+        val name: String,
+        val alias: String,
+        val followers: String,
+        val imageUrl: String,
+        val query: String
+    )
+
+    val desiHipHopStars = remember {
+        listOf(
+            HipHopArtistData("DIVINE", "Gully Gang · Mumbai", "7.4M", "https://cdn-images.dzcdn.net/images/artist/593847e68cf6dc81728c4603ba0f5cb6/250x250-000000-80-0-0.jpg", "DIVINE rap songs"),
+            HipHopArtistData("Naezy", "The Baa · Aafat", "1.8M", "https://cdn-images.dzcdn.net/images/artist/fa63a43585098ffb418a09f307a51373/250x250-000000-80-0-0.jpg", "Naezy rap songs"),
+            HipHopArtistData("Emiway Bantai", "Bantai Records · Machayenge", "8.2M", "https://cdn-images.dzcdn.net/images/artist/b81aa661be46d1bf2b918dbec434eb07/250x250-000000-80-0-0.jpg", "Emiway Bantai songs"),
+            HipHopArtistData("Seedhe Maut", "Calm & Encore · Nayaab", "3.5M", "https://cdn-images.dzcdn.net/images/artist/d9b4b025bfa178e63a352ca85860d5fb/250x250-000000-80-0-0.jpg", "Seedhe Maut songs"),
+            HipHopArtistData("KR" + "$" + "NA", "Kalamkaar · Still Here", "4.1M", "https://cdn-images.dzcdn.net/images/artist/e13f412ba77ee2d7c4900c7764fba282/250x250-000000-80-0-0.jpg", "KRSNA rap songs"),
+            HipHopArtistData("MC Stan", "Tadipaar · Insaan", "12.5M", "https://cdn-images.dzcdn.net/images/artist/27e57c638e4df5e2fb167098e6ae7fc9/250x250-000000-80-0-0.jpg", "MC Stan songs"),
+            HipHopArtistData("Raftaar", "Kalamkaar · Hard Drive", "5.9M", "https://cdn-images.dzcdn.net/images/artist/95a52eb2ea6fcae3ecadad695b174577/250x250-000000-80-0-0.jpg", "Raftaar rap songs"),
+            HipHopArtistData("Badshah", "Desi Hip Hop · 3:00 AM", "14.2M", "https://cdn-images.dzcdn.net/images/artist/62b66cbdf68903c72b22bb8be21bc563/250x250-000000-80-0-0.jpg", "Badshah top songs"),
+            HipHopArtistData("Yo Yo Honey Singh", "Glory · Desi Kalakaar", "16.8M", "https://cdn-images.dzcdn.net/images/artist/33e680a6c6e7f1e7845a70fe6f600490/250x250-000000-80-0-0.jpg", "Yo Yo Honey Singh songs")
+        )
+    }
+
+    val defaultShortsFallback = remember {
+        listOf(
+            YouTubeSearchResult("60ItHLz5WEA", "Faded (Acoustic Guitar Live Short)", "Alan Walker", "https://i.ytimg.com/vi/60ItHLz5WEA/hqdefault.jpg", "0:45"),
+            YouTubeSearchResult("ALZHF5UqnU4", "Alone (Ukulele & Guitar Live Clip)", "Marshmello", "https://i.ytimg.com/vi/ALZHF5UqnU4/hqdefault.jpg", "0:52"),
+            YouTubeSearchResult("3AtDnEC4zak", "DIVINE - Kohinoor Live Concert Short", "DIVINE", "https://i.ytimg.com/vi/3AtDnEC4zak/hqdefault.jpg", "0:48"),
+            YouTubeSearchResult("k4yXQkG2s1E", "Emiway - Machayenge Hook Step Short", "Emiway Bantai", "https://i.ytimg.com/vi/k4yXQkG2s1E/hqdefault.jpg", "0:39"),
+            YouTubeSearchResult("2Vv-BfVoq4g", "Perfect (Ed Sheeran Fingerstyle Guitar Short)", "Ed Sheeran", "https://i.ytimg.com/vi/2Vv-BfVoq4g/hqdefault.jpg", "0:58"),
+            YouTubeSearchResult("JGwWNGJdvx8", "Shape of You (Indie Ukulele Cover Short)", "Indie Sessions", "https://i.ytimg.com/vi/JGwWNGJdvx8/hqdefault.jpg", "0:42")
+        )
+    }
+
+    val activeShortsList = remember(shortsQuickPicks, defaultShortsFallback) {
+        (shortsQuickPicks + defaultShortsFallback).distinctBy { it.videoId }
+    }
+
+    // ── Computed YouTube Music Shelves Data ─────────────────────────────────
+    val recentTracks = remember(recent) { recent.take(15) }
+    val likedTracks = remember(likedMusic) { likedMusic.map { it.toUnifiedTrack() }.take(15) }
+    val primaryTracks = remember(recentTracks, likedTracks, popular) {
+        when {
+            recentTracks.isNotEmpty() -> recentTracks
+            likedTracks.isNotEmpty() -> likedTracks
+            else -> popular.take(15)
+        }
+    }
+    val primaryShelfTitle = when {
+        recentTracks.isNotEmpty() -> "Listen again"
+        likedTracks.isNotEmpty() -> "Speed dial"
+        else -> "Quick picks"
+    }
+
+    val quickPicksFeed = remember(popular, indiaQuickPicks) {
+        if (indiaQuickPicks.isNotEmpty()) indiaQuickPicks.map { UnifiedTrack.Youtube(it) }.take(15)
+        else popular.take(15)
+    }
+
+    val forgottenFavorites = remember(popular, likedTracks) {
+        (popular.drop(10).take(15) + likedTracks).distinctBy { it.key }.take(15)
+    }
+
+    val trendingUnified = remember(regionTrendingSongs, southIndiaTrending, popular) {
+        val regionTracks = regionTrendingSongs.map { UnifiedTrack.Youtube(it) }
+        val southTracks = southIndiaTrending.map { UnifiedTrack.Youtube(it) }
+        (regionTracks + southTracks + popular.drop(5)).distinctBy { it.key }.take(15)
+    }
+
+    val countryTrendingTracks = remember(regionTrendingSongs, ytMusicResults, popular, selectedCountry) {
+        if (regionTrendingSongs.isNotEmpty()) regionTrendingSongs.map { UnifiedTrack.Youtube(it) }
+        else if (ytMusicResults.isNotEmpty()) ytMusicResults.map { UnifiedTrack.Youtube(it) }
+        else popular
+    }
+
+    val moodData = remember(selectedMoodChip, popular, ytMusicResults, regionTrendingSongs, lofiQuickPicks, remixQuickPicks, coverQuickPicks) {
+        val mood = selectedMoodChip ?: return@remember null
+        val ytTracks = ytMusicResults.map { UnifiedTrack.Youtube(it) }
+        when (mood) {
+            "Podcasts" -> {
+                val talkTracks = (popular + ytTracks).filter { 
+                    it.title.contains("podcast", true) || it.title.contains("show", true) || it.title.contains("episode", true) || it.title.contains("talk", true) 
+                }.ifEmpty { ytTracks.take(15) }
+                MoodShelfData("Top Podcasts & Shows", "Episodes for you", talkTracks.take(10), talkTracks.drop(10).take(10))
+            }
+            "Energize" -> {
+                val energyTracks = (remixQuickPicks.map { UnifiedTrack.Youtube(it) } + popular).filter {
+                    it.title.contains("dance", true) || it.title.contains("party", true) || it.title.contains("remix", true) || it.title.contains("beat", true)
+                }.ifEmpty { popular.shuffled().take(15) }
+                MoodShelfData("High Energy Hits", "Fast & Furious Beats", energyTracks.take(10), energyTracks.drop(10).take(10))
+            }
+            "Feel good" -> {
+                val feelGoodTracks = popular.take(15)
+                MoodShelfData("Feel Good Anthems", "Upbeat Favorites", feelGoodTracks.take(10), feelGoodTracks.drop(10).take(10))
+            }
+            "Relax" -> {
+                val relaxTracks = (lofiQuickPicks.map { UnifiedTrack.Youtube(it) } + popular).take(20)
+                MoodShelfData("Chill & Relax", "Peaceful Moments", relaxTracks.take(10), relaxTracks.drop(10).take(10))
+            }
+            "Workout" -> {
+                val workoutTracks = (remixQuickPicks.map { UnifiedTrack.Youtube(it) } + popular).take(20)
+                MoodShelfData("Workout Bangers", "Gym Motivation", workoutTracks.take(10), workoutTracks.drop(10).take(10))
+            }
+            "Focus" -> {
+                val focusTracks = (lofiQuickPicks.map { UnifiedTrack.Youtube(it) } + popular).take(20)
+                MoodShelfData("Deep Focus", "Study Beats", focusTracks.take(10), focusTracks.drop(10).take(10))
+            }
+            "Party" -> {
+                val partyTracks = (remixQuickPicks.map { UnifiedTrack.Youtube(it) } + popular).take(20)
+                MoodShelfData("Party Hits", "Club & Dance Floor", partyTracks.take(10), partyTracks.drop(10).take(10))
+            }
+            "Romance" -> {
+                val romanceTracks = (coverQuickPicks.map { UnifiedTrack.Youtube(it) } + popular).take(20)
+                MoodShelfData("Romantic Melodies", "Love Songs & Duets", romanceTracks.take(10), romanceTracks.drop(10).take(10))
+            }
+            else -> {
+                MoodShelfData("$mood Mix", "More from $mood", popular.take(10), popular.drop(10).take(10))
+            }
+        }
+    }
+
+    val mixTracks = remember(regionTrendingSongs, popular, ytMusicResults) {
+        (regionTrendingSongs.map { UnifiedTrack.Youtube(it) } + popular).distinctBy { it.key }.take(20)
+    }
+
+    val guitarTracks = remember(guitarQuickPicks, popular) {
+        if (guitarQuickPicks.isNotEmpty()) guitarQuickPicks.map { UnifiedTrack.Youtube(it) }
+        else popular.filter { it.title.contains("guitar", true) || it.title.contains("acoustic", true) }.ifEmpty { popular.take(15) }
+    }
+
+    val ukuleleTracks = remember(ukuleleQuickPicks, popular) {
+        if (ukuleleQuickPicks.isNotEmpty()) ukuleleQuickPicks.map { UnifiedTrack.Youtube(it) }
+        else popular.take(15)
+    }
+
+    val acousticCoverTracks = remember(coverQuickPicks, popular) {
+        if (coverQuickPicks.isNotEmpty()) coverQuickPicks.map { UnifiedTrack.Youtube(it) }
+        else popular.take(15)
+    }
+
+            PullToRefreshBox(
+                isRefreshing = isDiscoverRefreshing,
+                onRefresh = {
+                    isDiscoverRefreshing = true
+                    viewModel.refreshDiscover()
+                    coroutineScope.launch {
+                        delay(1200)
+                        isDiscoverRefreshing = false
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 2.dp, bottom = 90.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    // ── YouTube Music Style Top Bar (Scrolls away smoothly on scroll up) ──
+                    item {
+            // ── YouTube Music Style Top Bar (Matching Image 1 & 2) ──────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Left: MusicDrop Brand Logo (Our Bird Icon + "Music" + "Drop")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .combinedClickable(
+                            onClick = {
+                                val nextTheme = viewModel.cycleNextTheme()
+                                Toast.makeText(
+                                    context,
+                                    "Theme: ${nextTheme.name.replace('_', ' ').lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            onLongClick = { onOpenSettings() }
+                        )
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(R.drawable.ic_bird_logo),
+                        contentDescription = "MusicDrop",
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Music",
+                        color = appColors.textPrimary,
+                        fontSize = 23.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Text(
+                        "Drop",
+                        color = com.musicdrop.app.ui.theme.VibrantCoral,
+                        fontSize = 23.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.5).sp
+                    )
+                }
+
+                // Right: Refresh button, Search icon & Avatar
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            viewModel.refreshAllDashboardCategories(force = true)
+                            android.widget.Toast.makeText(context, "Refreshing live categories...", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Sync,
+                            contentDescription = "Refresh",
+                            tint = if (isRefreshingDashboard) com.musicdrop.app.ui.theme.VibrantCoral else appColors.textPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    IconButton(
+                        onClick = { onOpenSearchWithQuery("") },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Search,
+                            contentDescription = "Search",
+                            tint = appColors.textPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    // Pink avatar with white "O" (per Image 1)
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFD81B60))
+                            .clickable { onOpenSettings() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "O",
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+                    }
+
+                    // ── Horizontal Mood / Activity Chips (Scrolls with feed) ──
+                    item {
+            // ── Horizontal Mood / Activity Chips (Matching Image 1) ─────────────────
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(ytMoodChips) { chip ->
+                    val isSelected = selectedMoodChip == chip
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(if (isSelected) appColors.textPrimary else appColors.surfaceElevated.copy(alpha = 0.7f))
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) appColors.textPrimary else Color.White.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(18.dp)
+                            )
+                            .clickable {
+                                selectedMoodChip = if (isSelected) null else chip
+                            }
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                    ) {
+                        Text(
+                            text = chip,
+                            color = if (isSelected) appColors.background else appColors.textPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+                    }
+                    if (moodData != null) {
+                        if (moodData.tracks1.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = moodData.shelf1,
+                                        avatarUrl = moodData.tracks1.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery(selectedMoodChip ?: "") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(moodData.tracks1, key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, moodData.tracks1) },
+                                                onDownload = {
+                                                downloadTargetTrack.value = track
+                                            },
+                                            isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (moodData.tracks2.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = moodData.shelf2,
+                                        avatarUrl = moodData.tracks2.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery(selectedMoodChip ?: "") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(moodData.tracks2, key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, moodData.tracks2) },
+                                                onDownload = {
+                                                downloadTargetTrack.value = track
+                                            },
+                                            isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // ── 1. TOP TRENDING BY REGION (Flag pills: IN, PK, AE, US, GB, SA) ──
+                        item {
+                            TopTrendingByRegionSection(
+                                selectedCountry = selectedCountry,
+                                onSelectCountry = { viewModel.setCountry(it) }
+                            )
+                        }
+
+                        // ── 2. YOUTUBE MIX PREVIEW CARD ("India Trending Mix" / Country Mix style card) ──
+                        if (countryTrendingTracks.isNotEmpty()) {
+                            item {
+                                val mixTitle = when (selectedCountry.uppercase()) {
+                                    "PK" -> "Pakistan Trending Hits"
+                                    "AE" -> "Dubai & Gulf Hits"
+                                    "US" -> "Billboard Hot 100"
+                                    "GB" -> "UK Official Charts"
+                                    "SA" -> "Saudi Top Hits"
+                                    else -> "India Trending Mix"
+                                }
+                                val mixSubtitle = when (selectedCountry.uppercase()) {
+                                    "PK" -> "YouTube Music • Pakistan Top Hits"
+                                    "AE" -> "YouTube Music • Gulf & Arabic Hits"
+                                    "US" -> "YouTube Music • Billboard Hot 100"
+                                    "GB" -> "YouTube Music • UK Official 40"
+                                    "SA" -> "YouTube Music • Saudi & Khaleeji Hits"
+                                    else -> "YouTube Music • India Top Trending"
+                                }
+                                YouTubeMixPreviewCard(
+                                    title = mixTitle,
+                                    subtitle = mixSubtitle,
+                                    coverUrl = countryTrendingTracks.firstOrNull()?.thumbnailUrl.orEmpty(),
+                                    tracks = countryTrendingTracks,
+                                    onPlayAll = { viewModel.playUnified(countryTrendingTracks.first(), countryTrendingTracks) },
+                                    onTrackClick = { track -> viewModel.playUnified(track, countryTrendingTracks) },
+                                    onSeeMore = { onOpenSearchWithQuery(mixTitle) }
+                                )
+                            }
+                        }
+
+                        // ── 3. SPOTLIGHT ARTISTS (Swipeable genres & live YouTube trending creators) ──
+                        item {
+                            SpotlightArtistsSection(
+                                liveArtists = chartsArtists,
+                                onOpenArtist = { artistName -> onOpenSearchWithQuery(artistName) },
+                                onOpenChartArtist = { chartArtist -> onOpenArtist(chartArtist) }
+                            )
+                        }
+
+                        // ── 4. SOUTH & REGIONAL 4-SQUARE CARDS (Malayalam, Tamil, Telugu, Hindi) ──
+                        item {
+                            SouthRegionalCategoriesSection(
+                                malayalamTracks = malayalamQuickPicks,
+                                tamilTracks = tamilQuickPicks,
+                                teluguTracks = teluguQuickPicks,
+                                hindiTracks = indiaQuickPicks,
+                                onSelectLanguage = { _, query ->
+                                    onOpenSearchWithQuery(query)
+                                }
+                            )
+                        }
+
+                        // ── SHELF 0: MADE FOR YOU (Taste-Learning Recommendation Engine) ──
+                        if (madeForYouRecommendations.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = madeForYouTitle,
+                                        subtitle = "LEARNED FROM YOUR TASTE • LIVE RECOMMENDATIONS",
+                                        avatarUrl = madeForYouRecommendations.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery(madeForYouTitle) }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(madeForYouRecommendations, key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, madeForYouRecommendations) },
+                                                onDownload = {
+                                                    downloadTargetTrack.value = track
+                                                },
+                                                isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── YouTube Music Official Home Feed ──────────────────────────
+
+                        // ── Shelf 1: Speed dial / Listen again (Matching User Screenshot) ──
+                        if (primaryTracks.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = primaryShelfTitle,
+                                        subtitle = if (recentTracks.isNotEmpty()) "LISTEN AGAIN" else "START RADIO FROM A SONG",
+                                        avatarUrl = primaryTracks.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery(primaryShelfTitle) }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(primaryTracks, key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, primaryTracks) },
+                                                onDownload = {
+                                                downloadTargetTrack.value = track
+                                            },
+                                            isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 0: Speed Dial (3x3 Grid Card matching Image 4) ──
+                        if (quickPicksFeed.size >= 9) {
+                            item {
+                                SpeedDialShelf(
+                                    tracks = quickPicksFeed,
+                                    onPlayTrack = { track -> viewModel.playUnified(track, quickPicksFeed) }
+                                )
+                            }
+                        }
+
+                        // ── Shelf 1: Mixed for you (Supermix Cards - 1 Full Card at a time, No Cut-Off) ──
+                        if (mixTracks.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                    YouTubeShelfHeader(
+                                        title = "Mixed for you",
+                                        subtitle = "AUTOPLAY & CONTINUOUS MIXES",
+                                        onSeeAll = { onOpenSearchWithQuery("Supermix") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    val supermixCards = remember(mixTracks, lofiQuickPicks, remixQuickPicks) {
+                                        listOf(
+                                            Triple("My Supermix", "YouTube Music • Selected for you", mixTracks),
+                                            Triple("Chill & Relax Mix", "Lo-Fi & Acoustic • YouTube Music", lofiQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { mixTracks }),
+                                            Triple("Energy & Workout Mix", "Fast Beats & Remixes • YouTube Music", remixQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { mixTracks })
+                                        )
+                                    }
+                                    val supermixPagerState = rememberPagerState(pageCount = { supermixCards.size })
+                                    HorizontalPager(
+                                        state = supermixPagerState,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { pageIdx ->
+                                        val (title, sub, tracks) = supermixCards[pageIdx]
+                                        SupermixCard(
+                                            mixTitle = title,
+                                            subtitle = sub,
+                                            tracks = tracks,
+                                            onPlayMix = {
+                                                tracks.firstOrNull()?.let { viewModel.playUnified(it, tracks) }
+                                            },
+                                            onPlayTrack = { track -> viewModel.playUnified(track, tracks) },
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        repeat(supermixCards.size) { dotIdx ->
+                                            val isSelected = supermixPagerState.currentPage == dotIdx
+                                            Box(
+                                                modifier = Modifier
+                                                    .padding(horizontal = 3.dp)
+                                                    .height(4.dp)
+                                                    .width(if (isSelected) 18.dp else 6.dp)
+                                                    .clip(RoundedCornerShape(2.dp))
+                                                    .background(if (isSelected) appColors.accentPrimary else Color.White.copy(alpha = 0.2f))
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 1.5: Trending on Live Saavn Server ──
+                        if (saavnTrending.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                    YouTubeShelfHeader(
+                                        title = "Live Trending (Saavn Server)",
+                                        subtitle = "DIRECT HIGH-QUALITY STREAMING FROM SINGAPORE PROXY",
+                                        avatarUrl = saavnTrending.firstOrNull()?.albumArtUri?.toString(),
+                                        onSeeAll = { onOpenSource(com.musicdrop.app.ui.screens.MusicSource.JIOSAAVN) }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        val saavnUnified = saavnTrending.map { com.musicdrop.app.data.model.UnifiedTrack.Saavn(it) }
+                                        items(saavnUnified, key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, saavnUnified) },
+                                                onDownload = { downloadTargetTrack.value = track },
+                                                isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 1.6: Trending Albums & New Releases (Official YouTube Music) ──
+                        if (exploreNewReleases.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                    YouTubeShelfHeader(
+                                        title = "Trending Albums & New Releases",
+                                        subtitle = "OFFICIAL YOUTUBE MUSIC • ALBUMS & EPS",
+                                        avatarUrl = exploreNewReleases.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("new albums 2026") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        items(exploreNewReleases.take(24), key = { it.videoId }) { album ->
+                                            Column(
+                                                modifier = Modifier
+                                                    .width(threeCardsWidth)
+                                                    .clickable {
+                                                        onOpenAlbum(
+                                                            com.musicdrop.app.data.repository.YtMusicApiRepository.YtCardItem(
+                                                                title = album.title,
+                                                                browseId = album.videoId,
+                                                                audioPlaylistId = album.videoId,
+                                                                thumbnailUrl = album.thumbnailUrl,
+                                                                type = album.duration.ifBlank { "Album" }
+                                                            )
+                                                        )
+                                                    }
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(threeCardsWidth)
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .background(appColors.surfaceElevated)
+                                                        .border(1.dp, appColors.surfaceBorder, RoundedCornerShape(12.dp))
+                                                ) {
+                                                    AsyncImage(
+                                                        model = album.thumbnailUrl,
+                                                        contentDescription = album.title,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                    if (album.duration.isNotBlank()) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .align(Alignment.BottomStart)
+                                                                .padding(6.dp)
+                                                                .clip(RoundedCornerShape(4.dp))
+                                                                .background(Color.Black.copy(alpha = 0.75f))
+                                                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = album.duration.uppercase(),
+                                                                color = Color.White,
+                                                                fontSize = 9.sp,
+                                                                fontWeight = FontWeight.Bold
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Spacer(Modifier.height(6.dp))
+                                                Text(
+                                                    text = album.title,
+                                                    color = appColors.textPrimary,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = album.channelTitle,
+                                                    color = appColors.textSecondary,
+                                                    fontSize = 11.sp,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 2: Quick picks / Mixed for you ──
+                        if (quickPicksFeed.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Quick picks",
+                                        subtitle = "SIMILAR TO RECENT LISTENS",
+                                        avatarUrl = quickPicksFeed.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("Top Hits") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        items(quickPicksFeed, key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, quickPicksFeed) },
+                                                onDownload = {
+                                                    downloadTargetTrack.value = track
+                                                },
+                                                isPreparing = track.key == preparingKey,
+                                                cardWidth = threeCardsWidth
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+// ── Shelf 3.5: From the community (2x2 Mosaic Cards matching Image 3) ──
+                        if (quickPicksFeed.size >= 8) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                                    YouTubeShelfHeader(
+                                        title = "From the community",
+                                        subtitle = "POPULAR COMMUNITY PLAYLISTS",
+                                        onSeeAll = { onOpenSearchWithQuery("Community Playlists") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        item {
+                                            CommunityMosaicCard(
+                                                playlistTitle = "Daily Trending Tracks",
+                                                curator = "MusicDrop Community",
+                                                views = "354K views",
+                                                tracks = quickPicksFeed.take(4),
+                                                onClick = {
+                                                    quickPicksFeed.firstOrNull()?.let { viewModel.playUnified(it, quickPicksFeed) }
+                                                }
+                                            )
+                                        }
+                                        item {
+                                            CommunityMosaicCard(
+                                                playlistTitle = "Travelling & Chill Beats",
+                                                curator = "MusicDrop Curators",
+                                                views = "1.2M views",
+                                                tracks = quickPicksFeed.drop(4).take(4),
+                                                onClick = {
+                                                    quickPicksFeed.drop(4).firstOrNull()?.let { viewModel.playUnified(it, quickPicksFeed) }
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 3: Recommended music videos (16:9 Widescreen Cards) ──
+                        if (ytMusicResults.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Music videos for you",
+                                        subtitle = "RECOMMENDED FOR YOU",
+                                        onSeeAll = { onOpenSearchWithQuery("Music Videos") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(ytMusicResults.take(10), key = { it.videoId }) { item ->
+                                            val isPrep = preparingKey == "yt:${item.videoId}"
+                                            Column(
+                                                modifier = Modifier
+                                                    .width(220.dp)
+                                                    .clickable { viewModel.playYouTubeVideoWithContext(item, ytMusicResults) }
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(124.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(appColors.surfaceElevated)
+                                                ) {
+                                                    AsyncImage(
+                                                        model = item.thumbnailUrl,
+                                                        contentDescription = item.title,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .align(Alignment.Center)
+                                                            .size(36.dp)
+                                                            .clip(CircleShape)
+                                                            .background(Color.Black.copy(alpha = 0.55f)),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        if (isPrep) {
+                                                            CircularProgressIndicator(
+                                                                modifier = Modifier.size(20.dp),
+                                                                strokeWidth = 2.dp,
+                                                                color = Color.White
+                                                            )
+                                                        } else {
+                                                            Icon(
+                                                                Icons.Rounded.PlayCircleFilled,
+                                                                contentDescription = "Play",
+                                                                tint = Color.White,
+                                                                modifier = Modifier.size(24.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                    if (item.duration.isNotBlank()) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .align(Alignment.BottomEnd)
+                                                                .padding(6.dp)
+                                                                .clip(RoundedCornerShape(4.dp))
+                                                                .background(Color.Black.copy(alpha = 0.75f))
+                                                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                                                        ) {
+                                                            Text(
+                                                                item.duration,
+                                                                color = Color.White,
+                                                                fontSize = 10.sp,
+                                                                fontWeight = FontWeight.Bold
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Spacer(Modifier.height(6.dp))
+                                                Text(
+                                                    item.title,
+                                                    color = appColors.textPrimary,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    item.channelTitle,
+                                                    color = appColors.textSecondary,
+                                                    fontSize = 11.sp,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 4: Forgotten favorites / Discover ──
+                        if (forgottenFavorites.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Forgotten favorites",
+                                        subtitle = "REDISCOVER YOUR MUSIC",
+                                        avatarUrl = forgottenFavorites.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("Favorites") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(forgottenFavorites, key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, forgottenFavorites) },
+                                                onDownload = {
+                                                downloadTargetTrack.value = track
+                                            },
+                                            isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 5: Trending now ──
+                        if (trendingUnified.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Hello, Summer!",
+                                        subtitle = "TUNES FOR THE SEASON ☀️🌴",
+                                        avatarUrl = trendingUnified.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("Trending Now") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(trendingUnified, key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, trendingUnified) },
+                                                onDownload = {
+                                                downloadTargetTrack.value = track
+                                            },
+                                            isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 6: Top Artists ──
+                        if (chartsArtists.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Top Artists",
+                                        subtitle = "POPULAR CREATORS",
+                                        onSeeAll = { onOpenSearchWithQuery("Top Artists") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(chartsArtists.take(12)) { artist ->
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                modifier = Modifier
+                                                    .width(90.dp)
+                                                    .clickable { onOpenArtist(artist) }
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(80.dp)
+                                                        .clip(CircleShape)
+                                                        .background(appColors.surfaceElevated)
+                                                        .border(1.5.dp, appColors.surfaceBorder, CircleShape)
+                                                ) {
+                                                    AsyncImage(
+                                                        model = artist.thumbnailUrl,
+                                                        contentDescription = artist.title,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                }
+                                                Spacer(Modifier.height(6.dp))
+                                                Text(
+                                                    artist.title,
+                                                    color = appColors.textPrimary,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                if (artist.subscribers.isNotBlank()) {
+                                                    Text(
+                                                        artist.subscribers,
+                                                        color = appColors.textSecondary,
+                                                        fontSize = 10.sp,
+                                                        maxLines = 1
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 7: Official Top Charts ──
+                        if (chartsDaily.isNotEmpty() || chartsWeekly.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Official Top Charts",
+                                        subtitle = "GLOBAL & REGIONAL CHARTS",
+                                        onSeeAll = { onOpenSearchWithQuery("Top Charts") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items((chartsDaily + chartsWeekly).take(10)) { chart ->
+                                            Column(
+                                                modifier = Modifier
+                                                    .width(135.dp)
+                                                    .clickable { onOpenSearchWithQuery(chart.title) }
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(135.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(appColors.surfaceElevated)
+                                                ) {
+                                                    AsyncImage(
+                                                        model = chart.thumbnailUrl,
+                                                        contentDescription = chart.title,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .align(Alignment.BottomEnd)
+                                                            .padding(6.dp)
+                                                            .size(28.dp)
+                                                            .clip(CircleShape)
+                                                            .background(Color.Black.copy(alpha = 0.65f)),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Rounded.PlayArrow,
+                                                            contentDescription = "Play",
+                                                            tint = Color.White,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
+                                                Spacer(Modifier.height(6.dp))
+                                                Text(
+                                                    chart.title,
+                                                    color = appColors.textPrimary,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        
+                        // ── Shelf 7B: Desi Hip Hop & Gully Icons (Divine, Naezy, Emiway, etc.) ──
+                        item {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                YouTubeShelfHeader(
+                                    title = "Desi Hip Hop & Gully Icons",
+                                    subtitle = "DIVINE, NAEZY, EMIWAY & TOP RAPPERS 🔥",
+                                    onSeeAll = { onOpenSearchWithQuery("Desi Hip Hop") }
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    items(desiHipHopStars) { artist ->
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier
+                                                .width(96.dp)
+                                                .clickable { onOpenSearchWithQuery(artist.query) }
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(86.dp)
+                                                    .clip(CircleShape)
+                                                    .background(appColors.surfaceElevated)
+                                                    .border(2.dp, Brush.linearGradient(listOf(Color(0xFFFF5722), Color(0xFFFF9800))), CircleShape)
+                                            ) {
+                                                AsyncImage(
+                                                    model = artist.imageUrl,
+                                                    contentDescription = artist.name,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            }
+                                            Spacer(Modifier.height(6.dp))
+                                            Text(
+                                                artist.name,
+                                                color = appColors.textPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                artist.followers,
+                                                color = Color(0xFFFF9800),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 7C: Acoustic & Guitar Sessions ──
+                        if (guitarTracks.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Acoustic Guitar Sessions",
+                                        subtitle = "FINGERSTYLE, UNPLUGGED & RELAXING STRUMS 🎸",
+                                        avatarUrl = guitarTracks.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("Acoustic Guitar Fingerstyle") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(guitarTracks.take(15), key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, guitarTracks) },
+                                                onDownload = { downloadTargetTrack.value = track },
+                                                isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 7D: Ukulele Vibes & Melodies ──
+                        if (ukuleleTracks.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Ukulele Vibes & Melodies",
+                                        subtitle = "BREEZY, SUNNY & CHILL UKULELE HITS 🪕",
+                                        avatarUrl = ukuleleTracks.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("Ukulele acoustic chill songs") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(ukuleleTracks.take(15), key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, ukuleleTracks) },
+                                                onDownload = { downloadTargetTrack.value = track },
+                                                isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 7E: Viral Acoustic Covers ──
+                        if (acousticCoverTracks.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Viral Acoustic Covers",
+                                        subtitle = "POPULAR HITS SUNG ACOUSTIC & UNPLUGGED 🎙️",
+                                        avatarUrl = acousticCoverTracks.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("Acoustic cover songs unplugged") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(acousticCoverTracks.take(15), key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, acousticCoverTracks) },
+                                                onDownload = { downloadTargetTrack.value = track },
+                                                isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 7F: Shorts & Quick Clips (Vertical Cards -> Full Screen Player) ──
+                        item {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                YouTubeShelfHeader(
+                                    title = "Shorts & Quick Clips",
+                                    subtitle = "TAP TO WATCH IN FULL-SCREEN VIDEO PLAYER ⚡",
+                                    onSeeAll = { onOpenSearchWithQuery("trending music shorts") }
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    itemsIndexed(activeShortsList) { index, shortItem ->
+                                        Column(
+                                            modifier = Modifier
+                                                .width(135.dp)
+                                                .clickable { selectedShortIndex = index }
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .width(135.dp)
+                                                    .height(210.dp)
+                                                    .clip(RoundedCornerShape(14.dp))
+                                                    .background(appColors.surfaceElevated)
+                                                    .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                                            ) {
+                                                AsyncImage(
+                                                    model = shortItem.thumbnailUrl,
+                                                    contentDescription = shortItem.title,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+
+                                                // Bottom dark gradient scrim
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(90.dp)
+                                                        .align(Alignment.BottomCenter)
+                                                        .background(
+                                                            Brush.verticalGradient(
+                                                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))
+                                                            )
+                                                        )
+                                                )
+
+                                                // Top-left SHORTS red tag
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier
+                                                        .padding(8.dp)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(Color.Red.copy(alpha = 0.85f))
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        .align(Alignment.TopStart)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.PlayArrow,
+                                                        contentDescription = null,
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(10.dp)
+                                                    )
+                                                    Spacer(Modifier.width(2.dp))
+                                                    Text(
+                                                        "SHORT",
+                                                        color = Color.White,
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Black
+                                                    )
+                                                }
+
+                                                // Top-right duration badge
+                                                if (shortItem.duration.isNotBlank()) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .padding(8.dp)
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(Color.Black.copy(alpha = 0.75f))
+                                                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                                                            .align(Alignment.TopEnd)
+                                                    ) {
+                                                        Text(
+                                                            shortItem.duration,
+                                                            color = Color.White,
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+
+                                                // Bottom title & channel
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .align(Alignment.BottomStart)
+                                                        .padding(10.dp)
+                                                ) {
+                                                    Text(
+                                                        shortItem.title,
+                                                        color = Color.White,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        lineHeight = 15.sp
+                                                    )
+                                                    Spacer(Modifier.height(2.dp))
+                                                    Text(
+                                                        shortItem.channelTitle,
+                                                        color = Color.White.copy(alpha = 0.7f),
+                                                        fontSize = 10.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 8: Curated Playlists ──
+                        if (curatedPlaylists.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Featured playlists for you",
+                                        subtitle = "COMMUNITY PICKS",
+                                        onSeeAll = { onOpenSearchWithQuery("Playlists") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(curatedPlaylists.take(10)) { playlist ->
+                                            CuratedPlaylistCard(playlist = playlist, onClick = { onOpenPlaylist(playlist) })
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        // Snackbar Host
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 70.dp)
+        )
+
+        // Full Screen Shorts Video Player
+        LaunchedEffect(selectedShortIndex) {
+            if (selectedShortIndex != null) {
+                viewModel.playbackConnection.pause()
+            }
+        }
+        selectedShortIndex?.let { idx ->
+            ShortsFullScreenPlayer(
+                shortsList = activeShortsList,
+                initialIndex = idx,
+                onClose = { selectedShortIndex = null },
+                onPlayFullSong = { /* Play directly on screen, no transfer to audio player */ }
+            )
+        }
+
+        // Add to Playlist Dialog
+        playlistTrack.value?.let { track ->
+            AddToPlaylistDialog(
+                track = track,
+                viewModel = viewModel,
+                onDismiss = { playlistTrack.value = null },
+                onAdded = { name ->
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("Added to $name")
+                    }
+                }
+            )
+        }
+
+        // Download Choice Modal (Audio vs Video with live progress)
+        downloadTargetTrack.value?.let { track ->
+            com.musicdrop.app.ui.components.DownloadChoiceModal(
+                track = track,
+                viewModel = viewModel,
+                onDismiss = { downloadTargetTrack.value = null },
+                onComplete = { success, _ ->
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(if (success) "Downloaded: ${track.title}" else "Download failed")
+                    }
+                }
+            )
+        }
+    }
+}
+
+
+// ── TOP TRENDING BY REGION (Matching Screenshot 2) ───────────────────────────
+@Composable
+fun TopTrendingByRegionSection(
+    selectedCountry: String,
+    onSelectCountry: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val countries = listOf(
+        Triple("IN", "🇮🇳", "India"),
+        Triple("PK", "🇵🇰", "Pakistan"),
+        Triple("AE", "🇦🇪", "UAE"),
+        Triple("US", "🇺🇸", "USA"),
+        Triple("GB", "🇬🇧", "UK"),
+        Triple("SA", "🇸🇦", "Saudi")
+    )
+    Column(modifier = modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Text(
+            text = "TOP TRENDING BY REGION",
+            color = Color(0xFFFFD600),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 0.5.sp,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            items(countries) { (code, flag, _) ->
+                val isSelected = selectedCountry.equals(code, ignoreCase = true)
+                Box(
+                    modifier = Modifier
+                        .height(48.dp)
+                        .width(64.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(if (isSelected) Color(0xFF0F382A) else Color(0xFF1E1E22))
+                        .border(
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) Color(0xFF00E676) else Color(0x33FFFFFF),
+                            shape = RoundedCornerShape(24.dp)
+                        )
+                        .clickable { onSelectCountry(code) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = flag, fontSize = 24.sp)
+                }
+            }
+        }
+    }
+}
+
+// ── SPOTLIGHT ARTISTS (Swipeable Genres & Fallback Avatars) ──────────────────
+data class SpotlightArtist(
+    val name: String,
+    val subs: String,
+    val imageUrl: String,
+    val initial: String,
+    val gradientColors: List<Color>
+)
+
+data class ArtistGenrePage(
+    val genreTitle: String,
+    val categoryTag: String,
+    val icon: ImageVector,
+    val artistPool: List<SpotlightArtist>
+)
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun SpotlightArtistsSection(
+    onOpenArtist: (String) -> Unit,
+    liveArtists: List<com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist> = emptyList(),
+    onOpenChartArtist: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val coroutineScope = rememberCoroutineScope()
+    var shuffleOffset by remember { mutableIntStateOf(0) }
+
+    val genrePages = remember {
+        listOf(
+            ArtistGenrePage(
+                genreTitle = "DESI HIP-HOP & RAP",
+                categoryTag = "TRENDING NOW",
+                icon = Icons.Rounded.Star,
+                artistPool = listOf(
+                    SpotlightArtist("Badshah", "14.2M", "https://cdn-images.dzcdn.net/images/artist/5b90b89299a7d42f81d79afa263a85d2/250x250-000000-80-0-0.jpg", "B", listOf(Color(0xFFFF1744), Color(0xFFD500F9))),
+                    SpotlightArtist("Yo Yo Honey Singh", "16.8M", "https://cdn-images.dzcdn.net/images/artist/7859b461c10352f02a11368905f0903f/250x250-000000-80-0-0.jpg", "H", listOf(Color(0xFFFF9100), Color(0xFFFF3D00))),
+                    SpotlightArtist("Karan Aujla", "7.5M", "https://cdn-images.dzcdn.net/images/artist/a91a1d5ea91e85e4f0966569b50e8d6a/250x250-000000-80-0-0.jpg", "K", listOf(Color(0xFF00E5FF), Color(0xFF2979FF))),
+                    SpotlightArtist("MC Stan", "4.8M", "https://cdn-images.dzcdn.net/images/artist/5a6fc1cf6fa0f4edadeebfaace93f612/250x250-000000-80-0-0.jpg", "M", listOf(Color(0xFF7C4DFF), Color(0xFFD500F9))),
+                    SpotlightArtist("Divine", "8.1M", "https://cdn-images.dzcdn.net/images/artist/343c93eb51eb5abb8c1e43fe371be1d1/250x250-000000-80-0-0.jpg", "D", listOf(Color(0xFF00E676), Color(0xFF00B0FF))),
+                    SpotlightArtist("Raftaar", "6.2M", "https://cdn-images.dzcdn.net/images/artist/29570d57452267a2a237c812e79fe8fe/250x250-000000-80-0-0.jpg", "R", listOf(Color(0xFFFF5252), Color(0xFFFF7A00)))
+                )
+            ),
+            ArtistGenrePage(
+                genreTitle = "BOLLYWOOD & MELODY",
+                categoryTag = "LEGENDS & MAESTROS",
+                icon = Icons.Default.GraphicEq,
+                artistPool = listOf(
+                    SpotlightArtist("A.R. Rahman", "10.1M", "https://cdn-images.dzcdn.net/images/artist/bd34315ef977a62a9e28c1ab19bb8ac4/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFFFFD600), Color(0xFFFF6D00))),
+                    SpotlightArtist("Arijit Singh", "42.1M", "https://cdn-images.dzcdn.net/images/artist/ac5350cff290edd5b69fa584b8b1bd4f/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFF7C4DFF), Color(0xFF651FFF))),
+                    SpotlightArtist("Shreya Ghoshal", "12.6M", "https://cdn-images.dzcdn.net/images/artist/3bb832d37d10ff2affcfa9afdc7c68a0/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFFFF4081), Color(0xFFF50057))),
+                    SpotlightArtist("Atif Aslam", "15.3M", "https://cdn-images.dzcdn.net/images/artist/0ea90444148fff9c11d77f06a344724e/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFF00B0FF), Color(0xFF00E5FF))),
+                    SpotlightArtist("Mohit Chauhan", "5.4M", "https://cdn-images.dzcdn.net/images/artist/f9533880207ac5714b65e760e5686af8/250x250-000000-80-0-0.jpg", "M", listOf(Color(0xFF00E676), Color(0xFF1DE9B6))),
+                    SpotlightArtist("Neha Kakkar", "20.1M", "https://cdn-images.dzcdn.net/images/artist/3a0f7ba65d6d8c1081b461ee49cb59e8/250x250-000000-80-0-0.jpg", "N", listOf(Color(0xFFFF4081), Color(0xFFFF80AB)))
+                )
+            ),
+            ArtistGenrePage(
+                genreTitle = "PUNJABI POWERHOUSE",
+                categoryTag = "GLOBAL DESI WAVE",
+                icon = Icons.Rounded.Star,
+                artistPool = listOf(
+                    SpotlightArtist("Diljit Dosanjh", "11.4M", "https://cdn-images.dzcdn.net/images/artist/79b85e695e0ca6529e56bf3b628e92bd/250x250-000000-80-0-0.jpg", "D", listOf(Color(0xFFFF6D00), Color(0xFFFFAB00))),
+                    SpotlightArtist("Sidhu Moose Wala", "24.6M", "https://cdn-images.dzcdn.net/images/artist/f559ebe3851db26a6a47a76b1d95748f/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFF00BFA5), Color(0xFF004D40))),
+                    SpotlightArtist("AP Dhillon", "6.8M", "https://cdn-images.dzcdn.net/images/artist/52594ac9fa763dc163ed13d21cb130ec/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFF651FFF), Color(0xFFD500F9))),
+                    SpotlightArtist("Guru Randhawa", "10.9M", "https://cdn-images.dzcdn.net/images/artist/108309345087dbd61b29766185e93b72/250x250-000000-80-0-0.jpg", "G", listOf(Color(0xFFFF1744), Color(0xFFFF6D00))),
+                    SpotlightArtist("B Praak", "8.3M", "https://cdn-images.dzcdn.net/images/artist/efe513aabaa0a94c4db307ac3431b833/250x250-000000-80-0-0.jpg", "B", listOf(Color(0xFF2979FF), Color(0xFF00E5FF))),
+                    SpotlightArtist("Shubh", "5.1M", "https://cdn-images.dzcdn.net/images/artist/66c1e15679704beb01c912eb6668de14/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFFFFD600), Color(0xFFFF3D00)))
+                )
+            ),
+            ArtistGenrePage(
+                genreTitle = "GLOBAL POP & ICONS",
+                categoryTag = "BILLBOARD LEADERS",
+                icon = Icons.Rounded.MusicNote,
+                artistPool = listOf(
+                    SpotlightArtist("The Weeknd", "35.2M", "https://cdn-images.dzcdn.net/images/artist/581693b4724a7fcfa754455101e13a44/250x250-000000-80-0-0.jpg", "W", listOf(Color(0xFFFF1744), Color(0xFF880E4F))),
+                    SpotlightArtist("Taylor Swift", "58.4M", "https://cdn-images.dzcdn.net/images/artist/e528e270424103b527f8a27ac625563b/250x250-000000-80-0-0.jpg", "T", listOf(Color(0xFF00B0FF), Color(0xFF00E5FF))),
+                    SpotlightArtist("Billie Eilish", "33.7M", "https://cdn-images.dzcdn.net/images/artist/8eab1a9a644889aabaca1e193e05f984/250x250-000000-80-0-0.jpg", "B", listOf(Color(0xFF76FF03), Color(0xFF00E676))),
+                    SpotlightArtist("Bruno Mars", "28.9M", "https://cdn-images.dzcdn.net/images/artist/90f0b5b11df4f87ee878f38569b5995b/250x250-000000-80-0-0.jpg", "B", listOf(Color(0xFFFF9100), Color(0xFFFF3D00))),
+                    SpotlightArtist("Dua Lipa", "26.4M", "https://cdn-images.dzcdn.net/images/artist/877872aaf75694f11d53c318700ab2b5/250x250-000000-80-0-0.jpg", "D", listOf(Color(0xFFFF4081), Color(0xFF7C4DFF))),
+                    SpotlightArtist("Drake", "40.2M", "https://cdn-images.dzcdn.net/images/artist/70223888f501f4b843142e071abda364/250x250-000000-80-0-0.jpg", "D", listOf(Color(0xFF2979FF), Color(0xFF1565C0)))
+                )
+            ),
+            ArtistGenrePage(
+                genreTitle = "TIMELESS CLASSICS",
+                categoryTag = "90s GOLDEN RETRO",
+                icon = Icons.Rounded.MusicNote,
+                artistPool = listOf(
+                    SpotlightArtist("Alka Yagnik", "18.5M", "https://cdn-images.dzcdn.net/images/artist/ebb52754c04679e33acf4d6056fa211a/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFFFF4081), Color(0xFF9C27B0))),
+                    SpotlightArtist("Udit Narayan", "9.2M", "https://cdn-images.dzcdn.net/images/artist/287f18b3d4798dfff688a9246184b084/250x250-000000-80-0-0.jpg", "U", listOf(Color(0xFF2979FF), Color(0xFF1565C0))),
+                    SpotlightArtist("Kumar Sanu", "8.7M", "https://cdn-images.dzcdn.net/images/artist/7ad58f1c03087a082e22a718acc3f1fc/250x250-000000-80-0-0.jpg", "K", listOf(Color(0xFFFF9100), Color(0xFFFF3D00))),
+                    SpotlightArtist("Sonu Nigam", "14.0M", "https://cdn-images.dzcdn.net/images/artist/812220125c4f0db57050438b65afcf78/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFF00E676), Color(0xFF00B0FF))),
+                    SpotlightArtist("Kishore Kumar", "12.1M", "https://cdn-images.dzcdn.net/images/artist/5972263348ad902e29a4749e748ff452/250x250-000000-80-0-0.jpg", "K", listOf(Color(0xFFFFD600), Color(0xFFFF6D00))),
+                    SpotlightArtist("Lata Mangeshkar", "22.3M", "https://cdn-images.dzcdn.net/images/artist/837d46f90f541736e07817f463317c80/250x250-000000-80-0-0.jpg", "L", listOf(Color(0xFFFF4081), Color(0xFFF50057)))
+                )
+            ),
+            ArtistGenrePage(
+                genreTitle = "SOUTH SENSATIONS",
+                categoryTag = "POWERHOUSE BEATS",
+                icon = Icons.Rounded.Star,
+                artistPool = listOf(
+                    SpotlightArtist("Anirudh Ravichander", "8.9M", "https://cdn-images.dzcdn.net/images/artist/9da0a547b39e99bc35c6a9724aef91bf/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFFFF3D00), Color(0xFFFF9100))),
+                    SpotlightArtist("Sid Sriram", "4.7M", "https://cdn-images.dzcdn.net/images/artist/fbe3e1d17fc6958e047f011f74233f82/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFF00E5FF), Color(0xFF2979FF))),
+                    SpotlightArtist("Sushin Shyam", "2.1M", "https://cdn-images.dzcdn.net/images/artist/6ba914ca28d2c5cc21dc3effa07c690d/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFF00E676), Color(0xFF1DE9B6))),
+                    SpotlightArtist("Santhosh Narayanan", "3.0M", "https://cdn-images.dzcdn.net/images/artist/74004fed94dddf9ae2d7c83084eaf1ad/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFF7C4DFF), Color(0xFFD500F9))),
+                    SpotlightArtist("Devi Sri Prasad", "5.8M", "https://cdn-images.dzcdn.net/images/artist/a904f8ee6cc4dcb472f75bd8ae1a21da/250x250-000000-80-0-0.jpg", "D", listOf(Color(0xFFFF6D00), Color(0xFFFFD600))),
+                    SpotlightArtist("G.V. Prakash Kumar", "3.5M", "https://cdn-images.dzcdn.net/images/artist/e9c4be67e7e086a81cb8ab3d0160d45a/250x250-000000-80-0-0.jpg", "G", listOf(Color(0xFF00B0FF), Color(0xFF00E5FF)))
+                )
+            )
+        )
+    }
+
+    val liveGenrePages = remember(liveArtists) {
+        if (liveArtists.isEmpty()) null
+        else {
+            liveArtists.chunked(3).mapIndexed { pageIdx, chunk ->
+                val rankStart = pageIdx * 3 + 1
+                val rankEnd = rankStart + chunk.size - 1
+                ArtistGenrePage(
+                    genreTitle = if (pageIdx == 0) "TOP TRENDING ON YOUTUBE" else "TRENDING ARTISTS #$rankStart - #$rankEnd",
+                    categoryTag = if (pageIdx == 0) "LIVE CHARTS • GLOBAL & REGIONAL" else "VERIFIED YOUTUBE CREATORS",
+                    icon = if (pageIdx == 0) Icons.Rounded.Star else Icons.Default.GraphicEq,
+                    artistPool = chunk.map { ca ->
+                        val initial = ca.title.trim().firstOrNull()?.uppercase() ?: "A"
+                        val subs = if (ca.subscribers.isNotBlank()) {
+                            ca.subscribers.replace("subscribers", "", ignoreCase = true).trim()
+                        } else "#${ca.rank} Trending"
+                        val grad = when (ca.rank.toIntOrNull()?.rem(4)) {
+                            0 -> listOf(Color(0xFFFF1744), Color(0xFFD500F9))
+                            1 -> listOf(Color(0xFF00E5FF), Color(0xFF2979FF))
+                            2 -> listOf(Color(0xFFFFD600), Color(0xFFFF6D00))
+                            else -> listOf(Color(0xFF7C4DFF), Color(0xFF651FFF))
+                        }
+                        SpotlightArtist(
+                            name = ca.title,
+                            subs = subs,
+                            imageUrl = ca.thumbnailUrl,
+                            initial = initial,
+                            gradientColors = grad
+                        )
+                    }
+                )
+            }
+        }
+    }
+
+    val effectivePages = liveGenrePages ?: genrePages
+    val pagerState = rememberPagerState(pageCount = { effectivePages.size })
+
+    Column(modifier = modifier.fillMaxWidth().padding(top = 8.dp)) {
+        // Section Header with Title and "Change" + "Swipe" controls
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (liveGenrePages != null) "YOUTUBE TRENDING ARTISTS" else "SPOTLIGHT ARTISTS",
+                    color = Color(0xFFFFD600),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.5.sp
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Interactive "Change" Button -> Cycles all pages to get new results every time!
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF2A2A2E))
+                        .clickable {
+                            shuffleOffset = (shuffleOffset + 1) % 4
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage((pagerState.currentPage + 1) % effectivePages.size)
+                            }
+                        }
+                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Rounded.Shuffle,
+                            contentDescription = "Change",
+                            tint = Color(0xFFFFD600),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "Change",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Page indicator badge e.g. "1/6 Swipe >"
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0x1FFFFFFF))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "${pagerState.currentPage + 1}/${effectivePages.size} Swipe >",
+                        color = Color(0xFFB0B0B0),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        // Horizontal Pager for swinging left/right to see different genres & artists
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth()
+        ) { pageIndex ->
+            val page = effectivePages[pageIndex]
+            val pool = page.artistPool
+            val displayArtists = if (liveGenrePages != null) pool else {
+                val startIdx = (shuffleOffset * 3) % pool.size
+                List(3) { i -> pool[(startIdx + i) % pool.size] }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF142B32), Color(0xFF0E1E24))
+                        )
+                    )
+                    .border(1.dp, Color(0xFF224954), RoundedCornerShape(22.dp))
+                    .padding(16.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = page.genreTitle,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = page.categoryTag,
+                                color = Color(0xFF88A8B3),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
+                        Icon(
+                            imageVector = page.icon,
+                            contentDescription = null,
+                            tint = Color(0xFFFF4081),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        displayArtists.forEachIndexed { index, artist ->
+                            if (index > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(96.dp)
+                                        .background(Color(0x22FFFFFF))
+                                )
+                            }
+                            val matchedLive = liveArtists.firstOrNull { it.title.equals(artist.name, ignoreCase = true) }
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        if (matchedLive != null) {
+                                            onOpenChartArtist(matchedLive)
+                                        } else {
+                                            onOpenArtist(artist.name)
+                                        }
+                                    }
+                            ) {
+                                // Circular photo with vibrant gradient fallback avatar (never hollow/black!)
+                                Box(
+                                    modifier = Modifier
+                                        .size(68.dp)
+                                        .clip(CircleShape)
+                                        .background(Brush.linearGradient(artist.gradientColors))
+                                        .border(
+                                            width = 2.dp,
+                                            brush = Brush.sweepGradient(
+                                                listOf(Color(0xFFFF4081), Color(0xFF7C4DFF), Color(0xFFFF4081))
+                                            ),
+                                            shape = CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Bold initial is always behind image so failure never produces black void
+                                    Text(
+                                        text = artist.initial,
+                                        color = Color.White,
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                    AsyncImage(
+                                        model = artist.imageUrl,
+                                        contentDescription = artist.name,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(CircleShape)
+                                    )
+                                }
+
+                                Spacer(Modifier.height(8.dp))
+
+                                Text(
+                                    text = artist.name,
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = artist.subs,
+                                    color = Color(0xFF88A8B3),
+                                    fontSize = 10.sp,
+                                    maxLines = 1
+                                )
+
+                                Spacer(Modifier.height(8.dp))
+
+                                // "Explore >" pill button
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(Color(0x2EFFFFFF))
+                                        .clickable {
+                                            if (matchedLive != null) {
+                                                onOpenChartArtist(matchedLive)
+                                            } else {
+                                                onOpenArtist(artist.name)
+                                            }
+                                        }
+                                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Explore >",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Dot Indicators for all pages
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        repeat(effectivePages.size.coerceAtMost(10)) { dotIdx ->
+                            val isSelected = pagerState.currentPage == dotIdx
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 3.dp)
+                                    .height(4.dp)
+                                    .width(if (isSelected) 18.dp else 6.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(if (isSelected) Color(0xFFFFD600) else Color(0x44FFFFFF))
+                                    .clickable {
+                                        coroutineScope.launch {
+                                            pagerState.animateScrollToPage(dotIdx)
+                                        }
+                                    }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── YOUTUBE MIX PREVIEW CARD (Matching Screenshot 1 "हिंदी Indie") ─────────────
+@Composable
+fun YouTubeMixPreviewCard(
+    title: String,
+    subtitle: String,
+    coverUrl: String,
+    tracks: List<UnifiedTrack>,
+    onPlayAll: () -> Unit,
+    onTrackClick: (UnifiedTrack) -> Unit,
+    onSeeMore: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    var isSaved by remember { mutableStateOf(false) }
+    val displayTracks = if (isExpanded) tracks.take(15) else tracks.take(3)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0xFF1B1A1C))
+            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(24.dp))
+            .padding(16.dp)
+    ) {
+        Column {
+            // Header: Cover + Title + Subtitle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onPlayAll() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF282828))
+                ) {
+                    AsyncImage(
+                        model = coverUrl,
+                        contentDescription = title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                Spacer(Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        color = Color(0xFFAAAAAA),
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = "${tracks.size.coerceAtLeast(15)} songs",
+                        color = Color(0xFF757575),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // 3-4 Song Preview Rows with 3-dot menus (Scrolls within block when expanded)
+            val listModifier = if (isExpanded) {
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 260.dp)
+                    .verticalScroll(rememberScrollState())
+            } else {
+                Modifier.fillMaxWidth()
+            }
+            Column(
+                modifier = listModifier,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                displayTracks.forEach { track ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onTrackClick(track) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AsyncImage(
+                            model = track.thumbnailUrl,
+                            contentDescription = track.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
+
+                        Spacer(Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = track.title,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "${track.artist} • YouTube",
+                                color = Color(0xFFAAAAAA),
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { onTrackClick(track) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.MoreVert,
+                                contentDescription = "More",
+                                tint = Color(0xFFAAAAAA),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // "See more (10) v" expander button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (isExpanded) "Show less" else "See more (${(tracks.size - 3).coerceAtLeast(10)})",
+                        color = Color(0xFFAAAAAA),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = Color(0xFFAAAAAA),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            // Bottom Action Row: Play, Radio, Bookmark (Matching Screenshot 1)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Large Play Button (Matching Screenshot 1)
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF383838))
+                        .clickable { onPlayAll() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = "Play Mix",
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+
+                // Radio Button ((•))
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .border(1.2.dp, Color(0x44FFFFFF), CircleShape)
+                        .clickable { onSeeMore() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.GraphicEq,
+                        contentDescription = "Mix Radio",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Bookmark / Save Button
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .border(1.2.dp, if (isSaved) Color(0xFF00E676) else Color(0x44FFFFFF), CircleShape)
+                        .clickable { isSaved = !isSaved },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isSaved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
+                        contentDescription = "Save Playlist",
+                        tint = if (isSaved) Color(0xFF00E676) else Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CuratedPlaylistCard(
+    playlist: MusiXServerRepository.CuratedPlaylist,
+    onClick: () -> Unit
+) {
+    val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
+    Column(
+        modifier = Modifier
+            .width(140.dp)
+            .clickable { onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .width(140.dp)
+                .height(168.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(appColors.surfaceElevated)
+        ) {
+            AsyncImage(
+                model = playlist.coverUrl,
+                contentDescription = playlist.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            // Top-Left Play Badge (Matching Image 1)
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(7.dp)
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.65f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.PlayArrow,
+                    contentDescription = "Open playlist",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            if (playlist.tracks.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.65f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        "${playlist.tracks.size} songs",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = playlist.title,
+            color = appColors.textPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (playlist.description.isNotBlank()) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = playlist.description,
+                color = appColors.textSecondary,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+private fun sourceBadge(sourceName: String): Pair<ImageVector, Color> = when (sourceName) {
+    "YouTube"     -> Icons.Filled.PlayArrow to Color(0xFFFF3B30)
+    "JioSaavn"    -> Icons.Filled.MusicNote to Color(0xFF2ED8A7)
+    "Vimeo"       -> Icons.Filled.Videocam to Color(0xFF17C3E6)
+    "Apple Music" -> Icons.Filled.Album to Color(0xFFFA5F91)
+    "Spotify"     -> Icons.Filled.GraphicEq to Color(0xFF1ED760)
+    else          -> Icons.Filled.MusicNote to Color(0xFF888888)
+}
+
+@Composable
+fun UnifiedMusicCard(
+    track: UnifiedTrack,
+    isDownloading: Boolean,
+    isDownloaded: Boolean,
+    onPlay: () -> Unit,
+    onDownload: () -> Unit,
+    isPreparing: Boolean = false,
+    cardWidth: androidx.compose.ui.unit.Dp = 114.dp
+) {
+    val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
+    Column(modifier = Modifier.width(cardWidth)) {
+        Box(
+            modifier = Modifier
+                .size(cardWidth)
+                .clip(RoundedCornerShape(12.dp))
+                .background(appColors.surfaceElevated)
+                .clickable { onPlay() }
+        ) {
+            AsyncImage(
+                model = track.thumbnailUrl,
+                contentDescription = track.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            // YouTube Music signature Top-Left Play Badge (Matching Image 1)
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(7.dp)
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.65f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isPreparing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 1.5.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Icon(
+                        Icons.Rounded.PlayArrow,
+                        contentDescription = "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            // Bottom-Right Download Button
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(6.dp)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .clickable(enabled = !isDownloading && !isDownloaded) { onDownload() },
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    isDownloading -> CircularProgressIndicator(
+                        modifier = Modifier.size(13.dp),
+                        strokeWidth = 1.5.dp,
+                        color = Color.White
+                    )
+                    isDownloaded -> Icon(
+                        Icons.Rounded.CheckCircle,
+                        contentDescription = "Downloaded",
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    else -> Icon(
+                        Icons.Rounded.Download,
+                        contentDescription = "Download",
+                        tint = Color.White,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            track.title,
+            color = appColors.textPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            track.artist,
+            color = appColors.textSecondary,
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+fun CategorySection(
+    title: String,
+    items: List<MusicCardItem>,
+    onItemClick: (MusicCardItem) -> Unit
+) {
+    Column {
+        Text(
+            text = title,
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(Modifier.height(12.dp))
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            items(items) { item ->
+                Column(
+                    modifier = Modifier
+                        .width(130.dp)
+                        .clickable { onItemClick(item) }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(130.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF212121))
+                    ) {
+                        AsyncImage(
+                            model = item.imageUrl,
+                            contentDescription = item.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.PlayCircleFilled,
+                            contentDescription = "Play",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier
+                                .size(24.dp)
+                                .padding(4.dp)
+                                .align(Alignment.TopStart)
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = item.title,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = item.subtitle,
+                        color = Color(0xFF888888),
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtistSpotlightItem(
+    artist: com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { onClick() }
+            .padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(58.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF222222))
+                .border(2.dp, Brush.sweepGradient(listOf(Color(0xFFFF1744), Color(0xFF7C4DFF), Color(0xFFFF1744))), CircleShape)
+        ) {
+            AsyncImage(
+                model = artist.thumbnailUrl,
+                contentDescription = artist.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = artist.title,
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = if (artist.subscribers.isNotBlank()) artist.subscribers else "Artist",
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White.copy(alpha = 0.18f))
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Text(
+                "Explore ›",
+                color = Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun SongSpotlightItem(
+    song: YouTubeSearchResult,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { onClick() }
+            .padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF222222))
+                .border(
+                    1.5.dp,
+                    Brush.sweepGradient(listOf(Color(0xFFFFD54F), Color(0xFFFF5722), Color(0xFFFFD54F))),
+                    RoundedCornerShape(12.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = song.thumbnailUrl,
+                contentDescription = song.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.PlayArrow,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = song.title,
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = if (song.channelTitle.isNotBlank()) song.channelTitle else "Trending",
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White.copy(alpha = 0.18f))
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Text(
+                if (song.duration.isNotBlank()) song.duration else "Play ▶",
+                color = Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+
+
+
+// ── 4-SQUARE SOUTH & REGIONAL CATEGORIES (Malayalam, Tamil, Telugu, Hindi) ──
+data class RegionalSquareCategory(
+    val englishName: String,
+    val nativeScript: String,
+    val subtitle: String,
+    val coverUrl: String,
+    val gradient: List<Color>,
+    val query: String
+)
+
+@Composable
+fun SouthRegionalCategoriesSection(
+    onSelectLanguage: (String, String) -> Unit,
+    malayalamTracks: List<YouTubeSearchResult> = emptyList(),
+    tamilTracks: List<YouTubeSearchResult> = emptyList(),
+    teluguTracks: List<YouTubeSearchResult> = emptyList(),
+    hindiTracks: List<YouTubeSearchResult> = emptyList(),
+    modifier: Modifier = Modifier
+) {
+    val categories = remember(malayalamTracks, tamilTracks, teluguTracks, hindiTracks) {
+        listOf(
+            RegionalSquareCategory(
+                englishName = "Malayalam",
+                nativeScript = "മലയാളം",
+                subtitle = malayalamTracks.firstOrNull()?.title ?: "Mollywood Top Hits",
+                coverUrl = malayalamTracks.firstOrNull()?.thumbnailUrl ?: "https://cdn-images.dzcdn.net/images/cover/88a8de1995af3f04de605e1953bcf1f3/250x250-000000-80-0-0.jpg",
+                gradient = listOf(Color(0xFF05342B), Color(0xFF0E4A3E), Color(0xFF00695C)),
+                query = "malayalam trending songs 2026"
+            ),
+            RegionalSquareCategory(
+                englishName = "Tamil",
+                nativeScript = "தமிழ்",
+                subtitle = tamilTracks.firstOrNull()?.title ?: "Kollywood Chartbusters",
+                coverUrl = tamilTracks.firstOrNull()?.thumbnailUrl ?: "https://cdn-images.dzcdn.net/images/cover/782c35a76a4abce97963e229c3b0e735/250x250-000000-80-0-0.jpg",
+                gradient = listOf(Color(0xFF38081E), Color(0xFF560D2D), Color(0xFF880E4F)),
+                query = "tamil trending songs 2026"
+            ),
+            RegionalSquareCategory(
+                englishName = "Telugu",
+                nativeScript = "తెలుగు",
+                subtitle = teluguTracks.firstOrNull()?.title ?: "Tollywood Blockbusters",
+                coverUrl = teluguTracks.firstOrNull()?.thumbnailUrl ?: "https://cdn-images.dzcdn.net/images/cover/00548bffa974509e8b2bf7ccdf2674b1/250x250-000000-80-0-0.jpg",
+                gradient = listOf(Color(0xFF3E1A04), Color(0xFF6E2D07), Color(0xFFBF360C)),
+                query = "telugu trending songs 2026"
+            ),
+            RegionalSquareCategory(
+                englishName = "Hindi",
+                nativeScript = "हिंदी",
+                subtitle = hindiTracks.firstOrNull()?.title ?: "Bollywood & Desi Indie",
+                coverUrl = hindiTracks.firstOrNull()?.thumbnailUrl ?: "https://cdn-images.dzcdn.net/images/cover/32715eb33ab5e20b6c5be10da46a852c/250x250-000000-80-0-0.jpg",
+                gradient = listOf(Color(0xFF140D36), Color(0xFF24165C), Color(0xFF4A148C)),
+                query = "hindi trending songs 2026"
+            )
+        )
+    }
+
+    Column(modifier = modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "SOUTH & REGIONAL MUSIC",
+                    color = Color(0xFFFFD600),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.5.sp
+                )
+                Text(
+                    text = "Top hits in Malayalam, Tamil, Telugu & Hindi",
+                    color = Color(0xFF88A8B3),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0x1FFFFFFF))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "4 Categories",
+                    color = Color(0xFFFFD600),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // 2x2 Square Cards Grid with Prominent Cover Artwork
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Row 1: Malayalam & Tamil
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                RegionalSquareCard(
+                    category = categories[0],
+                    modifier = Modifier.weight(1f),
+                    onClick = { onSelectLanguage(categories[0].englishName, categories[0].query) }
+                )
+                RegionalSquareCard(
+                    category = categories[1],
+                    modifier = Modifier.weight(1f),
+                    onClick = { onSelectLanguage(categories[1].englishName, categories[1].query) }
+                )
+            }
+
+            // Row 2: Telugu & Hindi
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                RegionalSquareCard(
+                    category = categories[2],
+                    modifier = Modifier.weight(1f),
+                    onClick = { onSelectLanguage(categories[2].englishName, categories[2].query) }
+                )
+                RegionalSquareCard(
+                    category = categories[3],
+                    modifier = Modifier.weight(1f),
+                    onClick = { onSelectLanguage(categories[3].englishName, categories[3].query) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun RegionalSquareCard(
+    category: RegionalSquareCategory,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Brush.linearGradient(category.gradient))
+            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
+            .clickable { onClick() }
+    ) {
+        // High-contrast semi-transparent album cover backdrop
+        AsyncImage(
+            model = category.coverUrl,
+            contentDescription = category.englishName,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(20.dp))
+        )
+
+        // Gradient scrim to ensure text and buttons pop with ultra clarity
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color(0x77000000),
+                            Color(0x44000000),
+                            Color(0xEE000000)
+                        )
+                    )
+                )
+        )
+
+        // Content
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Top: Native script badge & Frosted Play Mini-FAB
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0x88000000))
+                        .border(0.5.dp, Color(0x66FFFFFF), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = category.nativeScript,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+
+                // Frosted Play Mini-FAB
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0x66000000))
+                        .border(1.dp, Color(0x88FFFFFF), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            // Bottom: Title & Subtitle over dark scrim
+            Column {
+                Text(
+                    text = category.englishName,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.3.sp
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = category.subtitle,
+                    color = Color(0xFFDDDDDD),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+
+// ── AUTHENTIC YOUTUBE MUSIC CARDS (Speed Dial, Mixed for You, Community) ────
+
+/**
+ * 3x3 Speed Dial card matching official YouTube Music home tab.
+ * Displays 9 quick-access songs with thumbnails, title badges, and pager indicator dots.
+ */
+@Composable
+fun SpeedDialShelf(
+    tracks: List<UnifiedTrack>,
+    onPlayTrack: (UnifiedTrack) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (tracks.isEmpty()) return
+    val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
+    val dialItems = remember(tracks) { tracks.take(9) }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Speed dial",
+                color = appColors.textPrimary,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.3).sp
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // 3x3 Grid of 9 Cards
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            for (row in 0 until 3) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    for (col in 0 until 3) {
+                        val index = row * 3 + col
+                        val track = dialItems.getOrNull(index)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(appColors.surfaceElevated)
+                                .clickable(enabled = track != null) {
+                                    track?.let { onPlayTrack(it) }
+                                }
+                        ) {
+                            if (track != null) {
+                                AsyncImage(
+                                    model = track.thumbnailUrl,
+                                    contentDescription = track.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                // Bottom subtle dark scrim
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .align(Alignment.BottomCenter)
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
+                                            )
+                                        )
+                                        .padding(horizontal = 6.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = track.title,
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // 3 Pager Indicator Dots below Speed Dial
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            for (i in 0..2) {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .size(if (i == 0) 7.dp else 5.dp)
+                        .clip(CircleShape)
+                        .background(if (i == 0) appColors.textPrimary else appColors.textSecondary.copy(alpha = 0.35f))
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Authentic "Mixed for you" Supermix Card.
+ * Displays 2x2 artwork mosaic + title, 3 song rows with play count & 3-dots, plus big play & save buttons.
+ */
+@Composable
+fun SupermixCard(
+    mixTitle: String,
+    subtitle: String,
+    tracks: List<UnifiedTrack>,
+    onPlayMix: () -> Unit,
+    onPlayTrack: (UnifiedTrack) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
+    val songRows = remember(tracks) { tracks.take(3) }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp)),
+        color = appColors.surfaceElevated,
+        border = androidx.compose.foundation.BorderStroke(1.dp, appColors.surfaceBorder.copy(alpha = 0.35f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            // Top Section: 2x2 artwork mosaic + Mix title
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onPlayMix() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 2x2 Artwork Mosaic
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.Black)
+                ) {
+                    Column(Modifier.fillMaxSize()) {
+                        Row(Modifier.weight(1f)) {
+                            AsyncImage(
+                                model = tracks.getOrNull(0)?.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.weight(1f).fillMaxHeight()
+                            )
+                            AsyncImage(
+                                model = tracks.getOrNull(1)?.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.weight(1f).fillMaxHeight()
+                            )
+                        }
+                        Row(Modifier.weight(1f)) {
+                            AsyncImage(
+                                model = tracks.getOrNull(2)?.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.weight(1f).fillMaxHeight()
+                            )
+                            AsyncImage(
+                                model = tracks.getOrNull(3)?.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.weight(1f).fillMaxHeight()
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = mixTitle,
+                        color = appColors.textPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        color = appColors.textSecondary,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Middle Section: 3 song rows
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                songRows.forEach { track ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onPlayTrack(track) }
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AsyncImage(
+                            model = track.thumbnailUrl,
+                            contentDescription = track.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = track.title,
+                                color = appColors.textPrimary,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            val playCount = remember(track.key) {
+                                val plays = ((track.key.hashCode() and 0x7FFFFFFF) % 900 + 50)
+                                "${plays}K plays"
+                            }
+                            Text(
+                                text = "${track.artist.ifBlank { "YouTube Music" }} • $playCount",
+                                color = appColors.textSecondary,
+                                fontSize = 11.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Options",
+                            tint = appColors.textSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Bottom Section: Circular Play Button + Save Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onPlayMix,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(appColors.accentPrimary)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Play Mix",
+                        tint = Color.Black,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(Modifier.width(10.dp))
+
+                IconButton(
+                    onClick = { /* Saved */ },
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(appColors.surface)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.BookmarkBorder,
+                        contentDescription = "Save Mix",
+                        tint = appColors.textPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 2x2 Mosaic Card for "From the community" playlists.
+ */
+@Composable
+fun CommunityMosaicCard(
+    playlistTitle: String,
+    curator: String,
+    views: String,
+    tracks: List<UnifiedTrack>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
+
+    Column(
+        modifier = modifier
+            .width(150.dp)
+            .clickable { onClick() }
+    ) {
+        // 2x2 Grid artwork
+        Box(
+            modifier = Modifier
+                .size(150.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(appColors.surfaceElevated)
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.weight(1f)) {
+                    AsyncImage(
+                        model = tracks.getOrNull(0)?.thumbnailUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                    AsyncImage(
+                        model = tracks.getOrNull(1)?.thumbnailUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
+                Row(Modifier.weight(1f)) {
+                    AsyncImage(
+                        model = tracks.getOrNull(2)?.thumbnailUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                    AsyncImage(
+                        model = tracks.getOrNull(3)?.thumbnailUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        Text(
+            text = playlistTitle,
+            color = appColors.textPrimary,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = "$curator • $views",
+            color = appColors.textSecondary,
+            fontSize = 11.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}

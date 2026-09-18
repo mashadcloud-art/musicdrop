@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android Auto media app descriptor — declares that FileDrop provides a media (music) experience
+     so the system renders it in the car dashboard's media browser. -->
+<automotiveApp>
+    <uses name="media" />
+</automotiveApp>
