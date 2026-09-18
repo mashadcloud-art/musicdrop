@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>MusicDrop - Stream & Download Music & Video</title>
+
+  <!-- PWA & Mobile Web Capabilities for iOS & Android -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0B0F19">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MusicDrop">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="description" content="Stream and download unlimited music and HD videos with the official MusicDrop Web Player on iPhone, Android, and Desktop.">
+
+  <!-- App Icons -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/favicon.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="brand-badge" id="nav-brand">
+      <img src="mascot.png" alt="MusicDrop Mascot" class="brand-icon" id="header-brand-icon">
+      <div class="brand-text-wrap">
+        <div class="brand-title">
+          MusicDrop
+          <span class="brand-tag">WEB PWA</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Search Header Input -->
+    <div class="search-container">
+      <div class="search-input-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" class="search-input" id="search-input" placeholder="Search any song, artist, album on YouTube..." autocomplete="off">
+        <button class="search-clear" id="search-clear" aria-label="Clear search">✕</button>
+      </div>
+      <!-- Live Search Suggestions Dropdown -->
+      <div class="suggestions-box" id="suggestions-box"></div>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn-install" id="btn-install-header">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+        </svg>
+        <span>Install App</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="main-layout">
+
+    <!-- TAB 1: HOME VIEW -->
+    <div class="tab-page active" id="tab-home">
+      
+      <!-- Hero Banner -->
+      <section class="hero-banner">
+        <div class="hero-content">
+          <div class="hero-pill">✨ Unlimited Free Music & Video</div>
+          <h1 class="hero-title">Music Without Limits</h1>
+          <p class="hero-desc">Search, stream, and download any track in high quality with edge-to-edge video and background playback.</p>
+          <div class="hero-actions">
+            <button class="btn-play-all" id="btn-hero-play">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              Play Trending Now
+            </button>
+            <button class="btn-secondary" id="btn-hero-search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline; vertical-align:middle; margin-right:4px;">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              Search Any Song
+            </button>
+          </div>
+        </div>
+        <img src="mascot.png" alt="MusicDrop Singing Bird Mascot" class="hero-mascot">
+      </section>
+
+      <!-- Category Filter Chips -->
+      <div class="categories-bar">
+        <button class="category-chip active" data-category="trending">🔥 Trending Hits</button>
+        <button class="category-chip" data-category="pop">✨ Global Pop</button>
+        <button class="category-chip" data-category="hiphop">⚡ Hip-Hop & Rap</button>
+        <button class="category-chip" data-category="electronic">🎧 Electronic / EDM</button>
+        <button class="category-chip" data-category="chill">☕ Lo-Fi & Chill</button>
+      </div>
+
+      <!-- Section Title -->
+      <div class="section-header">
+        <h2 class="section-title">
+          <span id="category-title">Trending Now</span>
+          <span class="badge">HOT</span>
+        </h2>
+      </div>
+
+      <!-- Track Grid -->
+      <div class="tracks-grid" id="home-tracks-grid"></div>
+
+    </div>
+
+    <!-- TAB 2: SEARCH VIEW -->
+    <div class="tab-page" id="tab-search">
+      
+      <div class="search-hero">
+        <h2 class="search-page-title">🔍 Search MusicDrop</h2>
+        <p class="search-page-sub">Find millions of songs, artists, albums, and music videos directly from YouTube Music.</p>
+        
+        <div class="search-large-bar">
+          <svg class="search-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" class="search-input-lg" id="search-input-lg" placeholder="Type song title or artist..." autocomplete="off">
+          <button class="btn-search-go" id="btn-search-go">Search</button>
+        </div>
+
+        <!-- Quick Trending Search Tags -->
+        <div class="trending-tags-wrap">
+          <span class="tags-label">Popular Searches:</span>
+          <button class="trend-tag">The Weeknd</button>
+          <button class="trend-tag">Taylor Swift</button>
+          <button class="trend-tag">Drake</button>
+          <button class="trend-tag">Ed Sheeran</button>
+          <button class="trend-tag">Billie Eilish</button>
+          <button class="trend-tag">Arijit Singh</button>
+        </div>
+      </div>
+
+      <!-- Search State / Results Section -->
+      <div class="search-results-container">
+        <div class="search-status-bar" id="search-status-bar">
+          <div class="search-count" id="search-count">Enter a keyword above to search millions of tracks</div>
+        </div>
+
+        <div class="search-loading" id="search-loading" style="display:none;">
+          <div class="loading-spinner"></div>
+          <span>Searching YouTube Music...</span>
+        </div>
+
+        <!-- Search Results Grid -->
+        <div class="tracks-grid" id="search-tracks-grid"></div>
+      </div>
+
+    </div>
+
+    <!-- TAB 3: DOWNLOADS & LIBRARY VIEW -->
+    <div class="tab-page" id="tab-library">
+      
+      <div class="library-header">
+        <div class="library-title-wrap">
+          <h2 class="section-title">📥 Your Library & Downloads</h2>
+          <p style="color:var(--text-secondary); font-size:0.88rem; margin-top:4px;">
+            Saved songs and offline favorites on this device.
+          </p>
+        </div>
+        <button class="btn-clear-library" id="btn-clear-library">Clear All</button>
+      </div>
+
+      <div class="library-empty" id="library-empty">
+        <div class="empty-icon">🎵</div>
+        <h3>No Saved Tracks Yet</h3>
+        <p>Search any song and tap the <strong>Download (⬇)</strong> or <strong>Heart (♥)</strong> button to save it here for instant offline playback!</p>
+        <button class="btn-secondary" onclick="window.musicDrop.switchTab('search')">Go to Search</button>
+      </div>
+
+      <div class="tracks-grid" id="library-tracks-grid" style="display:none;"></div>
+
+    </div>
+
+  </main>
+
+  <!-- Bottom Navigation Bar (Mobile & Desktop) -->
+  <nav class="bottom-nav-bar" id="bottom-nav">
+    <button class="nav-item active" data-tab="home" id="nav-home">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="nav-item" data-tab="search" id="nav-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <span>Search</span>
+    </button>
+    <button class="nav-item" data-tab="library" id="nav-library">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+      <span>Downloads</span>
+    </button>
+  </nav>
+
+  <!-- Bottom Player Dock -->
+  <footer class="bottom-player-dock" id="bottom-dock">
+    
+    <!-- Left: Current Track Info -->
+    <div class="dock-left" id="dock-info-wrap">
+      <div class="dock-thumb-wrap">
+        <img src="mascot.png" alt="Current Track" class="dock-thumb" id="dock-thumb">
+      </div>
+      <div class="dock-info">
+        <div class="dock-title" id="dock-title">MusicDrop Ready</div>
+        <div class="dock-artist" id="dock-artist">Tap to play</div>
+      </div>
+    </div>
+
+    <!-- Center: Playback Controls & Seek Bar -->
+    <div class="dock-center">
+      <div class="dock-buttons">
+        <button class="dock-btn" id="dock-prev-btn" title="Previous Track">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+        </button>
+        <button class="dock-btn dock-btn-main" id="dock-play-btn" title="Play / Pause">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button class="dock-btn" id="dock-next-btn" title="Next Track">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+      </div>
+
+      <div class="dock-progress-wrap">
+        <span class="dock-time" id="dock-time-current">0:00</span>
+        <div class="progress-bar" id="dock-progress">
+          <div class="progress-fill" id="dock-fill"></div>
+        </div>
+        <span class="dock-time" id="dock-time-total">0:00</span>
+      </div>
+    </div>
+
+    <!-- Right: Mode, Download, Favorite -->
+    <div class="dock-right">
+      <button class="mode-pill-btn" id="dock-video-btn" title="Toggle Video Mode">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M21 3H3c-1.11 0-2 .89-2 2v12a2 2 0 0 0 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5a2 2 0 0 0-2-2zm0 14H3V5h18v12zm-5-6l-7 4V7z"/></svg>
+        Video
+      </button>
+
+      <button class="dock-btn" id="dock-download-btn" title="Download Audio or Video">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+      </button>
+
+      <button class="dock-btn" id="dock-fav-btn" title="Save to Favorites">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      </button>
+    </div>
+
+  </footer>
+
+  <!-- Fullscreen Player Overlay Sheet -->
+  <div class="fullscreen-player" id="fullscreen-player">
+    
+    <div class="full-header">
+      <button class="btn-collapse" id="btn-collapse" aria-label="Collapse Player">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+      </button>
+      
+      <!-- Mascot Badge in Player Header -->
+      <div style="display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.06); padding:6px 14px; border-radius:20px;">
+        <img src="mascot.png" style="width:18px; height:18px; object-fit:contain;" alt="MusicDrop">
+        <span style="font-size:0.82rem; font-weight:800; letter-spacing:0.04em;">MusicDrop</span>
+      </div>
+
+      <button class="btn-collapse" id="full-download-btn" title="Download song">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+      </button>
+    </div>
+
+    <div class="full-body">
+      
+      <!-- Stage: Spinning Vinyl Disc or HD Video -->
+      <div class="stage-container">
+        
+        <!-- Spinning Vinyl Disc -->
+        <div class="disc-view" id="disc-view">
+          <div class="disc-center-art">
+            <img src="mascot.png" alt="Cover Art" id="full-cover">
+          </div>
+        </div>
+
+        <!-- Video Player Frame -->
+        <div class="video-view" id="video-view">
+          <div id="yt-player-frame"></div>
+        </div>
+
+      </div>
+
+      <!-- Live Pulsing Visualizer -->
+      <div class="visualizer-container" id="visualizer">
+        <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
+        <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
+        <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
+        <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
+      </div>
+
+      <!-- Full Player Title & Artist -->
+      <h2 style="font-family:var(--font-heading); font-size:1.4rem; font-weight:800; text-align:center; margin-bottom:4px;" id="full-title">
+        Select a Track
+      </h2>
+      <p style="color:var(--text-secondary); font-size:0.95rem; margin-bottom:24px;" id="full-artist">
+        MusicDrop Live Audio
+      </p>
+
+    </div>
+
+  </div>
+
+  <!-- DOWNLOAD CENTER MODAL -->
+  <div class="download-modal-overlay" id="download-modal">
+    <div class="download-modal-sheet">
+      <div class="dl-header">
+        <img src="mascot.png" alt="Track Cover" class="dl-thumb" id="dl-thumb">
+        <div class="dl-meta">
+          <h3 class="dl-title" id="dl-title">Download Song</h3>
+          <p class="dl-artist" id="dl-artist">MusicDrop Media Downloader</p>
+        </div>
+      </div>
+
+      <div class="dl-options-wrap">
+        <!-- Option 1: MP3 Audio -->
+        <a class="dl-option-card" id="dl-audio-link" target="_blank" rel="noopener noreferrer">
+          <div class="dl-icon-circle audio">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          </div>
+          <div class="dl-info">
+            <div class="dl-name">Download Audio (MP3)</div>
+            <div class="dl-desc">High Quality 320kbps Audio File</div>
+          </div>
+          <div class="dl-action-pill">Download MP3</div>
+        </a>
+
+        <!-- Option 2: MP4 Video -->
+        <a class="dl-option-card" id="dl-video-link" target="_blank" rel="noopener noreferrer">
+          <div class="dl-icon-circle video">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+          </div>
+          <div class="dl-info">
+            <div class="dl-name">Download Video (MP4)</div>
+            <div class="dl-desc">Full HD 1080p / 720p Video File</div>
+          </div>
+          <div class="dl-action-pill">Download MP4</div>
+        </a>
+
+        <!-- Option 3: Offline Save -->
+        <button class="dl-option-card btn-save-offline" id="dl-offline-btn">
+          <div class="dl-icon-circle offline">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+          </div>
+          <div class="dl-info">
+            <div class="dl-name">Save to Offline In-App Library</div>
+            <div class="dl-desc">Listen offline anywhere inside MusicDrop</div>
+          </div>
+          <div class="dl-action-pill">Save Offline</div>
+        </button>
+      </div>
+
+      <p class="dl-note">
+        💡 <strong>iOS / iPhone Tip:</strong> Downloaded files are saved automatically into your iPhone's <strong>Files</strong> app under <em>Downloads</em>!
+      </p>
+
+      <button class="btn-dismiss-sheet" id="btn-close-dl">Close</button>
+    </div>
+  </div>
+
+  <!-- iOS / Mobile Install Modal Guide -->
+  <div class="ios-modal-overlay" id="ios-modal">
+    <div class="ios-modal-sheet">
+      <img src="icons/icon-192.png" alt="MusicDrop App Icon" class="ios-sheet-icon">
+      <h3 class="ios-sheet-title">Install MusicDrop on iPhone</h3>
+      <p style="color:var(--text-secondary); font-size:0.88rem; margin-bottom:20px;">
+        Add to your Home Screen for edge-to-edge playback, zero browser bars, and lock-screen controls!
+      </p>
+
+      <div class="ios-step">
+        <div class="ios-step-num">1</div>
+        <div class="ios-step-text">Tap the <strong>Share</strong> button at the bottom of Safari (<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="display:inline; vertical-align:middle;"><path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z"/></svg>).</div>
+      </div>
+
+      <div class="ios-step">
+        <div class="ios-step-num">2</div>
+        <div class="ios-step-text">Scroll down and tap <strong>"Add to Home Screen"</strong> (➕).</div>
+      </div>
+
+      <div class="ios-step">
+        <div class="ios-step-num">3</div>
+        <div class="ios-step-text">Tap <strong>"Add"</strong> in the top-right corner. Enjoy MusicDrop!</div>
+      </div>
+
+      <button class="btn-dismiss-sheet" id="btn-dismiss-sheet">Got It!</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
