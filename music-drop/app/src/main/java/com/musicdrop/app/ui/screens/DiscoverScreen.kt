@@ -215,6 +215,10 @@ fun DiscoverScreen(
     val shortsQuickPicks by viewModel.shortsQuickPicks.collectAsState()
     val remixQuickPicks by viewModel.remixQuickPicks.collectAsState()
     val lofiQuickPicks by viewModel.lofiQuickPicks.collectAsState()
+    val indiaCoverQuickPicks by viewModel.indiaCoverQuickPicks.collectAsState()
+    val indiaGuitarQuickPicks by viewModel.indiaGuitarQuickPicks.collectAsState()
+    val pakistanCoverQuickPicks by viewModel.pakistanCoverQuickPicks.collectAsState()
+    val pakistanGuitarQuickPicks by viewModel.pakistanGuitarQuickPicks.collectAsState()
     var selectedShortIndex by remember { mutableStateOf<Int?>(null) }
 
     val downloadingKeys = remember { mutableStateOf(setOf<String>()) }
@@ -445,6 +449,52 @@ fun DiscoverScreen(
     val guitarTracks = remember(guitarQuickPicks, popular) {
         if (guitarQuickPicks.isNotEmpty()) guitarQuickPicks.map { UnifiedTrack.Youtube(it) }
         else popular.filter { it.title.contains("guitar", true) || it.title.contains("acoustic", true) }.ifEmpty { popular.take(15) }
+    }
+
+    // "Speed dial" (the 3x3 grid) used to just mirror the India quick-picks lane.
+    // Now it actually blends previously-played + regional trending + cover songs +
+    // fresh picks, matching what the shelf name implies.
+    val speedDialTracks = remember(recentTracks, regionTrendingSongs, coverQuickPicks, quickPicksFeed, popular) {
+        val previouslyPlayed = recentTracks.take(4)
+        val regional = regionTrendingSongs.map { UnifiedTrack.Youtube(it) }.take(4)
+        val covers = coverQuickPicks.map { UnifiedTrack.Youtube(it) }.take(3)
+        val fresh = quickPicksFeed.ifEmpty { popular }.take(8)
+        (previouslyPlayed + regional + covers + fresh).distinctBy { it.key }.take(15)
+    }
+
+    // "From the community" and "Music videos for you" used to just re-slice the same
+    // India quick-picks list under a different label, so the same 2-3 songs kept
+    // showing up in every shelf on screen. These pull from different lanes and
+    // exclude whatever's already shown above, so they're genuinely different content.
+    val alreadyShownKeys = remember(quickPicksFeed, speedDialTracks) {
+        (quickPicksFeed.map { it.key } + speedDialTracks.map { it.key }).toSet()
+    }
+    val communityDailyTrending = remember(trendingUnified, alreadyShownKeys) {
+        trendingUnified.filterNot { it.key in alreadyShownKeys }.ifEmpty { trendingUnified }.take(4)
+    }
+    val communityChillBeats = remember(lofiQuickPicks, guitarTracks, alreadyShownKeys) {
+        (lofiQuickPicks.map { UnifiedTrack.Youtube(it) } + guitarTracks)
+            .distinctBy { it.key }
+            .filterNot { it.key in alreadyShownKeys }
+            .ifEmpty { guitarTracks }
+            .take(4)
+    }
+    val musicVideosForYou = remember(ytMusicResults, alreadyShownKeys) {
+        val distinctVideos = ytMusicResults.filterNot { "yt:${it.videoId}" in alreadyShownKeys }
+        distinctVideos.ifEmpty { ytMusicResults }
+    }
+
+    val indiaCoverTracks = remember(indiaCoverQuickPicks, coverQuickPicks) {
+        indiaCoverQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { coverQuickPicks.map { UnifiedTrack.Youtube(it) } }
+    }
+    val indiaGuitarTracks = remember(indiaGuitarQuickPicks, guitarQuickPicks) {
+        indiaGuitarQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { guitarQuickPicks.map { UnifiedTrack.Youtube(it) } }
+    }
+    val pakistanCoverTracks = remember(pakistanCoverQuickPicks, coverQuickPicks) {
+        pakistanCoverQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { coverQuickPicks.map { UnifiedTrack.Youtube(it) } }
+    }
+    val pakistanGuitarTracks = remember(pakistanGuitarQuickPicks, guitarQuickPicks) {
+        pakistanGuitarQuickPicks.map { UnifiedTrack.Youtube(it) }.ifEmpty { guitarQuickPicks.map { UnifiedTrack.Youtube(it) } }
     }
 
     val ukuleleTracks = remember(ukuleleQuickPicks, popular) {
@@ -798,11 +848,11 @@ fun DiscoverScreen(
                         }
 
                         // ── Shelf 0: Speed Dial (3x3 Grid Card matching Image 4) ──
-                        if (quickPicksFeed.size >= 9) {
+                        if (speedDialTracks.size >= 9) {
                             item {
                                 SpeedDialShelf(
-                                    tracks = quickPicksFeed,
-                                    onPlayTrack = { track -> viewModel.playUnified(track, quickPicksFeed) }
+                                    tracks = speedDialTracks,
+                                    onPlayTrack = { track -> viewModel.playUnified(track, speedDialTracks) }
                                 )
                             }
                         }
@@ -1013,7 +1063,7 @@ fun DiscoverScreen(
                         }
 
 // ── Shelf 3.5: From the community (2x2 Mosaic Cards matching Image 3) ──
-                        if (quickPicksFeed.size >= 8) {
+                        if (communityDailyTrending.isNotEmpty() && communityChillBeats.isNotEmpty()) {
                             item {
                                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
                                     YouTubeShelfHeader(
@@ -1031,9 +1081,9 @@ fun DiscoverScreen(
                                                 playlistTitle = "Daily Trending Tracks",
                                                 curator = "MusicDrop Community",
                                                 views = "354K views",
-                                                tracks = quickPicksFeed.take(4),
+                                                tracks = communityDailyTrending,
                                                 onClick = {
-                                                    quickPicksFeed.firstOrNull()?.let { viewModel.playUnified(it, quickPicksFeed) }
+                                                    communityDailyTrending.firstOrNull()?.let { viewModel.playUnified(it, communityDailyTrending) }
                                                 }
                                             )
                                         }
@@ -1042,9 +1092,9 @@ fun DiscoverScreen(
                                                 playlistTitle = "Travelling & Chill Beats",
                                                 curator = "MusicDrop Curators",
                                                 views = "1.2M views",
-                                                tracks = quickPicksFeed.drop(4).take(4),
+                                                tracks = communityChillBeats,
                                                 onClick = {
-                                                    quickPicksFeed.drop(4).firstOrNull()?.let { viewModel.playUnified(it, quickPicksFeed) }
+                                                    communityChillBeats.firstOrNull()?.let { viewModel.playUnified(it, communityChillBeats) }
                                                 }
                                             )
                                         }
@@ -1054,7 +1104,7 @@ fun DiscoverScreen(
                         }
 
                         // ── Shelf 3: Recommended music videos (16:9 Widescreen Cards) ──
-                        if (ytMusicResults.isNotEmpty()) {
+                        if (musicVideosForYou.isNotEmpty()) {
                             item {
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     YouTubeShelfHeader(
@@ -1067,12 +1117,12 @@ fun DiscoverScreen(
                                         contentPadding = PaddingValues(horizontal = 16.dp),
                                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                                     ) {
-                                        items(ytMusicResults.take(10), key = { it.videoId }) { item ->
+                                        items(musicVideosForYou.take(10), key = { it.videoId }) { item ->
                                             val isPrep = preparingKey == "yt:${item.videoId}"
                                             Column(
                                                 modifier = Modifier
                                                     .width(220.dp)
-                                                    .clickable { viewModel.playYouTubeVideoWithContext(item, ytMusicResults) }
+                                                    .clickable { viewModel.playYouTubeVideoWithContext(item, musicVideosForYou) }
                                             ) {
                                                 Box(
                                                     modifier = Modifier
@@ -1477,6 +1527,126 @@ fun DiscoverScreen(
                                                 isDownloading = track.key in downloadingKeys.value,
                                                 isDownloaded = downloadedTracks.any { it.key == track.key },
                                                 onPlay = { viewModel.playUnified(track, acousticCoverTracks) },
+                                                onDownload = { downloadTargetTrack.value = track },
+                                                isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 7E-2: Indian Cover Songs ──
+                        if (indiaCoverTracks.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Indian Cover Songs",
+                                        subtitle = "BOLLYWOOD & HINDI UNPLUGGED COVERS 🎙️",
+                                        avatarUrl = indiaCoverTracks.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("Bollywood cover songs") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(indiaCoverTracks.take(15), key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, indiaCoverTracks) },
+                                                onDownload = { downloadTargetTrack.value = track },
+                                                isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 7E-3: Indian Guitar Sessions ──
+                        if (indiaGuitarTracks.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Indian Guitar Sessions",
+                                        subtitle = "BOLLYWOOD & HINDI ACOUSTIC GUITAR 🎸",
+                                        avatarUrl = indiaGuitarTracks.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("Bollywood guitar cover") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(indiaGuitarTracks.take(15), key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, indiaGuitarTracks) },
+                                                onDownload = { downloadTargetTrack.value = track },
+                                                isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 7E-4: Pakistani Cover Songs ──
+                        if (pakistanCoverTracks.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Pakistani Cover Songs",
+                                        subtitle = "COKE STUDIO & URDU UNPLUGGED COVERS 🎙️",
+                                        avatarUrl = pakistanCoverTracks.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("Pakistani cover songs") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(pakistanCoverTracks.take(15), key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, pakistanCoverTracks) },
+                                                onDownload = { downloadTargetTrack.value = track },
+                                                isPreparing = track.key == preparingKey
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── Shelf 7E-5: Pakistani Guitar Sessions ──
+                        if (pakistanGuitarTracks.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    YouTubeShelfHeader(
+                                        title = "Pakistani Guitar Sessions",
+                                        subtitle = "COKE STUDIO & URDU ACOUSTIC GUITAR 🎸",
+                                        avatarUrl = pakistanGuitarTracks.firstOrNull()?.thumbnailUrl,
+                                        onSeeAll = { onOpenSearchWithQuery("Pakistani guitar cover") }
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        items(pakistanGuitarTracks.take(15), key = { it.key }) { track ->
+                                            UnifiedMusicCard(
+                                                track = track,
+                                                isDownloading = track.key in downloadingKeys.value,
+                                                isDownloaded = downloadedTracks.any { it.key == track.key },
+                                                onPlay = { viewModel.playUnified(track, pakistanGuitarTracks) },
                                                 onDownload = { downloadTargetTrack.value = track },
                                                 isPreparing = track.key == preparingKey
                                             )

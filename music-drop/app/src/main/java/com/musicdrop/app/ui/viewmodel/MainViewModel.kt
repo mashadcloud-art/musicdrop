@@ -160,6 +160,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _lofiQuickPicks = MutableStateFlow<List<YouTubeSearchResult>>(emptyList())
     val lofiQuickPicks: StateFlow<List<YouTubeSearchResult>> = _lofiQuickPicks.asStateFlow()
 
+    // ---- Regional Cover & Guitar collections (India / Pakistan) ----
+    private val _indiaCoverQuickPicks = MutableStateFlow<List<YouTubeSearchResult>>(emptyList())
+    val indiaCoverQuickPicks: StateFlow<List<YouTubeSearchResult>> = _indiaCoverQuickPicks.asStateFlow()
+
+    private val _indiaGuitarQuickPicks = MutableStateFlow<List<YouTubeSearchResult>>(emptyList())
+    val indiaGuitarQuickPicks: StateFlow<List<YouTubeSearchResult>> = _indiaGuitarQuickPicks.asStateFlow()
+
+    private val _pakistanCoverQuickPicks = MutableStateFlow<List<YouTubeSearchResult>>(emptyList())
+    val pakistanCoverQuickPicks: StateFlow<List<YouTubeSearchResult>> = _pakistanCoverQuickPicks.asStateFlow()
+
+    private val _pakistanGuitarQuickPicks = MutableStateFlow<List<YouTubeSearchResult>>(emptyList())
+    val pakistanGuitarQuickPicks: StateFlow<List<YouTubeSearchResult>> = _pakistanGuitarQuickPicks.asStateFlow()
+
     // ---- Local Offline Playback Queue ----
     private val _localQueue = MutableStateFlow<List<com.musicdrop.app.data.repository.DownloadedTrack>>(emptyList())
     val localQueue: StateFlow<List<com.musicdrop.app.data.repository.DownloadedTrack>> = _localQueue.asStateFlow()
@@ -953,6 +966,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         emptyList()
     }
 
+    /** On refresh (force = true) only, blends in one alternate real search so a quick-pick
+     *  lane visibly changes instead of re-showing the exact same fixed-query results. */
+    private suspend fun withVariety(
+        force: Boolean,
+        primary: List<YouTubeSearchResult>,
+        altQueries: List<String>
+    ): List<YouTubeSearchResult> {
+        if (!force || primary.isEmpty() || altQueries.isEmpty()) return primary
+        val extra = varietySearch(altQueries.random())
+        return shuffleWithPinnedHead(primary, extra, keyOf = { it.videoId })
+    }
+
+    private suspend fun varietyArtists(
+        primary: List<com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist>,
+        country: String
+    ): List<com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist> {
+        if (primary.isEmpty()) return primary
+        val altQuery = listOf("rising artists $country", "popular music artists $country", "top singers $country 2026").random()
+        val extra = try {
+            when (val outcome = YouTubeSearchRepository.search(altQuery, maxResults = 15)) {
+                is YouTubeSearchOutcome.Success -> outcome.results.map {
+                    com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist(
+                        title = it.channelTitle.ifBlank { it.title },
+                        browseId = it.videoId,
+                        thumbnailUrl = it.thumbnailUrl
+                    )
+                }
+                is YouTubeSearchOutcome.Error -> emptyList()
+            }
+        } catch (_: Exception) { emptyList() }
+        return shuffleWithPinnedHead(primary, extra, keyOf = { it.browseId }, pinnedCount = 4, cap = 20)
+    }
+
     fun loadSouthIndiaTrending(force: Boolean = false) {
         if (!force && _southIndiaTrending.value.isNotEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
@@ -1090,10 +1136,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val charts = com.musicdrop.app.data.repository.YtMusicApiRepository.getCharts(country, force = force)
                 if (charts.daily.isNotEmpty() || charts.weekly.isNotEmpty() || charts.artists.isNotEmpty()) {
+                    // Daily/weekly stay exactly as the real official chart reports them —
+                    // only the artists lane gets refresh variety (it's a "who's hot" list,
+                    // not a ranked chart, so rotating it doesn't misrepresent anything).
                     _chartsDaily.value = charts.daily
                     _chartsWeekly.value = if (charts.weekly.isNotEmpty()) charts.weekly else charts.videos
                     _chartsGenres.value = charts.genres
-                    _chartsArtists.value = charts.artists
+                    _chartsArtists.value = if (force) varietyArtists(charts.artists, country) else charts.artists
                 } else {
                     loadYtChartsFallback(country)
                 }
@@ -1251,7 +1300,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         val trending = com.musicdrop.app.data.repository.YtMusicApiRepository.getTrending("IN")
                         if (trending.isNotEmpty()) trending else com.musicdrop.app.data.repository.YtMusicApiRepository.search("hindi trending songs").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = inTracks.ifEmpty { quickPicksSearchFallback("hindi trending songs 2026") }
+                    val finalTracks = withVariety(force, inTracks.ifEmpty { quickPicksSearchFallback("hindi trending songs 2026") }, varietyQueriesFor("IN"))
                     if (finalTracks.isNotEmpty()) _indiaQuickPicks.value = finalTracks
                 }
             }
@@ -1263,7 +1312,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         val combined = (trending + artistsSearch).distinctBy { it.videoId }
                         if (combined.isNotEmpty()) combined else com.musicdrop.app.data.repository.YtMusicApiRepository.search("pakistan trending songs").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = pkTracks.ifEmpty { quickPicksSearchFallback("pakistani trending songs 2026") }
+                    val finalTracks = withVariety(force, pkTracks.ifEmpty { quickPicksSearchFallback("pakistani trending songs 2026") }, varietyQueriesFor("PK"))
                     if (finalTracks.isNotEmpty()) _pakistanQuickPicks.value = finalTracks
                 }
             }
@@ -1272,7 +1321,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val malTracks: List<YouTubeSearchResult> = try {
                         com.musicdrop.app.data.repository.YtMusicApiRepository.search("malayalam trending songs").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = malTracks.ifEmpty { quickPicksSearchFallback("malayalam trending songs 2026") }
+                    val finalTracks = withVariety(
+                        force,
+                        malTracks.ifEmpty { quickPicksSearchFallback("malayalam trending songs 2026") },
+                        listOf("malayalam new movie songs 2026", "malayalam melody hits 2026", "malayalam mass beats 2026")
+                    )
                     if (finalTracks.isNotEmpty()) _malayalamQuickPicks.value = finalTracks
                 }
             }
@@ -1281,7 +1334,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val tamTracks: List<YouTubeSearchResult> = try {
                         com.musicdrop.app.data.repository.YtMusicApiRepository.search("tamil trending songs").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = tamTracks.ifEmpty { quickPicksSearchFallback("tamil trending songs 2026") }
+                    val finalTracks = withVariety(
+                        force,
+                        tamTracks.ifEmpty { quickPicksSearchFallback("tamil trending songs 2026") },
+                        listOf("tamil melody hits 2026", "tamil mass beats 2026", "tamil new movie songs 2026")
+                    )
                     if (finalTracks.isNotEmpty()) _tamilQuickPicks.value = finalTracks
                 }
             }
@@ -1290,7 +1347,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val telTracks: List<YouTubeSearchResult> = try {
                         com.musicdrop.app.data.repository.YtMusicApiRepository.search("telugu trending songs").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = telTracks.ifEmpty { quickPicksSearchFallback("telugu trending songs 2026") }
+                    val finalTracks = withVariety(
+                        force,
+                        telTracks.ifEmpty { quickPicksSearchFallback("telugu trending songs 2026") },
+                        listOf("telugu melody hits 2026", "telugu mass beats 2026", "telugu new movie songs 2026")
+                    )
                     if (finalTracks.isNotEmpty()) _teluguQuickPicks.value = finalTracks
                 }
             }
@@ -1299,7 +1360,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val tracks: List<YouTubeSearchResult> = try {
                         com.musicdrop.app.data.repository.YtMusicApiRepository.search("best cover songs 2026").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = tracks.ifEmpty { quickPicksSearchFallback("best acoustic cover songs") }
+                    val finalTracks = withVariety(
+                        force,
+                        tracks.ifEmpty { quickPicksSearchFallback("best acoustic cover songs") },
+                        listOf("unplugged cover songs 2026", "viral cover songs youtube", "acoustic mashup cover 2026")
+                    )
                     if (finalTracks.isNotEmpty()) _coverQuickPicks.value = finalTracks
                 }
             }
@@ -1308,7 +1373,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val tracks: List<YouTubeSearchResult> = try {
                         com.musicdrop.app.data.repository.YtMusicApiRepository.search("trending remix songs 2026").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = tracks.ifEmpty { quickPicksSearchFallback("dj remix songs party") }
+                    val finalTracks = withVariety(
+                        force,
+                        tracks.ifEmpty { quickPicksSearchFallback("dj remix songs party") },
+                        listOf("party remix mashup 2026", "dj trending remix 2026", "club dance remix hits")
+                    )
                     if (finalTracks.isNotEmpty()) _remixQuickPicks.value = finalTracks
                 }
             }
@@ -1317,7 +1386,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val tracks: List<YouTubeSearchResult> = try {
                         com.musicdrop.app.data.repository.YtMusicApiRepository.search("lofi chill beats").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = tracks.ifEmpty { quickPicksSearchFallback("lofi hip hop chill study beats") }
+                    val finalTracks = withVariety(
+                        force,
+                        tracks.ifEmpty { quickPicksSearchFallback("lofi hip hop chill study beats") },
+                        listOf("slowed reverb songs 2026", "chill beats to study", "lofi mashup relax")
+                    )
                     if (finalTracks.isNotEmpty()) _lofiQuickPicks.value = finalTracks
                 }
             }
@@ -1326,7 +1399,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val tracks: List<YouTubeSearchResult> = try {
                         com.musicdrop.app.data.repository.YtMusicApiRepository.search("acoustic guitar relaxing fingerstyle songs").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = tracks.ifEmpty { quickPicksSearchFallback("acoustic guitar songs unplugged") }
+                    val finalTracks = withVariety(
+                        force,
+                        tracks.ifEmpty { quickPicksSearchFallback("acoustic guitar songs unplugged") },
+                        listOf("fingerstyle guitar cover", "guitar instrumental relaxing", "unplugged guitar sessions")
+                    )
                     if (finalTracks.isNotEmpty()) _guitarQuickPicks.value = finalTracks
                 }
             }
@@ -1335,7 +1412,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val tracks: List<YouTubeSearchResult> = try {
                         com.musicdrop.app.data.repository.YtMusicApiRepository.search("ukulele chill indie songs").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = tracks.ifEmpty { quickPicksSearchFallback("ukulele acoustic relaxing songs") }
+                    val finalTracks = withVariety(
+                        force,
+                        tracks.ifEmpty { quickPicksSearchFallback("ukulele acoustic relaxing songs") },
+                        listOf("ukulele cover songs", "ukulele happy songs", "ukulele instrumental chill")
+                    )
                     if (finalTracks.isNotEmpty()) _ukuleleQuickPicks.value = finalTracks
                 }
             }
@@ -1344,8 +1425,57 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val tracks: List<YouTubeSearchResult> = try {
                         com.musicdrop.app.data.repository.YtMusicApiRepository.search("trending music shorts clips").songs
                     } catch (_: Exception) { emptyList() }
-                    val finalTracks = tracks.ifEmpty { quickPicksSearchFallback("viral music shorts acoustic rap") }
+                    val finalTracks = withVariety(
+                        force,
+                        tracks.ifEmpty { quickPicksSearchFallback("viral music shorts acoustic rap") },
+                        listOf("viral reels songs 2026", "trending shorts music 2026", "insta reels trending audio")
+                    )
                     if (finalTracks.isNotEmpty()) _shortsQuickPicks.value = finalTracks
+                }
+            }
+            // ---- Regional cover & guitar collections (new: India / Pakistan) ----
+            if (force || _indiaCoverQuickPicks.value.isEmpty()) {
+                launch {
+                    val tracks = varietySearch("bollywood cover songs 2026")
+                    val finalTracks = withVariety(
+                        force,
+                        tracks.ifEmpty { quickPicksSearchFallback("hindi unplugged cover songs") },
+                        listOf("bollywood unplugged mashup", "hindi acoustic cover 2026", "indian singers cover songs")
+                    )
+                    if (finalTracks.isNotEmpty()) _indiaCoverQuickPicks.value = finalTracks
+                }
+            }
+            if (force || _indiaGuitarQuickPicks.value.isEmpty()) {
+                launch {
+                    val tracks = varietySearch("bollywood guitar cover fingerstyle")
+                    val finalTracks = withVariety(
+                        force,
+                        tracks.ifEmpty { quickPicksSearchFallback("hindi songs acoustic guitar") },
+                        listOf("bollywood unplugged guitar", "hindi guitar instrumental", "indian acoustic guitar sessions")
+                    )
+                    if (finalTracks.isNotEmpty()) _indiaGuitarQuickPicks.value = finalTracks
+                }
+            }
+            if (force || _pakistanCoverQuickPicks.value.isEmpty()) {
+                launch {
+                    val tracks = varietySearch("pakistani cover songs 2026")
+                    val finalTracks = withVariety(
+                        force,
+                        tracks.ifEmpty { quickPicksSearchFallback("urdu unplugged cover songs") },
+                        listOf("coke studio cover songs", "pakistani acoustic cover 2026", "urdu singers cover songs")
+                    )
+                    if (finalTracks.isNotEmpty()) _pakistanCoverQuickPicks.value = finalTracks
+                }
+            }
+            if (force || _pakistanGuitarQuickPicks.value.isEmpty()) {
+                launch {
+                    val tracks = varietySearch("pakistani guitar cover fingerstyle")
+                    val finalTracks = withVariety(
+                        force,
+                        tracks.ifEmpty { quickPicksSearchFallback("urdu songs acoustic guitar") },
+                        listOf("pakistani unplugged guitar", "urdu guitar instrumental", "coke studio guitar sessions")
+                    )
+                    if (finalTracks.isNotEmpty()) _pakistanGuitarQuickPicks.value = finalTracks
                 }
             }
         }
