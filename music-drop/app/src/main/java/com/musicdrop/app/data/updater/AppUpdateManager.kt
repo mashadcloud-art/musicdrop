@@ -28,7 +28,7 @@ data class AppUpdateInfo(
 
 object AppUpdateManager {
 
-    private const val GITHUB_VERSION_URL = "https://raw.githubusercontent.com/filedrop-app/releases/main/version.json"
+    private const val GITHUB_VERSION_URL = "https://raw.githubusercontent.com/mashadcloud-art/musicdrop/main/version.json"
     private const val BACKUP_CONFIG_URL = "https://api.mxf-95274725.com/config/flags"
 
     suspend fun checkForUpdate(context: Context): AppUpdateInfo? = withContext(Dispatchers.IO) {
