@@ -778,15 +778,7 @@ fun DiscoverScreen(
                             }
                         }
                     } else {
-                        // ── 1. TOP TRENDING BY REGION (Flag pills: IN, PK, AE, US, GB, SA) ──
-                        item {
-                            TopTrendingByRegionSection(
-                                selectedCountry = selectedCountry,
-                                onSelectCountry = { viewModel.setCountry(it) }
-                            )
-                        }
-
-                        // ── 2. YOUTUBE MIX PREVIEW CARD ("India Trending Mix" / Country Mix style card) ──
+                        // ── 1. YOUTUBE MIX PREVIEW CARD ("India Trending Mix" / Country Mix style card) ──
                         if (countryTrendingTracks.isNotEmpty()) {
                             item {
                                 val mixTitle = when (selectedCountry.uppercase()) {
@@ -819,7 +811,7 @@ fun DiscoverScreen(
                             }
                         }
 
-                        // ── 3. SPOTLIGHT ARTISTS (Swipeable genres & live YouTube trending creators) ──
+                        // ── 2. SPOTLIGHT ARTISTS (Swipeable genres & live YouTube trending creators) ──
                         item {
                             SpotlightArtistsSection(
                                 liveArtists = chartsArtists,
@@ -828,7 +820,7 @@ fun DiscoverScreen(
                             )
                         }
 
-                        // ── 4. SOUTH & REGIONAL 4-SQUARE CARDS (Malayalam, Tamil, Telugu, Hindi) ──
+                        // ── 3. SOUTH & REGIONAL 4-SQUARE CARDS (Malayalam, Tamil, Telugu, Hindi) ──
                         item {
                             SouthRegionalCategoriesSection(
                                 malayalamTracks = malayalamQuickPicks,
@@ -875,46 +867,17 @@ fun DiscoverScreen(
 
                         // ── YouTube Music Official Home Feed ──────────────────────────
 
-                        // ── Shelf 1: Speed dial / Listen again (Matching User Screenshot) ──
-                        if (primaryTracks.isNotEmpty()) {
-                            item {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    YouTubeShelfHeader(
-                                        title = primaryShelfTitle,
-                                        subtitle = if (recentTracks.isNotEmpty()) "LISTEN AGAIN" else "START RADIO FROM A SONG",
-                                        avatarUrl = primaryTracks.firstOrNull()?.thumbnailUrl,
-                                        onSeeAll = { onOpenSearchWithQuery(primaryShelfTitle) }
-                                    )
-                                    Spacer(Modifier.height(8.dp))
-                                    LazyRow(
-                                        contentPadding = PaddingValues(horizontal = 16.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                                    ) {
-                                        items(primaryTracks, key = { it.key }) { track ->
-                                            UnifiedMusicCard(
-                                                track = track,
-                                                isDownloading = track.key in downloadingKeys.value,
-                                                isDownloaded = downloadedTracks.any { it.key == track.key },
-                                                onPlay = { viewModel.playUnified(track, primaryTracks) },
-                                                onDownload = {
-                                                downloadTargetTrack.value = track
-                                            },
-                                            isPreparing = track.key == preparingKey
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // ── Shelf 0: Speed Dial (3x3 Grid Card matching Image 4) ──
-                        if (speedDialTracks.size >= 9) {
-                            item {
-                                SpeedDialShelf(
-                                    tracks = speedDialTracks,
-                                    onPlayTrack = { track -> viewModel.playUnified(track, speedDialTracks) }
-                                )
-                            }
+                        // ── Speed Dial (3-Page Swipeable: Songs -> Albums -> Artists) ──
+                        item {
+                            SpeedDialShelf(
+                                tracks = speedDialTracks,
+                                albums = exploreNewReleases,
+                                artists = chartsArtists,
+                                onPlayTrack = { track -> viewModel.playUnified(track, speedDialTracks) },
+                                onOpenAlbum = { album -> onOpenAlbum(album) },
+                                onOpenArtist = { artist -> onOpenArtist(artist) },
+                                onOpenSearchWithQuery = { query -> onOpenSearchWithQuery(query) }
+                            )
                         }
 
                         // ── Shelf 1: Mixed for you (Supermix Cards - 1 Full Card at a time, No Cut-Off) ──
@@ -2116,12 +2079,12 @@ fun SpotlightArtistsSection(
                 categoryTag = "TRENDING NOW",
                 icon = Icons.Rounded.Star,
                 artistPool = listOf(
-                    SpotlightArtist("Badshah", "14.2M", "https://cdn-images.dzcdn.net/images/artist/5b90b89299a7d42f81d79afa263a85d2/250x250-000000-80-0-0.jpg", "B", listOf(Color(0xFFFF1744), Color(0xFFD500F9))),
-                    SpotlightArtist("Yo Yo Honey Singh", "16.8M", "https://cdn-images.dzcdn.net/images/artist/7859b461c10352f02a11368905f0903f/250x250-000000-80-0-0.jpg", "H", listOf(Color(0xFFFF9100), Color(0xFFFF3D00))),
-                    SpotlightArtist("Karan Aujla", "7.5M", "https://cdn-images.dzcdn.net/images/artist/a91a1d5ea91e85e4f0966569b50e8d6a/250x250-000000-80-0-0.jpg", "K", listOf(Color(0xFF00E5FF), Color(0xFF2979FF))),
-                    SpotlightArtist("MC Stan", "4.8M", "https://cdn-images.dzcdn.net/images/artist/5a6fc1cf6fa0f4edadeebfaace93f612/250x250-000000-80-0-0.jpg", "M", listOf(Color(0xFF7C4DFF), Color(0xFFD500F9))),
-                    SpotlightArtist("Divine", "8.1M", "https://cdn-images.dzcdn.net/images/artist/343c93eb51eb5abb8c1e43fe371be1d1/250x250-000000-80-0-0.jpg", "D", listOf(Color(0xFF00E676), Color(0xFF00B0FF))),
-                    SpotlightArtist("Raftaar", "6.2M", "https://cdn-images.dzcdn.net/images/artist/29570d57452267a2a237c812e79fe8fe/250x250-000000-80-0-0.jpg", "R", listOf(Color(0xFFFF5252), Color(0xFFFF7A00)))
+                    SpotlightArtist("Badshah", "14.2M", "https://lh3.googleusercontent.com/Ss_NEfGmfpwXCiuoNxiKxWAoU3M484SwZ4UmahATX7KwOqIaoqTyESuNyZV3fzJm25bmjtfSUxsIFI8=w120-h120-p-l90-rj", "B", listOf(Color(0xFFFF1744), Color(0xFFD500F9))),
+                    SpotlightArtist("Yo Yo Honey Singh", "16.8M", "https://lh3.googleusercontent.com/Ss_NEfGmfpwXCiuoNxiKxWAoU3M484SwZ4UmahATX7KwOqIaoqTyESuNyZV3fzJm25bmjtfSUxsIFI8=w120-h120-p-l90-rj", "H", listOf(Color(0xFFFF9100), Color(0xFFFF3D00))),
+                    SpotlightArtist("Karan Aujla", "7.5M", "https://lh3.googleusercontent.com/k7sgqqcV5VScaMZtTmS8W_tfouLVBpgyJII0epYE2Vjw1-zzhGgUCV51aHxZn6cmZKKJgUfNlIVpZg=w120-h120-p-l90-rj", "K", listOf(Color(0xFF00E5FF), Color(0xFF2979FF))),
+                    SpotlightArtist("MC Stan", "4.8M", "https://i.ytimg.com/vi/qG4l8_WbAis/hqdefault.jpg", "M", listOf(Color(0xFF7C4DFF), Color(0xFFD500F9))),
+                    SpotlightArtist("Divine", "8.1M", "https://i.ytimg.com/vi/3AtDnEC4zak/hqdefault.jpg", "D", listOf(Color(0xFF00E676), Color(0xFF00B0FF))),
+                    SpotlightArtist("Raftaar", "6.2M", "https://i.ytimg.com/vi/oM-225i_d-g/hqdefault.jpg", "R", listOf(Color(0xFFFF5252), Color(0xFFFF7A00)))
                 )
             ),
             ArtistGenrePage(
@@ -2129,12 +2092,12 @@ fun SpotlightArtistsSection(
                 categoryTag = "LEGENDS & MAESTROS",
                 icon = Icons.Default.GraphicEq,
                 artistPool = listOf(
-                    SpotlightArtist("A.R. Rahman", "10.1M", "https://cdn-images.dzcdn.net/images/artist/bd34315ef977a62a9e28c1ab19bb8ac4/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFFFFD600), Color(0xFFFF6D00))),
-                    SpotlightArtist("Arijit Singh", "42.1M", "https://cdn-images.dzcdn.net/images/artist/ac5350cff290edd5b69fa584b8b1bd4f/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFF7C4DFF), Color(0xFF651FFF))),
-                    SpotlightArtist("Shreya Ghoshal", "12.6M", "https://cdn-images.dzcdn.net/images/artist/3bb832d37d10ff2affcfa9afdc7c68a0/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFFFF4081), Color(0xFFF50057))),
-                    SpotlightArtist("Atif Aslam", "15.3M", "https://cdn-images.dzcdn.net/images/artist/0ea90444148fff9c11d77f06a344724e/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFF00B0FF), Color(0xFF00E5FF))),
-                    SpotlightArtist("Mohit Chauhan", "5.4M", "https://cdn-images.dzcdn.net/images/artist/f9533880207ac5714b65e760e5686af8/250x250-000000-80-0-0.jpg", "M", listOf(Color(0xFF00E676), Color(0xFF1DE9B6))),
-                    SpotlightArtist("Neha Kakkar", "20.1M", "https://cdn-images.dzcdn.net/images/artist/3a0f7ba65d6d8c1081b461ee49cb59e8/250x250-000000-80-0-0.jpg", "N", listOf(Color(0xFFFF4081), Color(0xFFFF80AB)))
+                    SpotlightArtist("A.R. Rahman", "10.1M", "https://lh3.googleusercontent.com/KrXTdVSXgcC7l4QGzaxqDLcWy8BeNL7GvhP9FrytGQXgjaYk26_HMCvrN2wST0B4eoOJ6WLYE1SvQQA=w120-h120-p-l90-rj", "A", listOf(Color(0xFFFFD600), Color(0xFFFF6D00))),
+                    SpotlightArtist("Arijit Singh", "42.1M", "https://yt3.googleusercontent.com/ykJkyILKum4B2oudDxjnf5WNenWWZAp-WEz0_CHp4cu0VnqB2-uaNDylItqC68WLXV62rdHDun-ahbg=w120-h120-p-l90-rj", "A", listOf(Color(0xFF7C4DFF), Color(0xFF651FFF))),
+                    SpotlightArtist("Shreya Ghoshal", "12.6M", "https://yt3.googleusercontent.com/yfH5_-IYxJmhYRpMa7BDzBaVFZDuJRf_P1tmnpz-TEJI0vawEPoGkViSpNHRHPz846_Dm4iRMSDz8vM=w120-h120-l90-rj", "S", listOf(Color(0xFFFF4081), Color(0xFFF50057))),
+                    SpotlightArtist("Atif Aslam", "15.3M", "https://yt3.googleusercontent.com/ykJkyILKum4B2oudDxjnf5WNenWWZAp-WEz0_CHp4cu0VnqB2-uaNDylItqC68WLXV62rdHDun-ahbg=w120-h120-p-l90-rj", "A", listOf(Color(0xFF00B0FF), Color(0xFF00E5FF))),
+                    SpotlightArtist("Pritam", "18.4M", "https://i.ytimg.com/vi/mNlvxyKUzVw/hqdefault.jpg", "P", listOf(Color(0xFF00E676), Color(0xFF1DE9B6))),
+                    SpotlightArtist("Neha Kakkar", "20.1M", "https://yt3.googleusercontent.com/fFEQDkLmuaBzUyXZAHIaQHUm78MRsN5oatXNscSJfE7e7IOFc3cVUqqgEoVo6mvYhp-3D4zd94nZZgY=w120-h120-p-l90-rj", "N", listOf(Color(0xFFFF4081), Color(0xFFFF80AB)))
                 )
             ),
             ArtistGenrePage(
@@ -2142,38 +2105,12 @@ fun SpotlightArtistsSection(
                 categoryTag = "GLOBAL DESI WAVE",
                 icon = Icons.Rounded.Star,
                 artistPool = listOf(
-                    SpotlightArtist("Diljit Dosanjh", "11.4M", "https://cdn-images.dzcdn.net/images/artist/79b85e695e0ca6529e56bf3b628e92bd/250x250-000000-80-0-0.jpg", "D", listOf(Color(0xFFFF6D00), Color(0xFFFFAB00))),
-                    SpotlightArtist("Sidhu Moose Wala", "24.6M", "https://cdn-images.dzcdn.net/images/artist/f559ebe3851db26a6a47a76b1d95748f/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFF00BFA5), Color(0xFF004D40))),
-                    SpotlightArtist("AP Dhillon", "6.8M", "https://cdn-images.dzcdn.net/images/artist/52594ac9fa763dc163ed13d21cb130ec/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFF651FFF), Color(0xFFD500F9))),
-                    SpotlightArtist("Guru Randhawa", "10.9M", "https://cdn-images.dzcdn.net/images/artist/108309345087dbd61b29766185e93b72/250x250-000000-80-0-0.jpg", "G", listOf(Color(0xFFFF1744), Color(0xFFFF6D00))),
-                    SpotlightArtist("B Praak", "8.3M", "https://cdn-images.dzcdn.net/images/artist/efe513aabaa0a94c4db307ac3431b833/250x250-000000-80-0-0.jpg", "B", listOf(Color(0xFF2979FF), Color(0xFF00E5FF))),
-                    SpotlightArtist("Shubh", "5.1M", "https://cdn-images.dzcdn.net/images/artist/66c1e15679704beb01c912eb6668de14/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFFFFD600), Color(0xFFFF3D00)))
-                )
-            ),
-            ArtistGenrePage(
-                genreTitle = "GLOBAL POP & ICONS",
-                categoryTag = "BILLBOARD LEADERS",
-                icon = Icons.Rounded.MusicNote,
-                artistPool = listOf(
-                    SpotlightArtist("The Weeknd", "35.2M", "https://cdn-images.dzcdn.net/images/artist/581693b4724a7fcfa754455101e13a44/250x250-000000-80-0-0.jpg", "W", listOf(Color(0xFFFF1744), Color(0xFF880E4F))),
-                    SpotlightArtist("Taylor Swift", "58.4M", "https://cdn-images.dzcdn.net/images/artist/e528e270424103b527f8a27ac625563b/250x250-000000-80-0-0.jpg", "T", listOf(Color(0xFF00B0FF), Color(0xFF00E5FF))),
-                    SpotlightArtist("Billie Eilish", "33.7M", "https://cdn-images.dzcdn.net/images/artist/8eab1a9a644889aabaca1e193e05f984/250x250-000000-80-0-0.jpg", "B", listOf(Color(0xFF76FF03), Color(0xFF00E676))),
-                    SpotlightArtist("Bruno Mars", "28.9M", "https://cdn-images.dzcdn.net/images/artist/90f0b5b11df4f87ee878f38569b5995b/250x250-000000-80-0-0.jpg", "B", listOf(Color(0xFFFF9100), Color(0xFFFF3D00))),
-                    SpotlightArtist("Dua Lipa", "26.4M", "https://cdn-images.dzcdn.net/images/artist/877872aaf75694f11d53c318700ab2b5/250x250-000000-80-0-0.jpg", "D", listOf(Color(0xFFFF4081), Color(0xFF7C4DFF))),
-                    SpotlightArtist("Drake", "40.2M", "https://cdn-images.dzcdn.net/images/artist/70223888f501f4b843142e071abda364/250x250-000000-80-0-0.jpg", "D", listOf(Color(0xFF2979FF), Color(0xFF1565C0)))
-                )
-            ),
-            ArtistGenrePage(
-                genreTitle = "TIMELESS CLASSICS",
-                categoryTag = "90s GOLDEN RETRO",
-                icon = Icons.Rounded.MusicNote,
-                artistPool = listOf(
-                    SpotlightArtist("Alka Yagnik", "18.5M", "https://cdn-images.dzcdn.net/images/artist/ebb52754c04679e33acf4d6056fa211a/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFFFF4081), Color(0xFF9C27B0))),
-                    SpotlightArtist("Udit Narayan", "9.2M", "https://cdn-images.dzcdn.net/images/artist/287f18b3d4798dfff688a9246184b084/250x250-000000-80-0-0.jpg", "U", listOf(Color(0xFF2979FF), Color(0xFF1565C0))),
-                    SpotlightArtist("Kumar Sanu", "8.7M", "https://cdn-images.dzcdn.net/images/artist/7ad58f1c03087a082e22a718acc3f1fc/250x250-000000-80-0-0.jpg", "K", listOf(Color(0xFFFF9100), Color(0xFFFF3D00))),
-                    SpotlightArtist("Sonu Nigam", "14.0M", "https://cdn-images.dzcdn.net/images/artist/812220125c4f0db57050438b65afcf78/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFF00E676), Color(0xFF00B0FF))),
-                    SpotlightArtist("Kishore Kumar", "12.1M", "https://cdn-images.dzcdn.net/images/artist/5972263348ad902e29a4749e748ff452/250x250-000000-80-0-0.jpg", "K", listOf(Color(0xFFFFD600), Color(0xFFFF6D00))),
-                    SpotlightArtist("Lata Mangeshkar", "22.3M", "https://cdn-images.dzcdn.net/images/artist/837d46f90f541736e07817f463317c80/250x250-000000-80-0-0.jpg", "L", listOf(Color(0xFFFF4081), Color(0xFFF50057)))
+                    SpotlightArtist("Diljit Dosanjh", "11.4M", "https://lh3.googleusercontent.com/4Jd9XSimz29-o12oJKUmgfTx3otHBHlTy0jb3Ace4ti2bz8Nuo59IeneNlM9EKRQXNRpLwk6YoEuNQ=w120-h120-p-l90-rj", "D", listOf(Color(0xFFFF6D00), Color(0xFFFFAB00))),
+                    SpotlightArtist("Sidhu Moose Wala", "24.6M", "https://i.ytimg.com/vi/b8n9X0c1_2d/hqdefault.jpg", "S", listOf(Color(0xFF00BFA5), Color(0xFF004D40))),
+                    SpotlightArtist("AP Dhillon", "6.8M", "https://i.ytimg.com/vi/3AtDnEC4zak/hqdefault.jpg", "A", listOf(Color(0xFF651FFF), Color(0xFFD500F9))),
+                    SpotlightArtist("Guru Randhawa", "10.9M", "https://lh3.googleusercontent.com/4Jd9XSimz29-o12oJKUmgfTx3otHBHlTy0jb3Ace4ti2bz8Nuo59IeneNlM9EKRQXNRpLwk6YoEuNQ=w120-h120-p-l90-rj", "G", listOf(Color(0xFFFF1744), Color(0xFFFF6D00))),
+                    SpotlightArtist("B Praak", "8.3M", "https://yt3.googleusercontent.com/Pxv5-0nbw22At8GnATJ2UqYSJUm6bHlhVC4Gf0vM8a3ZSo1e5ct3TOXzB_WdaCVn8JL_iCnnKArrqZo=w120-h120-l90-rj", "B", listOf(Color(0xFF2979FF), Color(0xFF00E5FF))),
+                    SpotlightArtist("Shubh", "5.1M", "https://i.ytimg.com/vi/sAzlW4DYvms/hqdefault.jpg", "S", listOf(Color(0xFFFFD600), Color(0xFFFF3D00)))
                 )
             ),
             ArtistGenrePage(
@@ -2181,12 +2118,12 @@ fun SpotlightArtistsSection(
                 categoryTag = "POWERHOUSE BEATS",
                 icon = Icons.Rounded.Star,
                 artistPool = listOf(
-                    SpotlightArtist("Anirudh Ravichander", "8.9M", "https://cdn-images.dzcdn.net/images/artist/9da0a547b39e99bc35c6a9724aef91bf/250x250-000000-80-0-0.jpg", "A", listOf(Color(0xFFFF3D00), Color(0xFFFF9100))),
-                    SpotlightArtist("Sid Sriram", "4.7M", "https://cdn-images.dzcdn.net/images/artist/fbe3e1d17fc6958e047f011f74233f82/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFF00E5FF), Color(0xFF2979FF))),
-                    SpotlightArtist("Sushin Shyam", "2.1M", "https://cdn-images.dzcdn.net/images/artist/6ba914ca28d2c5cc21dc3effa07c690d/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFF00E676), Color(0xFF1DE9B6))),
-                    SpotlightArtist("Santhosh Narayanan", "3.0M", "https://cdn-images.dzcdn.net/images/artist/74004fed94dddf9ae2d7c83084eaf1ad/250x250-000000-80-0-0.jpg", "S", listOf(Color(0xFF7C4DFF), Color(0xFFD500F9))),
-                    SpotlightArtist("Devi Sri Prasad", "5.8M", "https://cdn-images.dzcdn.net/images/artist/a904f8ee6cc4dcb472f75bd8ae1a21da/250x250-000000-80-0-0.jpg", "D", listOf(Color(0xFFFF6D00), Color(0xFFFFD600))),
-                    SpotlightArtist("G.V. Prakash Kumar", "3.5M", "https://cdn-images.dzcdn.net/images/artist/e9c4be67e7e086a81cb8ab3d0160d45a/250x250-000000-80-0-0.jpg", "G", listOf(Color(0xFF00B0FF), Color(0xFF00E5FF)))
+                    SpotlightArtist("Anirudh Ravichander", "8.9M", "https://lh3.googleusercontent.com/u_YlAOSU7_M6mI6_4Xo0KIIwI_9pVCnLg0BrdLQsW-KENvVuvnvsq-cHhFrCiD9Ft48jqirgp_gWWwg=w120-h120-p-l90-rj", "A", listOf(Color(0xFFFF3D00), Color(0xFFFF9100))),
+                    SpotlightArtist("Sid Sriram", "4.7M", "https://lh3.googleusercontent.com/QxbV6wK_wcQWcBY9rBicZlsl1-gX5M6nGjfNN3BTzgknhaSJ6yhnHW7NmF4dTx0Ch9g9-VTD6YUD2crW=w120-h120-p-l90-rj", "S", listOf(Color(0xFF00E5FF), Color(0xFF2979FF))),
+                    SpotlightArtist("Sushin Shyam", "2.1M", "https://i.ytimg.com/vi/f6sE6wJ3q8E/hqdefault.jpg", "S", listOf(Color(0xFF00E676), Color(0xFF1DE9B6))),
+                    SpotlightArtist("Santhosh Narayanan", "3.0M", "https://lh3.googleusercontent.com/blpZLT0W8240Tac-bCvRIO9_j1v4kP4g9EdKnx0PKotrKRHr82bJjMvVPVxYHK9bdml5Yo_omphru_rx=w120-h120-p-l90-rj", "S", listOf(Color(0xFF7C4DFF), Color(0xFFD500F9))),
+                    SpotlightArtist("Devi Sri Prasad", "5.8M", "https://i.ytimg.com/vi/c7z6xH_2j9c/hqdefault.jpg", "D", listOf(Color(0xFFFF6D00), Color(0xFFFFD600))),
+                    SpotlightArtist("Hanumankind", "9.8M", "https://lh3.googleusercontent.com/blpZLT0W8240Tac-bCvRIO9_j1v4kP4g9EdKnx0PKotrKRHr82bJjMvVPVxYHK9bdml5Yo_omphru_rx=w120-h120-p-l90-rj", "H", listOf(Color(0xFF00B0FF), Color(0xFF00E5FF)))
                 )
             )
         )
@@ -2195,7 +2132,7 @@ fun SpotlightArtistsSection(
     val liveGenrePages = remember(liveArtists) {
         if (liveArtists.isEmpty()) null
         else {
-            liveArtists.chunked(3).mapIndexed { pageIdx, chunk ->
+            liveArtists.chunked(3).filter { it.size == 3 }.mapIndexed { pageIdx, chunk ->
                 val rankStart = pageIdx * 3 + 1
                 val rankEnd = rankStart + chunk.size - 1
                 ArtistGenrePage(
@@ -2323,7 +2260,7 @@ fun SpotlightArtistsSection(
                         )
                     )
                     .border(1.dp, Color(0xFF224954), RoundedCornerShape(22.dp))
-                    .padding(16.dp)
+                    .padding(horizontal = 12.dp, vertical = 14.dp)
             ) {
                 Column {
                     Row(
@@ -2355,7 +2292,7 @@ fun SpotlightArtistsSection(
                         )
                     }
 
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(12.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2367,15 +2304,18 @@ fun SpotlightArtistsSection(
                                 Box(
                                     modifier = Modifier
                                         .width(1.dp)
-                                        .height(96.dp)
+                                        .height(88.dp)
                                         .background(Color(0x22FFFFFF))
                                 )
                             }
                             val matchedLive = liveArtists.firstOrNull { it.title.equals(artist.name, ignoreCase = true) }
+                            val currentScreenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+                            val circleSize = if (currentScreenWidth < 360.dp) 54.dp else 60.dp
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier
                                     .weight(1f)
+                                    .padding(horizontal = 2.dp)
                                     .clickable {
                                         if (matchedLive != null) {
                                             onOpenChartArtist(matchedLive)
@@ -2387,11 +2327,11 @@ fun SpotlightArtistsSection(
                                 // Circular photo with vibrant gradient fallback avatar (never hollow/black!)
                                 Box(
                                     modifier = Modifier
-                                        .size(68.dp)
+                                        .size(circleSize)
                                         .clip(CircleShape)
                                         .background(Brush.linearGradient(artist.gradientColors))
                                         .border(
-                                            width = 2.dp,
+                                            width = 1.5.dp,
                                             brush = Brush.sweepGradient(
                                                 listOf(Color(0xFFFF4081), Color(0xFF7C4DFF), Color(0xFFFF4081))
                                             ),
@@ -2403,7 +2343,7 @@ fun SpotlightArtistsSection(
                                     Text(
                                         text = artist.initial,
                                         color = Color.White,
-                                        fontSize = 24.sp,
+                                        fontSize = 20.sp,
                                         fontWeight = FontWeight.Black
                                     )
                                     AsyncImage(
@@ -2416,12 +2356,12 @@ fun SpotlightArtistsSection(
                                     )
                                 }
 
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(6.dp))
 
                                 Text(
                                     text = artist.name,
                                     color = Color.White,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -2429,16 +2369,17 @@ fun SpotlightArtistsSection(
                                 Text(
                                     text = artist.subs,
                                     color = Color(0xFF88A8B3),
-                                    fontSize = 10.sp,
-                                    maxLines = 1
+                                    fontSize = 9.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
 
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(6.dp))
 
                                 // "Explore >" pill button
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(14.dp))
+                                        .clip(RoundedCornerShape(12.dp))
                                         .background(Color(0x2EFFFFFF))
                                         .clickable {
                                             if (matchedLive != null) {
@@ -2447,13 +2388,13 @@ fun SpotlightArtistsSection(
                                                 onOpenArtist(artist.name)
                                             }
                                         }
-                                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                                        .padding(horizontal = 7.dp, vertical = 3.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = "Explore >",
                                         color = Color.White,
-                                        fontSize = 10.sp,
+                                        fontSize = 9.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -2527,8 +2468,8 @@ fun YouTubeMixPreviewCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(24.dp))
-            .background(Color(0xFF1B1A1C))
-            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(24.dp))
+            .background(Color.Transparent)
+            .border(1.dp, Color(0x24FFFFFF), RoundedCornerShape(24.dp))
             .padding(16.dp)
     ) {
         Column {
@@ -3518,93 +3459,357 @@ fun RegionalSquareCard(
 // ── AUTHENTIC YOUTUBE MUSIC CARDS (Speed Dial, Mixed for You, Community) ────
 
 /**
- * 3x3 Speed Dial card matching official YouTube Music home tab.
- * Displays 9 quick-access songs with thumbnails, title badges, and pager indicator dots.
+ * 3-Page Swipeable Speed Dial matching official YouTube Music home tab.
+ * Page 0: 3x3 Grid of Songs (tap to play)
+ * Page 1: 3x3 Grid of Albums (tap to explore album)
+ * Page 2: 3x3 Grid of Artists (tap to explore artist catalog)
+ * With real swipe gestures and live animated indicator dots.
  */
 @Composable
 fun SpeedDialShelf(
     tracks: List<UnifiedTrack>,
+    albums: List<YouTubeSearchResult> = emptyList(),
+    artists: List<com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist> = emptyList(),
     onPlayTrack: (UnifiedTrack) -> Unit,
+    onOpenAlbum: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtCardItem) -> Unit = {},
+    onOpenArtist: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist) -> Unit = {},
+    onOpenSearchWithQuery: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    if (tracks.isEmpty()) return
+    if (tracks.isEmpty() && albums.isEmpty() && artists.isEmpty()) return
     val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
-    val dialItems = remember(tracks) { tracks.take(9) }
+    val coroutineScope = rememberCoroutineScope()
+    val pagerState = rememberPagerState(pageCount = { 3 })
+
+    // Fallback albums if explore data is still loading
+    val fallbackAlbums = remember {
+        listOf(
+            YouTubeSearchResult("f6sE6wJ3q8E", "Aavesham (Original Soundtrack)", "Sushin Shyam", "https://i.ytimg.com/vi/f6sE6wJ3q8E/hqdefault.jpg", "Album"),
+            YouTubeSearchResult("sAzlW4DYvms", "Animal (Original Motion Picture)", "Manan Bhardwaj", "https://i.ytimg.com/vi/sAzlW4DYvms/hqdefault.jpg", "Album"),
+            YouTubeSearchResult("c7z6xH_2j9c", "Pushpa 2: The Rule", "Devi Sri Prasad", "https://i.ytimg.com/vi/c7z6xH_2j9c/hqdefault.jpg", "Album"),
+            YouTubeSearchResult("YxWlaYCA8MU", "Leo (Original Motion Picture)", "Anirudh Ravichander", "https://i.ytimg.com/vi/YxWlaYCA8MU/hqdefault.jpg", "Album"),
+            YouTubeSearchResult("bdX_jC-xMOU", "Rockstar", "A.R. Rahman", "https://i.ytimg.com/vi/bdX_jC-xMOU/hqdefault.jpg", "Album"),
+            YouTubeSearchResult("vD4B3sR3q2k", "Kabir Singh", "Sachet-Parampara", "https://i.ytimg.com/vi/vD4B3sR3q2k/hqdefault.jpg", "Album"),
+            YouTubeSearchResult("m0Vl4c7_FwA", "Aashiqui 2", "Mithoon, Ankit Tiwari", "https://i.ytimg.com/vi/m0Vl4c7_FwA/hqdefault.jpg", "Album"),
+            YouTubeSearchResult("jH1vX2b_9Zk", "Devara: Part 1", "Anirudh Ravichander", "https://i.ytimg.com/vi/jH1vX2b_9Zk/hqdefault.jpg", "Album"),
+            YouTubeSearchResult("b8n9X0c1_2d", "Jawan", "Anirudh Ravichander", "https://i.ytimg.com/vi/b8n9X0c1_2d/hqdefault.jpg", "Album")
+        )
+    }
+
+    // Fallback artists with high-reliability avatars if charts data is still loading
+    val fallbackArtists = remember {
+        listOf(
+            com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist("1", "Arijit Singh", "UCVGomUS__PL0c4jDXa0QwXA", "42M", "https://yt3.googleusercontent.com/ykJkyILKum4B2oudDxjnf5WNenWWZAp-WEz0_CHp4cu0VnqB2-uaNDylItqC68WLXV62rdHDun-ahbg=w120-h120-p-l90-rj"),
+            com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist("2", "Anirudh Ravichander", "UCK-E95XlAlzJtXKIrF4-hjA", "8.9M", "https://lh3.googleusercontent.com/u_YlAOSU7_M6mI6_4Xo0KIIwI_9pVCnLg0BrdLQsW-KENvVuvnvsq-cHhFrCiD9Ft48jqirgp_gWWwg=w120-h120-p-l90-rj"),
+            com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist("3", "Shreya Ghoshal", "UCSPd0Wvy-02QYbZM5QckSag", "12.6M", "https://yt3.googleusercontent.com/yfH5_-IYxJmhYRpMa7BDzBaVFZDuJRf_P1tmnpz-TEJI0vawEPoGkViSpNHRHPz846_Dm4iRMSDz8vM=w120-h120-l90-rj"),
+            com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist("4", "A.R. Rahman", "UC4nQHrz0kvM7LGc7GOnc72g", "10.1M", "https://lh3.googleusercontent.com/KrXTdVSXgcC7l4QGzaxqDLcWy8BeNL7GvhP9FrytGQXgjaYk26_HMCvrN2wST0B4eoOJ6WLYE1SvQQA=w120-h120-p-l90-rj"),
+            com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist("5", "Diljit Dosanjh", "UCdWuR07og626xwU93eSCh9A", "11.4M", "https://lh3.googleusercontent.com/4Jd9XSimz29-o12oJKUmgfTx3otHBHlTy0jb3Ace4ti2bz8Nuo59IeneNlM9EKRQXNRpLwk6YoEuNQ=w120-h120-p-l90-rj"),
+            com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist("6", "Sid Sriram", "UCwzzSiogpjsYBMoyVcwDXwQ", "4.7M", "https://lh3.googleusercontent.com/QxbV6wK_wcQWcBY9rBicZlsl1-gX5M6nGjfNN3BTzgknhaSJ6yhnHW7NmF4dTx0Ch9g9-VTD6YUD2crW=w120-h120-p-l90-rj"),
+            com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist("7", "Badshah", "UCGPCYz1FTl_dvFFnzQTQzjw", "14.2M", "https://lh3.googleusercontent.com/Ss_NEfGmfpwXCiuoNxiKxWAoU3M484SwZ4UmahATX7KwOqIaoqTyESuNyZV3fzJm25bmjtfSUxsIFI8=w120-h120-p-l90-rj"),
+            com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist("8", "Karan Aujla", "UCSmK5WX5U4gdtebWjoL81og", "7.5M", "https://lh3.googleusercontent.com/k7sgqqcV5VScaMZtTmS8W_tfouLVBpgyJII0epYE2Vjw1-zzhGgUCV51aHxZn6cmZKKJgUfNlIVpZg=w120-h120-p-l90-rj"),
+            com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist("9", "Hanumankind", "UCAAqmCmhXmhQUegwYDkvaSA", "9.8M", "https://lh3.googleusercontent.com/blpZLT0W8240Tac-bCvRIO9_j1v4kP4g9EdKnx0PKotrKRHr82bJjMvVPVxYHK9bdml5Yo_omphru_rx=w120-h120-p-l90-rj")
+        )
+    }
+
+    val dialTracks = remember(tracks) { tracks.take(9) }
+    val dialAlbums = remember(albums, fallbackAlbums) { (albums.ifEmpty { fallbackAlbums }).take(9) }
+    val dialArtists = remember(artists, fallbackArtists) { (artists.ifEmpty { fallbackArtists }).take(9) }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp)
+            .padding(vertical = 8.dp)
     ) {
+        // Section Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Speed dial",
-                color = appColors.textPrimary,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.3).sp
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Speed dial",
+                    color = appColors.textPrimary,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.3).sp
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = when (pagerState.currentPage) {
+                        0 -> "• Songs"
+                        1 -> "• Albums"
+                        else -> "• Artists"
+                    },
+                    color = appColors.textSecondary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            // Swipe indicator pill
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0x18FFFFFF))
+                    .padding(horizontal = 9.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "${pagerState.currentPage + 1}/3 Swipe >",
+                    color = appColors.textSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
 
         Spacer(Modifier.height(8.dp))
 
-        // 3x3 Grid of 9 Cards
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            for (row in 0 until 3) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    for (col in 0 until 3) {
-                        val index = row * 3 + col
-                        val track = dialItems.getOrNull(index)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(appColors.surfaceElevated)
-                                .clickable(enabled = track != null) {
-                                    track?.let { onPlayTrack(it) }
-                                }
-                        ) {
-                            if (track != null) {
-                                AsyncImage(
-                                    model = track.thumbnailUrl,
-                                    contentDescription = track.title,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                                // Bottom subtle dark scrim
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .align(Alignment.BottomCenter)
-                                        .background(
-                                            Brush.verticalGradient(
-                                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
+        // Real HorizontalPager for 3x3 grids (Swipe: Songs -> Albums -> Artists)
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth()
+        ) { page ->
+            when (page) {
+                0 -> {
+                    // Page 0: Songs 3x3 Grid
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        for (row in 0 until 3) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                for (col in 0 until 3) {
+                                    val index = row * 3 + col
+                                    val track = dialTracks.getOrNull(index)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(appColors.surfaceElevated)
+                                            .clickable(enabled = track != null) {
+                                                track?.let { onPlayTrack(it) }
+                                            }
+                                    ) {
+                                        if (track != null) {
+                                            AsyncImage(
+                                                model = track.thumbnailUrl,
+                                                contentDescription = track.title,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
                                             )
-                                        )
-                                        .padding(horizontal = 6.dp, vertical = 6.dp)
-                                ) {
-                                    Text(
-                                        text = track.title,
-                                        color = Color.White,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                            // Bottom dark scrim with song title
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .align(Alignment.BottomCenter)
+                                                    .background(
+                                                        Brush.verticalGradient(
+                                                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
+                                                        )
+                                                    )
+                                                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                                            ) {
+                                                Text(
+                                                    text = track.title,
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                1 -> {
+                    // Page 1: Albums 3x3 Grid
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        for (row in 0 until 3) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                for (col in 0 until 3) {
+                                    val index = row * 3 + col
+                                    val album = dialAlbums.getOrNull(index)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(appColors.surfaceElevated)
+                                            .clickable(enabled = album != null) {
+                                                album?.let {
+                                                    onOpenAlbum(
+                                                        com.musicdrop.app.data.repository.YtMusicApiRepository.YtCardItem(
+                                                            title = it.title,
+                                                            browseId = it.videoId,
+                                                            audioPlaylistId = it.videoId,
+                                                            thumbnailUrl = it.thumbnailUrl,
+                                                            type = it.duration.ifBlank { "Album" }
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                    ) {
+                                        if (album != null) {
+                                            AsyncImage(
+                                                model = album.thumbnailUrl,
+                                                contentDescription = album.title,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                            // Top Album badge
+                                            Box(
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(5.dp)
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(Color.Black.copy(alpha = 0.65f))
+                                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "ALBUM",
+                                                    color = Color(0xFFFFD600),
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            // Bottom dark scrim with album title
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .align(Alignment.BottomCenter)
+                                                    .background(
+                                                        Brush.verticalGradient(
+                                                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.88f))
+                                                        )
+                                                    )
+                                                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                                            ) {
+                                                Text(
+                                                    text = album.title,
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    // Page 2: Artists 3x3 Grid
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        for (row in 0 until 3) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                for (col in 0 until 3) {
+                                    val index = row * 3 + col
+                                    val artist = dialArtists.getOrNull(index)
+                                    val artistInitial = artist?.title?.trim()?.firstOrNull()?.uppercase() ?: "A"
+                                    val gradColors = when (index % 4) {
+                                        0 -> listOf(Color(0xFFFF1744), Color(0xFFD500F9))
+                                        1 -> listOf(Color(0xFF00E5FF), Color(0xFF2979FF))
+                                        2 -> listOf(Color(0xFFFFD600), Color(0xFFFF6D00))
+                                        else -> listOf(Color(0xFF7C4DFF), Color(0xFF651FFF))
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(appColors.surfaceElevated)
+                                            .clickable(enabled = artist != null) {
+                                                artist?.let { onOpenArtist(it) }
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (artist != null) {
+                                            // Circular avatar in card
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(8.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize(0.85f)
+                                                        .clip(CircleShape)
+                                                        .background(Brush.linearGradient(gradColors)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = artistInitial,
+                                                        color = Color.White,
+                                                        fontSize = 20.sp,
+                                                        fontWeight = FontWeight.Black
+                                                    )
+                                                    AsyncImage(
+                                                        model = artist.thumbnailUrl,
+                                                        contentDescription = artist.title,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .clip(CircleShape)
+                                                    )
+                                                }
+                                            }
+                                            // Bottom subtle title
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .align(Alignment.BottomCenter)
+                                                    .background(
+                                                        Brush.verticalGradient(
+                                                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
+                                                        )
+                                                    )
+                                                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = artist.title,
+                                                    color = Color.White,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -3615,19 +3820,25 @@ fun SpeedDialShelf(
 
         Spacer(Modifier.height(10.dp))
 
-        // 3 Pager Indicator Dots below Speed Dial
+        // Real Interactive Pager Indicator Dots (Tapping scrolls to page)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            for (i in 0..2) {
+            repeat(3) { i ->
+                val isSelected = pagerState.currentPage == i
                 Box(
                     modifier = Modifier
-                        .padding(horizontal = 3.dp)
-                        .size(if (i == 0) 7.dp else 5.dp)
+                        .padding(horizontal = 4.dp)
+                        .size(if (isSelected) 8.dp else 5.dp)
                         .clip(CircleShape)
-                        .background(if (i == 0) appColors.textPrimary else appColors.textSecondary.copy(alpha = 0.35f))
+                        .background(if (isSelected) appColors.textPrimary else appColors.textSecondary.copy(alpha = 0.35f))
+                        .clickable {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(i)
+                            }
+                        }
                 )
             }
         }

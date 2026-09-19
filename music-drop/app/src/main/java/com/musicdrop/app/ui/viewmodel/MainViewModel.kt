@@ -957,12 +957,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // charts (Top Charts daily/weekly) are left untouched — those show a real
     // ranking and shouldn't be shuffled.
     private val varietyQueryPools: Map<String, List<String>> = mapOf(
-        "IN" to listOf("bollywood viral songs 2026", "hindi new released songs", "punjabi trending hits 2026", "india music charts this week"),
-        "PK" to listOf("pakistan viral songs 2026", "coke studio new songs", "pakistani new released tracks", "urdu trending music 2026"),
-        "US" to listOf("us viral hits 2026", "billboard new releases", "top 40 radio hits 2026", "american pop trending songs"),
-        "GB" to listOf("uk viral songs 2026", "uk new music releases", "official uk trending hits", "british pop chart hits 2026"),
-        "AE" to listOf("khaleeji trending songs", "arabic viral hits 2026", "gulf new music releases", "arabic pop trending 2026"),
-        "SA" to listOf("saudi trending songs", "arabic viral hits 2026", "khaleeji new releases", "gulf pop hits 2026")
+        "IN" to listOf(
+            "latest bollywood songs 2026",
+            "new hindi songs trending this week",
+            "top viral hindi songs 2026",
+            "punjabi viral hits 2026",
+            "india music new releases 2026",
+            "trending bollywood superhits 2026"
+        ),
+        "PK" to listOf(
+            "pakistan viral songs 2026",
+            "coke studio new songs 2026",
+            "pakistani new released tracks",
+            "urdu trending music 2026"
+        ),
+        "US" to listOf(
+            "us viral hits 2026",
+            "billboard new releases 2026",
+            "top 40 radio hits 2026",
+            "american pop trending songs"
+        ),
+        "GB" to listOf(
+            "uk viral songs 2026",
+            "uk new music releases 2026",
+            "official uk trending hits",
+            "british pop chart hits 2026"
+        ),
+        "AE" to listOf(
+            "khaleeji trending songs 2026",
+            "arabic viral hits 2026",
+            "gulf new music releases",
+            "arabic pop trending 2026"
+        ),
+        "SA" to listOf(
+            "saudi trending songs 2026",
+            "arabic viral hits 2026",
+            "khaleeji new releases",
+            "gulf pop hits 2026"
+        )
     )
     private fun varietyQueriesFor(code: String): List<String> =
         varietyQueryPools[code.uppercase()] ?: listOf("trending music 2026", "viral songs this week", "new music releases", "top hits right now")
@@ -1012,13 +1044,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         country: String
     ): List<com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist> {
         if (primary.isEmpty()) return primary
-        val altQuery = listOf("rising artists $country", "popular music artists $country", "top singers $country 2026").random()
-        val extra = try {
-            when (val outcome = YouTubeSearchRepository.search(altQuery, maxResults = 15)) {
+        val code = country.uppercase()
+        val query = when (code) {
+            "IN" -> listOf("arijit singh", "anirudh ravichander", "diljit dosanjh", "shreya ghoshal", "sid sriram", "badshah", "pritam", "yo yo honey singh").random()
+            "PK" -> listOf("atif aslam", "ali zafar", "asif aslam", "rahat fateh ali khan", "young stunners", "firishta").random()
+            "US" -> listOf("the weeknd", "taylor swift", "drake", "billie eilish", "bruno mars", "post malone").random()
+            "GB" -> listOf("ed sheeran", "dua lipa", "coldplay", "adele", "harry styles", "sam smith").random()
+            "AE", "SA" -> listOf("amr diab", "nancy ajram", "hussain al jassmi", "saad lamjarred", "elissa", "sherine").random()
+            else -> "top artists"
+        }
+        val extra: List<com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist> = try {
+            when (val outcome = YouTubeSearchRepository.search(query, maxResults = 15)) {
                 is YouTubeSearchOutcome.Success -> outcome.results.map {
                     com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist(
+                        rank = "",
                         title = it.channelTitle.ifBlank { it.title },
                         browseId = it.videoId,
+                        subscribers = "Trending Artist",
                         thumbnailUrl = it.thumbnailUrl
                     )
                 }
@@ -1041,8 +1083,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 if (force && songs.isNotEmpty()) {
                     val extraQuery = listOf(
-                        "telugu trending songs 2026", "malayalam trending songs 2026",
-                        "kannada trending songs 2026", "south indian viral hits 2026"
+                        "south indian viral hits 2026",
+                        "telugu trending songs 2026",
+                        "malayalam viral tracks 2026"
                     ).random()
                     val extra = varietySearch(extraQuery)
                     songs = shuffleWithPinnedHead(songs, extra, keyOf = { it.videoId })
@@ -1107,10 +1150,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (songs.isNotEmpty()) {
                     val varietyPool = varietyQueriesFor(code)
                     if (varietyPool.isNotEmpty()) {
-                        val extra = varietySearch(varietyPool.random())
+                        val extra = varietySearch(varietyPool.random(), maxResults = 25)
                         if (extra.isNotEmpty()) {
-                            songs = shuffleWithPinnedHead(songs, extra, keyOf = { it.videoId })
+                            // Cycle fresh viral / new release songs directly to the head of the playlist!
+                            // Ensures the top 3 cards seen first on app launch are always fresh and changing.
+                            val freshPicks = extra.shuffled().take(6)
+                            val remaining = (songs + extra).distinctBy { it.videoId }.filterNot { s -> freshPicks.any { it.videoId == s.videoId } }
+                            songs = (freshPicks + remaining).take(30)
+                        } else {
+                            songs = songs.shuffled()
                         }
+                    } else {
+                        songs = songs.shuffled()
                     }
                 }
                 if (songs.isNotEmpty()) {
