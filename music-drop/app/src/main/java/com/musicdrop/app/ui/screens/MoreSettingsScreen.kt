@@ -16,10 +16,9 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +52,8 @@ fun MoreSettingsScreen(
     val currentTheme by viewModel.appTheme.collectAsState()
     val isDjCrossfadeEnabled by viewModel.isDjCrossfadeEnabled.collectAsState()
     val isSilenceTrimEnabled by viewModel.isSilenceTrimEnabled.collectAsState()
+    val showBottomNav by viewModel.showBottomNav.collectAsState()
+    var showEqDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -322,6 +323,83 @@ fun MoreSettingsScreen(
                                 )
                             )
                         }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            thickness = 0.5.dp,
+                            color = appColors.surfaceBorder.copy(alpha = 0.3f)
+                        )
+
+                        // Action 3: Open Audio Equalizer
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showEqDialog = true }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    "Audio Equalizer & Bass Boost",
+                                    color = appColors.textPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "5-band hardware equalizer, bass booster, 3D surround sound, and genre presets.",
+                                    color = appColors.textSecondary,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Rounded.Tune,
+                                contentDescription = "Equalizer",
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            thickness = 0.5.dp,
+                            color = appColors.surfaceBorder.copy(alpha = 0.3f)
+                        )
+
+                        // Toggle 4: Show Bottom Navigation Bar
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    "Show Bottom Navigation Bar",
+                                    color = appColors.textPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "Display bottom tabs (Home, Explore, Library). Off by default for clean edge-to-edge top swiping.",
+                                    color = appColors.textSecondary,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                            Switch(
+                                checked = showBottomNav,
+                                onCheckedChange = { viewModel.setShowBottomNav(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = appColors.accentPrimary,
+                                    uncheckedThumbColor = appColors.textMuted,
+                                    uncheckedTrackColor = appColors.surfaceElevated
+                                )
+                            )
+                        }
                     }
                 }
 
@@ -384,6 +462,13 @@ fun MoreSettingsScreen(
                 }
                 Spacer(modifier = Modifier.height(30.dp))
             }
+        }
+
+        if (showEqDialog) {
+            com.musicdrop.app.ui.components.EqualizerDialog(
+                equalizerManager = viewModel.equalizerManager,
+                onDismiss = { showEqDialog = false }
+            )
         }
     }
 }

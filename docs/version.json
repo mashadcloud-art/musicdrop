@@ -1,8 +1,8 @@
 {
-  "versionCode": 144,
-  "versionName": "1.3.4",
-  "title": "MusicDrop v1.3.4 Available",
-  "changelog": "• All-New Library Hub: Sticky navigation header with smooth horizontal swipe pager (All, Songs, Playlists, Folders, Albums, Artists)\n• Vinyl Album Sleeves: Sleek album cards with realistic record disc peeking out of sleeve\n• Dynamic Artist Avatars: Alphabetical list with vibrant letter avatars and track counts\n• Smart Playlists: Favorites, Recently Added, Recently Played, and My Top Tracks with Quick Import/Restore actions\n• Album & Artist Detail Pages: Dedicated view with hero cover, Shuffle & Play buttons, and 320K/date stamps\n• Floating Scroll-to-Top Button: Quick navigation back to top in Songs and Detail screens",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.4/MusicDrop-v1.3.4.apk",
+  "versionCode": 145,
+  "versionName": "1.3.5",
+  "title": "MusicDrop v1.3.5 Available",
+  "changelog": "• Master 9-Tab Swipeable Hub: Home, Songs, Playlists, Download, Device, Albums, Artists, Genres, Folders with smooth horizontal swipe navigation\n• Minimal Edge-to-Edge Experience: Bottom navigation bar hidden by default with edge-to-edge footer player, toggleable in Settings\n• Modern Music Player Overhaul: Centered Song / Lyrics toggle, 8 dynamic themes & blurred ambient backgrounds\n• Floating Pill Seekbar: Progress slider with centered [ 1:40 / 2:10 ] badge and +/-10s seek buttons\n• 5-Icon Utility Row: Favorite heart, Add to Playlist, Hardware Equalizer with ON indicator, Sleep Timer, and Queue sheet\n• Audio Equalizer & Bass Boost: Real hardware-accelerated 5-band audio equalizer, bass boost, and surround virtualizer with audio presets\n• Synchronized Lyrics: Auto-scrolling and interactive tap-to-seek lyrics view",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.5/MusicDrop-v1.3.5.apk",
   "forceUpdate": false
 }

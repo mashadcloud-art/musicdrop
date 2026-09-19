@@ -27,6 +27,8 @@ class FileDropMediaService : MediaSessionService() {
     companion object {
         const val CHANNEL_ID = "music_drop_playback_channel"
         const val NOTIFICATION_ID = 1001
+        var equalizerManager: EqualizerManager? = null
+            private set
     }
 
     private var mediaSession: MediaSession? = null
@@ -127,7 +129,15 @@ class FileDropMediaService : MediaSessionService() {
             com.musicdrop.app.data.cache.AudioCacheManager.pruneOldAudioCache(applicationContext)
         }
 
+        equalizerManager = EqualizerManager(applicationContext).apply {
+            bindAudioSession(player.audioSessionId)
+        }
+
         player.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                equalizerManager?.bindAudioSession(audioSessionId)
+            }
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isPlaying) {
                     try {
@@ -284,6 +294,9 @@ class FileDropMediaService : MediaSessionService() {
             if (wakeLock?.isHeld == true) wakeLock?.release()
             if (wifiLock?.isHeld == true) wifiLock?.release()
         } catch (e: Exception) { e.printStackTrace() }
+
+        equalizerManager?.releaseEffects()
+        equalizerManager = null
 
         mediaSession?.run {
             player.release()

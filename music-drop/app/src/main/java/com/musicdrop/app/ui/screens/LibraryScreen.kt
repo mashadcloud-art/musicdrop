@@ -57,12 +57,15 @@ import java.util.Date
 import java.util.Locale
 
 enum class LibraryTab(val label: String) {
-    ALL("All"),
+    HOME("Home"),
     SONGS("Songs"),
     PLAYLISTS("Playlists"),
-    FOLDERS("Folders"),
+    DOWNLOAD("Download"),
+    DEVICE("Device"),
     ALBUMS("Albums"),
-    ARTISTS("Artists")
+    ARTISTS("Artists"),
+    GENRES("Genres"),
+    FOLDERS("Folders")
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -70,8 +73,11 @@ enum class LibraryTab(val label: String) {
 fun LibraryScreen(
     viewModel: MainViewModel,
     onOpenSearch: (query: String) -> Unit,
+    onOpenPlaylist: (com.musicdrop.app.data.repository.MusiXServerRepository.CuratedPlaylist) -> Unit = {},
+    onOpenSource: (com.musicdrop.app.ui.screens.MusicSource) -> Unit = {},
     onOpenArtist: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist) -> Unit = {},
-    onOpenAlbum: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtCardItem) -> Unit = {}
+    onOpenAlbum: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtCardItem) -> Unit = {},
+    onOpenSettings: () -> Unit = {}
 ) {
     val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
     val context = LocalContext.current
@@ -309,28 +315,14 @@ fun LibraryScreen(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (tabs[page]) {
-                    LibraryTab.ALL -> AllTabContent(
-                        songs = filteredSongs,
-                        albums = albumsGrouped,
-                        artists = artistsGrouped,
-                        onViewAllSongs = { scope.launch { pagerState.animateScrollToPage(1) } },
-                        onViewAllAlbums = { scope.launch { pagerState.animateScrollToPage(4) } },
-                        onViewAllArtists = { scope.launch { pagerState.animateScrollToPage(5) } },
-                        onSongClick = { song -> viewModel.playTrack(song, filteredSongs) },
-                        onAlbumClick = { title, trackList ->
-                            detailTitle = title
-                            detailSubtitle = "${trackList.size} songs"
-                            detailCoverUri = trackList.firstOrNull()?.albumArtUri
-                            detailIsArtist = false
-                            detailTracks = trackList
-                        },
-                        onArtistClick = { name, trackList ->
-                            detailTitle = name
-                            detailSubtitle = "${trackList.size} songs"
-                            detailCoverUri = trackList.firstOrNull()?.albumArtUri
-                            detailIsArtist = true
-                            detailTracks = trackList
-                        }
+                    LibraryTab.HOME -> DiscoverScreen(
+                        viewModel = viewModel,
+                        onOpenSearchWithQuery = { query -> onOpenSearch(query) },
+                        onOpenPlaylist = onOpenPlaylist,
+                        onOpenSource = onOpenSource,
+                        onOpenArtist = onOpenArtist,
+                        onOpenAlbum = onOpenAlbum,
+                        onOpenSettings = onOpenSettings
                     )
 
                     LibraryTab.SONGS -> SongsTabContent(
@@ -376,15 +368,19 @@ fun LibraryScreen(
                         }
                     )
 
-                    LibraryTab.FOLDERS -> FoldersTabContent(
-                        folders = foldersGrouped,
-                        onFolderClick = { folderName, trackList ->
-                            detailTitle = folderName
-                            detailSubtitle = "${trackList.size} songs"
-                            detailCoverUri = trackList.firstOrNull()?.albumArtUri
-                            detailIsArtist = false
-                            detailTracks = trackList
+                    LibraryTab.DOWNLOAD -> DownloadsTabContent(
+                        downloadedTracks = downloadedTracks,
+                        viewModel = viewModel,
+                        onTrackClick = { dl ->
+                            val item = dl.toMediaItem()
+                            val list = downloadedTracks.map { it.toMediaItem() }
+                            viewModel.playTrack(item, list)
                         }
+                    )
+
+                    LibraryTab.DEVICE -> DeviceMusicTabContent(
+                        allAudio = allAudio,
+                        onSongClick = { song -> viewModel.playTrack(song, allAudio) }
                     )
 
                     LibraryTab.ALBUMS -> AlbumsTabContent(
@@ -405,6 +401,28 @@ fun LibraryScreen(
                             detailSubtitle = "${trackList.size} songs"
                             detailCoverUri = trackList.firstOrNull()?.albumArtUri
                             detailIsArtist = true
+                            detailTracks = trackList
+                        }
+                    )
+
+                    LibraryTab.GENRES -> GenresTabContent(
+                        songs = filteredSongs,
+                        onGenreClick = { genre, trackList ->
+                            detailTitle = "$genre Hits"
+                            detailSubtitle = "${trackList.size} songs"
+                            detailCoverUri = trackList.firstOrNull()?.albumArtUri
+                            detailIsArtist = false
+                            detailTracks = trackList
+                        }
+                    )
+
+                    LibraryTab.FOLDERS -> FoldersTabContent(
+                        folders = foldersGrouped,
+                        onFolderClick = { folderName, trackList ->
+                            detailTitle = folderName
+                            detailSubtitle = "${trackList.size} songs"
+                            detailCoverUri = trackList.firstOrNull()?.albumArtUri
+                            detailIsArtist = false
                             detailTracks = trackList
                         }
                     )
@@ -1518,6 +1536,309 @@ private fun AlbumVinylCard(
                 tint = Color(0xFF8E8E9B),
                 modifier = Modifier.size(16.dp)
             )
+        }
+    }
+}
+
+@Composable
+fun DownloadsTabContent(
+    downloadedTracks: List<DownloadedTrack>,
+    viewModel: MainViewModel,
+    onTrackClick: (DownloadedTrack) -> Unit
+) {
+    val downloadedMedia = remember(downloadedTracks) {
+        downloadedTracks.map { it.toMediaItem() }
+    }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val showScrollToTop by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 4 }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (downloadedTracks.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Rounded.DownloadDone,
+                        contentDescription = null,
+                        tint = Color(0xFF6B7280),
+                        modifier = Modifier.size(56.dp)
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        text = "No Downloaded Tracks",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "Download songs from YouTube or streaming sources to listen offline anytime.",
+                        color = Color(0xFF8E8E9B),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "${downloadedTracks.size} Offline Songs",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "High Quality • Available Offline",
+                                color = Color(0xFF10B981),
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                if (downloadedMedia.isNotEmpty()) {
+                                    viewModel.playTrack(downloadedMedia.shuffled().first(), downloadedMedia)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.12f)),
+                            shape = RoundedCornerShape(16.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Rounded.Shuffle, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Shuffle", color = Color.White, fontSize = 13.sp)
+                        }
+                    }
+                }
+
+                items(downloadedTracks, key = { it.key }) { track ->
+                    val mediaItem = remember(track) { track.toMediaItem() }
+                    SongItemRow(
+                        song = mediaItem,
+                        onClick = { onTrackClick(track) }
+                    )
+                }
+            }
+        }
+
+        val showFab by remember {
+            derivedStateOf { listState.firstVisibleItemIndex > 6 }
+        }
+        if (showFab) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 90.dp)
+                    .size(46.dp)
+                    .shadow(8.dp, CircleShape)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFFF7C2))
+                    .clickable {
+                        scope.launch { listState.animateScrollToItem(0) }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowUp,
+                    contentDescription = "Scroll to top",
+                    tint = Color.Black,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DeviceMusicTabContent(
+    allAudio: List<MediaItem>,
+    onSongClick: (MediaItem) -> Unit
+) {
+    val localAudio = remember(allAudio) {
+        allAudio.filter { it.isSong || it.durationMs > 15_000L }
+    }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (localAudio.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Rounded.FolderOpen,
+                        contentDescription = null,
+                        tint = Color(0xFF6B7280),
+                        modifier = Modifier.size(56.dp)
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        text = "No Local Audio Files Found",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "Place audio files in your Music or Download directory to play them here.",
+                        color = Color(0xFF8E8E9B),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "${localAudio.size} Tracks on Device",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                items(localAudio, key = { it.id }) { song ->
+                    SongItemRow(
+                        song = song,
+                        onClick = { onSongClick(song) }
+                    )
+                }
+            }
+        }
+
+        val showFab by remember {
+            derivedStateOf { listState.firstVisibleItemIndex > 6 }
+        }
+        if (showFab) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 90.dp)
+                    .size(46.dp)
+                    .shadow(8.dp, CircleShape)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFFF7C2))
+                    .clickable {
+                        scope.launch { listState.animateScrollToItem(0) }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowUp,
+                    contentDescription = "Scroll to top",
+                    tint = Color.Black,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun GenresTabContent(
+    songs: List<MediaItem>,
+    onGenreClick: (genreName: String, trackList: List<MediaItem>) -> Unit
+) {
+    val genreList = remember {
+        listOf(
+            "Pop" to listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)),
+            "Hip-Hop" to listOf(Color(0xFFEF4444), Color(0xFFB91C1C)),
+            "Bollywood" to listOf(Color(0xFFF59E0B), Color(0xFFD97706)),
+            "Rock" to listOf(Color(0xFF10B981), Color(0xFF047857)),
+            "Electronic" to listOf(Color(0xFF06B6D4), Color(0xFF0891B2)),
+            "R&B" to listOf(Color(0xFFEC4899), Color(0xFFBE185D)),
+            "Indie" to listOf(Color(0xFF14B8A6), Color(0xFF0F766E)),
+            "Classical" to listOf(Color(0xFF6366F1), Color(0xFF4338CA)),
+            "Jazz" to listOf(Color(0xFFF97316), Color(0xFFC2410C)),
+            "Lofi & Chill" to listOf(Color(0xFF3B82F6), Color(0xFF1D4ED8)),
+            "Tamil" to listOf(Color(0xFFD946EF), Color(0xFFA21CAF)),
+            "Punjabi" to listOf(Color(0xFFEAB308), Color(0xFFA16207))
+        )
+    }
+
+    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(genreList) { (genre, colors) ->
+            val matchingSongs = remember(songs, genre) {
+                songs.filter {
+                    it.name.contains(genre, ignoreCase = true) ||
+                    it.artist.contains(genre, ignoreCase = true) ||
+                    it.album.contains(genre, ignoreCase = true)
+                }.ifEmpty { songs.shuffled().take(15) }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Transparent,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(96.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { onGenreClick(genre, matchingSongs) }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Brush.linearGradient(colors))
+                        .padding(14.dp)
+                ) {
+                    Text(
+                        text = genre,
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.TopStart)
+                    )
+                    Text(
+                        text = "${matchingSongs.size} songs",
+                        color = Color.White.copy(alpha = 0.75f),
+                        fontSize = 11.5.sp,
+                        modifier = Modifier.align(Alignment.BottomStart)
+                    )
+                }
+            }
         }
     }
 }

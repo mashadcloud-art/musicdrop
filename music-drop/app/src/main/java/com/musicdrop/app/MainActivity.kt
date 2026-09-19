@@ -344,9 +344,8 @@ fun MainAppContent(viewModel: MainViewModel) {
     val positionMs by viewModel.playbackConnection.currentPositionMs.collectAsState()
     val durationMs by viewModel.playbackConnection.durationMs.collectAsState()
     val showFullPlayer by viewModel.showFullPlayer.collectAsState()
+    val showBottomNav by viewModel.showBottomNav.collectAsState()
     val appColors = LocalAppColors.current
-
-
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -358,7 +357,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                         .fillMaxWidth()
                         .background(appColors.background)
                 ) {
-                    // Persistent Mini Player Bar docked directly above the 3 tabs
+                    // Persistent Mini Player Bar docked directly above edge or tabs
                     if (!showFullPlayer && currentTrack != null) {
                         com.musicdrop.app.ui.components.MiniPlayerBar(
                             track = currentTrack,
@@ -368,43 +367,46 @@ fun MainAppContent(viewModel: MainViewModel) {
                             onClick = { viewModel.openFullPlayer() },
                             onPlayPause = { viewModel.playbackConnection.togglePlayPause() },
                             onSkipNext = { viewModel.playbackConnection.skipNext() },
-                            onSeek = { seekPos -> viewModel.playbackConnection.seekTo(seekPos) }
+                            onSeek = { seekPos -> viewModel.playbackConnection.seekTo(seekPos) },
+                            modifier = if (!showBottomNav) Modifier.navigationBarsPadding() else Modifier
                         )
                     }
 
-                    // Sleek YouTube Music 3-Tab Bottom Nav (Home, Explore, Library)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .height(52.dp),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        NavigationTab.values().forEach { tab ->
-                            val isSelected = currentTab == tab
-                            val itemColor = if (isSelected) appColors.textPrimary else appColors.textSecondary
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .clickable { currentTab = tab },
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = tab.icon,
-                                    contentDescription = tab.label,
-                                    tint = itemColor,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = tab.label,
-                                    color = itemColor,
-                                    fontSize = 10.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
+                    // Sleek Bottom Navigation Bar (Hidden by default, toggleable in settings)
+                    if (showBottomNav) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .navigationBarsPadding()
+                                .height(52.dp),
+                            horizontalArrangement = Arrangement.SpaceAround,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            NavigationTab.values().forEach { tab ->
+                                val isSelected = currentTab == tab
+                                val itemColor = if (isSelected) appColors.textPrimary else appColors.textSecondary
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clickable { currentTab = tab },
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = tab.icon,
+                                        contentDescription = tab.label,
+                                        tint = itemColor,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = tab.label,
+                                        color = itemColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
                             }
                         }
                     }
@@ -417,9 +419,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                     .padding(bottom = innerPadding.calculateBottomPadding())
             ) {
                 when (currentTab) {
-                    NavigationTab.HOME -> DiscoverScreen(
+                    NavigationTab.HOME, NavigationTab.LIBRARY -> LibraryScreen(
                         viewModel = viewModel,
-                        onOpenSearchWithQuery = { query ->
+                        onOpenSearch = { query ->
                             searchPreFill = query
                             viewModel.setYtSearchQuery(query)
                             currentTab = NavigationTab.SEARCH
@@ -445,16 +447,6 @@ fun MainAppContent(viewModel: MainViewModel) {
                             if (query.isNotBlank()) viewModel.setYtSearchQuery(query)
                             currentTab = NavigationTab.SEARCH
                         }
-                    )
-                    NavigationTab.LIBRARY -> LibraryScreen(
-                        viewModel = viewModel,
-                        onOpenSearch = { query ->
-                            searchPreFill = query
-                            if (query.isNotBlank()) viewModel.setYtSearchQuery(query)
-                            currentTab = NavigationTab.SEARCH
-                        },
-                        onOpenArtist = { openArtist = it },
-                        onOpenAlbum = { openAlbum = it }
                     )
                 }
             }

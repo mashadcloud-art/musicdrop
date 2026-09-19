@@ -122,9 +122,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _savedAlbums = MutableStateFlow<List<com.musicdrop.app.data.repository.SavedAlbumItem>>(emptyList())
     val savedAlbums: StateFlow<List<com.musicdrop.app.data.repository.SavedAlbumItem>> = _savedAlbums.asStateFlow()
 
+    // ---- Bottom Navigation Bar Toggle (Hidden by default) ----
+    private val settingsPrefs = application.getSharedPreferences("musicdrop_settings", android.content.Context.MODE_PRIVATE)
+    private val _showBottomNav = MutableStateFlow(settingsPrefs.getBoolean("show_bottom_nav", false))
+    val showBottomNav: StateFlow<Boolean> = _showBottomNav.asStateFlow()
+
+    fun setShowBottomNav(show: Boolean) {
+        _showBottomNav.value = show
+        settingsPrefs.edit().putBoolean("show_bottom_nav", show).apply()
+    }
+
+    // ---- Player Theme ----
+    private val _playerTheme = MutableStateFlow(
+        try {
+            val savedName = settingsPrefs.getString("player_theme", com.musicdrop.app.ui.theme.PlayerThemeId.DYNAMIC_BLUR.name)
+            com.musicdrop.app.ui.theme.PlayerThemeId.valueOf(savedName ?: com.musicdrop.app.ui.theme.PlayerThemeId.DYNAMIC_BLUR.name)
+        } catch (_: Exception) { com.musicdrop.app.ui.theme.PlayerThemeId.DYNAMIC_BLUR }
+    )
+    val playerTheme: StateFlow<com.musicdrop.app.ui.theme.PlayerThemeId> = _playerTheme.asStateFlow()
+
+    fun setPlayerTheme(theme: com.musicdrop.app.ui.theme.PlayerThemeId) {
+        _playerTheme.value = theme
+        settingsPrefs.edit().putString("player_theme", theme.name).apply()
+    }
+
+    val equalizerManager: com.musicdrop.app.playback.EqualizerManager?
+        get() = com.musicdrop.app.playback.FileDropMediaService.equalizerManager
+
     // ---- Hidden / Deleted Tracks (Filter unwanted songs from category feeds) ----
     private val _hiddenTrackKeys = MutableStateFlow<Set<String>>(com.musicdrop.app.data.repository.HiddenTracksStore.getHiddenKeys(application))
     val hiddenTrackKeys: StateFlow<Set<String>> = _hiddenTrackKeys.asStateFlow()
+
+    fun isTrackFavorite(mediaItem: MediaItem): Boolean {
+        val vid = mediaItem.filePath?.removePrefix("yt:") ?: mediaItem.id.toString()
+        return MusicFavoritesStore.isFavorite(getApplication(), vid)
+    }
+
+    fun toggleFavoriteTrack(mediaItem: MediaItem): Boolean {
+        val vid = mediaItem.filePath?.removePrefix("yt:") ?: mediaItem.id.toString()
+        val ytr = YouTubeSearchResult(
+            videoId = vid,
+            title = mediaItem.name,
+            channelTitle = mediaItem.artist,
+            thumbnailUrl = mediaItem.albumArtUri?.toString().orEmpty(),
+            duration = ""
+        )
+        val res = MusicFavoritesStore.toggle(getApplication(), ytr)
+        _ytFavorites.value = MusicFavoritesStore.getAll(getApplication())
+        return res
+    }
 
     fun hideTrack(track: UnifiedTrack) {
         val ctx = getApplication<Application>()

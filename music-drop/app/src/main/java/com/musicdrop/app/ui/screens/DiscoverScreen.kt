@@ -681,42 +681,7 @@ fun DiscoverScreen(
             }
                     }
 
-                    // ── Horizontal Mood / Activity Chips (Scrolls with feed) ──
-                    item {
-            // ── Horizontal Mood / Activity Chips (Matching Image 1) ─────────────────
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(ytMoodChips) { chip ->
-                    val isSelected = selectedMoodChip == chip
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(if (isSelected) appColors.textPrimary else appColors.surfaceElevated.copy(alpha = 0.7f))
-                            .border(
-                                width = 1.dp,
-                                color = if (isSelected) appColors.textPrimary else Color.White.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(18.dp)
-                            )
-                            .clickable {
-                                selectedMoodChip = if (isSelected) null else chip
-                            }
-                            .padding(horizontal = 14.dp, vertical = 7.dp)
-                    ) {
-                        Text(
-                            text = chip,
-                            color = if (isSelected) appColors.background else appColors.textPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-                    }
+
                     if (moodData != null) {
                         if (moodData.tracks1.isNotEmpty()) {
                             item {
