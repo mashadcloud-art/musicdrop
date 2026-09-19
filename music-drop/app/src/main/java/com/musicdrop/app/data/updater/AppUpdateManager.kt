@@ -3,6 +3,7 @@ package com.musicdrop.app.data.updater
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -11,11 +12,12 @@ import androidx.core.content.FileProvider
 import com.musicdrop.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
+import java.util.concurrent.TimeUnit
 
 data class AppUpdateInfo(
     val latestVersionCode: Int,
@@ -31,20 +33,30 @@ object AppUpdateManager {
     private const val GITHUB_VERSION_URL = "https://raw.githubusercontent.com/mashadcloud-art/musicdrop/main/version.json"
     private const val BACKUP_CONFIG_URL = "https://api.mxf-95274725.com/config/flags"
 
+    private val httpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+    }
+
     suspend fun checkForUpdate(context: Context): AppUpdateInfo? = withContext(Dispatchers.IO) {
         val currentCode = BuildConfig.VERSION_CODE
         val endpoints = listOf(GITHUB_VERSION_URL, BACKUP_CONFIG_URL)
 
         for (endpoint in endpoints) {
             try {
-                val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 4000
-                    readTimeout = 4000
-                    instanceFollowRedirects = true
-                    setRequestProperty("User-Agent", "MusicDrop/${BuildConfig.VERSION_NAME}")
-                }
-                if (conn.responseCode in 200..299) {
-                    val raw = conn.inputStream.bufferedReader().use { it.readText() }
+                val request = Request.Builder()
+                    .url(endpoint)
+                    .header("User-Agent", "MusicDrop/${BuildConfig.VERSION_NAME}")
+                    .header("Cache-Control", "no-cache")
+                    .build()
+
+                val response = httpClient.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val raw = response.body?.string() ?: continue
                     val json = JSONObject(raw)
                     val remoteCode = json.optInt("versionCode", json.optInt("min_version_code", 0))
                     val remoteName = json.optString("versionName", json.optString("version", ""))
@@ -52,7 +64,7 @@ object AppUpdateManager {
                     val title = json.optString("title", "MusicDrop $remoteName Available")
                     val changelog = json.optString(
                         "changelog",
-                        "• Full Screen Edge-to-Edge Top Video player\n• Persistent Video Mode across song changes\n• YouTube Music Brand Badge\n• Live in-app update & install"
+                        "• Fresh Trending Mix\n• Multi-Page Swipeable Speed Dial\n• Modern Transparent Background\n• Mobile Layout & Responsiveness Fixes"
                     )
                     val force = json.optBoolean("forceUpdate", false)
 
@@ -93,28 +105,53 @@ object AppUpdateManager {
             val apkFile = File(downloadsDir, "MusicDrop-v${updateInfo.latestVersionName}.apk")
             if (apkFile.exists()) apkFile.delete()
 
-            val conn = (URL(updateInfo.downloadUrl).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 8000
-                readTimeout = 15000
-                instanceFollowRedirects = true
-                setRequestProperty("User-Agent", "MusicDrop/${BuildConfig.VERSION_NAME}")
+            val request = Request.Builder()
+                .url(updateInfo.downloadUrl)
+                .header("User-Agent", "MusicDrop/${BuildConfig.VERSION_NAME}")
+                .header("Accept", "application/vnd.android.package-archive, application/octet-stream, */*")
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                withContext(Dispatchers.Main) {
+                    onError("Download failed: HTTP ${response.code}")
+                }
+                return@withContext
             }
 
-            val totalBytes = conn.contentLength.coerceAtLeast(1)
+            val body = response.body
+            if (body == null) {
+                withContext(Dispatchers.Main) { onError("Empty response from server") }
+                return@withContext
+            }
+
+            val totalBytes = body.contentLength().coerceAtLeast(1)
             var downloadedBytes = 0L
 
-            conn.inputStream.use { input ->
+            body.byteStream().use { input ->
                 FileOutputStream(apkFile).use { output ->
-                    val buffer = ByteArray(32 * 1024)
+                    val buffer = ByteArray(64 * 1024)
                     var bytesRead: Int
                     while (input.read(buffer).also { bytesRead = it } != -1) {
                         output.write(buffer, 0, bytesRead)
                         downloadedBytes += bytesRead
-                        val progress = (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
-                        withContext(Dispatchers.Main) { onProgress(progress) }
+                        if (totalBytes > 1) {
+                            val progress = (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
+                            withContext(Dispatchers.Main) { onProgress(progress) }
+                        }
                     }
                     output.flush()
                 }
+            }
+
+            // APK Integrity Verification
+            val packageInfo = activity.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+            if (packageInfo == null || apkFile.length() < 2_000_000) {
+                apkFile.delete()
+                withContext(Dispatchers.Main) {
+                    onError("Downloaded package is incomplete or corrupted (${apkFile.length()} bytes). Please try again.")
+                }
+                return@withContext
             }
 
             withContext(Dispatchers.Main) {
@@ -151,6 +188,22 @@ object AppUpdateManager {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+
+            // Grant read permission to all matching activities (essential for custom ROMs & Android 12+)
+            val resInfoList = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                activity.packageManager.queryIntentActivities(
+                    intent,
+                    PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                activity.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            }
+            for (resolveInfo in resInfoList) {
+                val packageName = resolveInfo.activityInfo.packageName
+                activity.grantUriPermission(packageName, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
             activity.startActivity(intent)
         } catch (e: Exception) {
             android.widget.Toast.makeText(
