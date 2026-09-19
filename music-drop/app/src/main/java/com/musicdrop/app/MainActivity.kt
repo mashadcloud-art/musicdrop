@@ -89,6 +89,7 @@ class MainActivity : ComponentActivity() {
             val appTheme by viewModel.appTheme.collectAsState()
             val availableUpdate by viewModel.availableUpdate.collectAsState()
             val updateProgress by viewModel.updateDownloadProgress.collectAsState()
+            val networkBanner by viewModel.networkStatusBanner.collectAsState()
             var showOpeningSplash by remember { mutableStateOf(shouldShowSplash) }
 
             FileDropTheme(themeMode = appTheme) {
@@ -96,6 +97,58 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize(), color = appColors.background) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         MainAppContent(viewModel = viewModel)
+
+                        // Floating Offline / Online Status Banner
+                        AnimatedVisibility(
+                            visible = networkBanner != null,
+                            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .statusBarsPadding()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            networkBanner?.let { message ->
+                                val isBackOnline = message.contains("back online", ignoreCase = true)
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (isBackOnline) Color(0xFF059669) else Color(0xFFDC2626),
+                                    shadowElevation = 8.dp,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isBackOnline) Icons.Filled.Wifi else Icons.Filled.WifiOff,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = message,
+                                            color = Color.White,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        IconButton(
+                                            onClick = { viewModel.dismissNetworkBanner() },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Close,
+                                                contentDescription = "Dismiss",
+                                                tint = Color.White.copy(alpha = 0.8f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
                         availableUpdate?.let { updateInfo ->
                             com.musicdrop.app.ui.components.AppUpdateDialog(

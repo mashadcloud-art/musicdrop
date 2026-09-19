@@ -61,6 +61,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val contactsRepository = ContactsRepository(application)
     private val appsRepository = InstalledAppsRepository(application)
     val playbackConnection = PlaybackConnection(application)
+    val networkMonitor = com.musicdrop.app.data.network.NetworkMonitor(application)
+    val isOnline: StateFlow<Boolean> = networkMonitor.isOnline
+    private val _networkStatusBanner = MutableStateFlow<String?>(null)
+    val networkStatusBanner: StateFlow<String?> = _networkStatusBanner.asStateFlow()
     // p2p removed for standalone MusicDrop app
 
     private val _storageStats = MutableStateFlow(StorageStats())
@@ -1630,6 +1634,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+
+        if (title.contains(" - ")) {
+            val parts = title.split(" - ").map { it.trim() }.filter { it.isNotBlank() }
+            for (p in parts) {
+                val lower = p.lowercase()
+                if (!lower.contains("official") && !lower.contains("video") && !lower.contains("audio") &&
+                    !lower.contains("lyrical") && !lower.contains("teaser") && !lower.contains("trailer") &&
+                    !lower.contains("song") && !lower.contains("feat") && p.length in 3..35) {
+                    return p
+                }
+            }
+        }
         return null
     }
 
@@ -2919,6 +2935,71 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Proactively resolves and caches the next upcoming song's stream URL 18s before
+     * the current track finishes. When the song ends, playback switches instantaneously
+     * with zero network latency, eliminating buffering pauses and gaps.
+     */
+    fun preloadNextTrack() {
+        // 1. Proactively keep queue filled so there's always something in the queue!
+        if (_upNextQueue.value.size < 4) {
+            val cur = _ytCurrentVideo.value
+            if (cur != null) {
+                fetchUpNextRadio(
+                    videoId = cur.videoId,
+                    fallbackQuery = cur.channelTitle.ifBlank { cur.title },
+                    forceAppend = true,
+                    title = cur.title
+                )
+            }
+        }
+
+        // 2. Pre-extract the top upcoming song's stream URL into memory & disk cache
+        val nextInQueue = _upNextQueue.value.firstOrNull() ?: return
+        val cached = streamCache[nextInQueue.videoId]?.takeIf { it.isFresh() }
+        if (cached != null) return // Already fresh in cache!
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val pWeb = com.musicdrop.app.data.youtube.PWebExtractor
+                    .getInstance(getApplication())
+                    .extract(nextInQueue.videoId, nextInQueue.title, nextInQueue.channelTitle, nextInQueue.thumbnailUrl)
+                if (pWeb != null) {
+                    cacheStream(pWeb)
+                } else {
+                    val np = NewPipeYouTubeExtractor.getInstance(getApplication()).extract(nextInQueue.videoId)
+                    if (np != null) {
+                        cacheStream(
+                            com.musicdrop.app.data.youtube.PWebExtractor.StreamInfo(
+                                url = np.url,
+                                mimeType = np.mimeType,
+                                title = nextInQueue.title,
+                                author = nextInQueue.channelTitle,
+                                thumbnailUrl = nextInQueue.thumbnailUrl,
+                                durationMs = np.durationSec * 1000L,
+                                videoId = nextInQueue.videoId,
+                                expiresAtMs = com.musicdrop.app.data.youtube.StreamCacheStore.expiryFromUrl(np.url)
+                            )
+                        )
+                    }
+                }
+            } catch (_: Throwable) {}
+        }
+    }
+
+    fun fallbackToOfflinePlayback() {
+        val downloaded = _downloadedTracks.value
+        if (downloaded.isNotEmpty()) {
+            val pick = downloaded.random()
+            playDownloadedTrack(pick, downloaded)
+            _networkStatusBanner.value = "You're offline — playing from your downloaded library"
+        }
+    }
+
+    fun dismissNetworkBanner() {
+        _networkStatusBanner.value = null
+    }
+
+    /**
      * Tries autoplay candidates one at a time and moves on to the next whenever a
      * YouTube stream fails to extract (blocked/expired) instead of surfacing an error
      * toast and leaving playback dead — that "song finished, nothing plays next" was
@@ -2926,7 +3007,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * fail in that mode. Silently gives up once every candidate has been tried.
      */
     private fun playCandidatesWithFallback(candidates: List<UnifiedTrack>) {
-        val next = candidates.firstOrNull() ?: return
+        val next = candidates.firstOrNull() ?: run {
+            if (!networkMonitor.isCurrentlyConnected()) {
+                fallbackToOfflinePlayback()
+            }
+            return
+        }
         val rest = candidates.drop(1)
 
         autoplayHistory.addLast(next.key)
@@ -3164,11 +3250,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // still doesn't work rather than failing silently.
         playbackConnection.onNeedsFreshStream = { currentPlaybackRetry?.invoke() }
         playbackConnection.onPlaybackEnded = { autoplayNext() }
+        playbackConnection.onPreloadNextTrack = { preloadNextTrack() }
         playbackConnection.onSkipPreviousAction = { playPreviousTrack() }
         playbackConnection.onSkipNextAction = { playNextTrackFromQueue() }
         playbackConnection.onPlaybackFailed = {
-            // Never stop playback on stream drop or error: immediately play next track in queue!
-            playNextTrackFromQueue()
+            if (!networkMonitor.isCurrentlyConnected()) {
+                fallbackToOfflinePlayback()
+            } else {
+                playNextTrackFromQueue()
+            }
+        }
+
+        // Real-time network monitor for offline/online banners and seamless local fallback
+        viewModelScope.launch {
+            var wasPreviouslyOnline: Boolean? = null
+            networkMonitor.isOnline.collect { online ->
+                if (wasPreviouslyOnline != null) {
+                    if (!online && wasPreviouslyOnline == true) {
+                        _networkStatusBanner.value = "You're offline — playing from your downloaded library"
+                    } else if (online && wasPreviouslyOnline == false) {
+                        _networkStatusBanner.value = "You're back online! Search & online streaming restored"
+                        launch {
+                            delay(4500)
+                            if (_networkStatusBanner.value?.contains("back online", ignoreCase = true) == true) {
+                                _networkStatusBanner.value = null
+                            }
+                        }
+                    }
+                }
+                wasPreviouslyOnline = online
+            }
         }
 
         // Let the lock screen / notification / Bluetooth "next" & "previous" controls

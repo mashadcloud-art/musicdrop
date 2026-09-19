@@ -70,6 +70,7 @@ class PlaybackConnection(private val context: Context) {
      * just stopping.
      */
     var onPlaybackEnded: (() -> Unit)? = null
+    var onPreloadNextTrack: (() -> Unit)? = null
 
     init {
         val sessionToken = SessionToken(context, ComponentName(context, FileDropMediaService::class.java))
@@ -199,14 +200,54 @@ class PlaybackConnection(private val context: Context) {
         })
     }
 
+    private var isPreloadTriggered = false
+    private var isCrossfadingOut = false
+    private var fadeInJob: kotlinx.coroutines.Job? = null
+
+    private fun fadeInVolume() {
+        fadeInJob?.cancel()
+        fadeInJob = scope.launch {
+            controller?.let { c ->
+                c.volume = 0.25f
+                for (step in 3..10) {
+                    delay(120)
+                    if (!isActive) break
+                    c.volume = step / 10f
+                }
+                c.volume = 1f
+            }
+        }
+    }
+
     private fun startProgressTracker() {
         progressJob?.cancel()
+        isCrossfadingOut = false
+        isPreloadTriggered = false
         progressJob = scope.launch {
             while (isActive) {
-                controller?.let {
-                    _currentPositionMs.value = it.currentPosition.coerceAtLeast(0L)
-                    val dur = it.duration
-                    if (dur > 0 && dur != androidx.media3.common.C.TIME_UNSET) _durationMs.value = dur
+                controller?.let { c ->
+                    val pos = c.currentPosition.coerceAtLeast(0L)
+                    _currentPositionMs.value = pos
+                    val dur = c.duration
+                    if (dur > 0 && dur != androidx.media3.common.C.TIME_UNSET) {
+                        _durationMs.value = dur
+
+                        // 1. Preload & pre-resolve the next track 18 seconds before end
+                        if (dur > 25_000L && pos >= (dur - 18_000L) && !isPreloadTriggered) {
+                            isPreloadTriggered = true
+                            onPreloadNextTrack?.invoke()
+                        }
+
+                        // 2. Smooth DJ Mashup Crossfade: gentle fade-out during last 4.5 seconds
+                        if (dur > 10_000L && pos >= (dur - 4_500L)) {
+                            isCrossfadingOut = true
+                            val remaining = (dur - pos).coerceAtLeast(0L)
+                            val fadeVol = (remaining / 4_500f).coerceIn(0.08f, 1f)
+                            c.volume = fadeVol
+                        } else if (!isCrossfadingOut && (fadeInJob == null || fadeInJob?.isActive == false)) {
+                            if (c.volume < 1f) c.volume = 1f
+                        }
+                    }
                 }
                 delay(300)
             }
@@ -273,9 +314,11 @@ class PlaybackConnection(private val context: Context) {
         val startIndex = currentList.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
 
         withController { c ->
+            c.volume = 0.25f
             c.setMediaItems(mediaItems, startIndex, startPositionMs)
             c.prepare()
             c.play()
+            fadeInVolume()
         }
     }
 

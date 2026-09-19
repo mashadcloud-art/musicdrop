@@ -18,6 +18,9 @@ import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.musicdrop.app.MainActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class FileDropMediaService : MediaSessionService() {
 
@@ -114,8 +117,15 @@ class FileDropMediaService : MediaSessionService() {
             .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
-            .setWakeMode(C.WAKE_MODE_NETWORK)
-            .build()
+            .build().apply {
+                // Eliminate leading/trailing dead air & silence so tracks start and end instantly
+                skipSilenceEnabled = true
+            }
+
+        // Auto-clean audio cache older than 30 minutes in background
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            com.musicdrop.app.data.cache.AudioCacheManager.pruneOldAudioCache(applicationContext)
+        }
 
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -129,6 +139,17 @@ class FileDropMediaService : MediaSessionService() {
                         if (wakeLock?.isHeld == true) wakeLock?.release()
                         if (wifiLock?.isHeld == true) wifiLock?.release()
                     } catch (e: Exception) { e.printStackTrace() }
+                }
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    // Guaranteed background queue auto-advance when song ends naturally
+                    if (player.hasNextMediaItem()) {
+                        player.seekToNextMediaItem()
+                    } else if (PlaybackQueueBridge.hasNext()) {
+                        PlaybackQueueBridge.onNext()
+                    }
                 }
             }
         })
