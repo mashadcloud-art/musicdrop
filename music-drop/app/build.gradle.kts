@@ -22,8 +22,8 @@ android {
         applicationId = "com.musicdrop.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 145
-        versionName = "1.3.5"
+        versionCode = 146
+        versionName = "1.3.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

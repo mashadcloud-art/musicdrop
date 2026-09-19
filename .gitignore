@@ -30,3 +30,7 @@ badging_*.txt
 *.tmp
 node_modules/
 *MusicPlayer-APK-Extract*
+extracted_themes/
+musicplayer/
+assets/
+res/

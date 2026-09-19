@@ -1,8 +1,8 @@
 {
-  "versionCode": 145,
-  "versionName": "1.3.5",
-  "title": "MusicDrop v1.3.5 Available",
-  "changelog": "• Master 9-Tab Swipeable Hub: Home, Songs, Playlists, Download, Device, Albums, Artists, Genres, Folders with smooth horizontal swipe navigation\n• Minimal Edge-to-Edge Experience: Bottom navigation bar hidden by default with edge-to-edge footer player, toggleable in Settings\n• Modern Music Player Overhaul: Centered Song / Lyrics toggle, 8 dynamic themes & blurred ambient backgrounds\n• Floating Pill Seekbar: Progress slider with centered [ 1:40 / 2:10 ] badge and +/-10s seek buttons\n• 5-Icon Utility Row: Favorite heart, Add to Playlist, Hardware Equalizer with ON indicator, Sleep Timer, and Queue sheet\n• Audio Equalizer & Bass Boost: Real hardware-accelerated 5-band audio equalizer, bass boost, and surround virtualizer with audio presets\n• Synchronized Lyrics: Auto-scrolling and interactive tap-to-seek lyrics view",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.5/MusicDrop-v1.3.5.apk",
+  "versionCode": 146,
+  "versionName": "1.3.6",
+  "title": "MusicDrop v1.3.6 Available",
+  "changelog": "• Theme & Skin Studio: 4 layout skins (Rounded Card, Radial Vinyl Ring with center digital time counter, Radial Ring Up Next Drawer, Scenic Mountain Wallpaper) inspired by extracted player styles\n• Video Mode & Direct Embedded Player: 3-way toggle (Song | Video | Lyrics) with instant embedded HD playback\n• Direct Download Hub: Download Audio (MP3 320kbps) & Download Video (MP4 HD) right from the player utility row\n• Pure Gradient Backgrounds: Clean, vivid theme backdrops with removed blown-up cover art blur\n• Collapsible Dashboard Header: Sticky icon tabs with scroll-collapse branding header\n• Immersive System Bars: Hidden Android navigation bar for distraction-free edge-to-edge experience",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.6/MusicDrop-v1.3.6.apk",
   "forceUpdate": false
 }

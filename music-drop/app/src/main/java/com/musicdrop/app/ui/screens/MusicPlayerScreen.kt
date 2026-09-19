@@ -41,6 +41,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.viewinterop.AndroidView
+import com.musicdrop.app.ui.components.YouTubeIFramePlayer
+import com.musicdrop.app.ui.theme.PlayerSkinLayout
 import com.musicdrop.app.data.model.UnifiedTrack
 import com.musicdrop.app.ui.components.AddToPlaylistDialog
 import com.musicdrop.app.ui.components.EqualizerDialog
@@ -73,7 +79,9 @@ fun MusicPlayerScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val appColors = LocalAppColors.current
 
-    // 0: Song, 1: Lyrics
+    val playerSkinLayout by viewModel.playerSkinLayout.collectAsState()
+
+    // 0: Song, 1: Video, 2: Lyrics
     var activeTab by remember { mutableIntStateOf(0) }
     var sliderDragging by remember { mutableFloatStateOf(-1f) }
     var isLiked by remember { mutableStateOf(false) }
@@ -84,6 +92,7 @@ fun MusicPlayerScreen(
     var showAddToPlaylist by remember { mutableStateOf(false) }
     var showQueueModal by remember { mutableStateOf(false) }
     var showSleepTimerModal by remember { mutableStateOf(false) }
+    var showDownloadModal by remember { mutableStateOf(false) }
     var sleepTimerTargetMs by remember { mutableLongStateOf(0L) }
     var showOptionsMenu by remember { mutableStateOf(false) }
 
@@ -124,15 +133,15 @@ fun MusicPlayerScreen(
 
     val lyricsListState = rememberLazyListState()
     LaunchedEffect(activeLyricIndex, activeTab) {
-        if (activeTab == 1 && activeLyricIndex in syncedLines.indices) {
+        if (activeTab == 2 && activeLyricIndex in syncedLines.indices) {
             try {
                 lyricsListState.animateScrollToItem(maxOf(0, activeLyricIndex - 2))
             } catch (_: Exception) {}
         }
     }
 
-    // Background dynamic ambient gradient
-    val dynamicGradient = remember(playerTheme, currentTrack?.albumArtUri) {
+    // Background dynamic ambient gradient (Pure aesthetic theme colors, no blown-up cover art)
+    val dynamicGradient = remember(playerTheme) {
         playerTheme.getBackgroundBrush(fallbackAccent = Color(0xFF1E3A5F))
     }
 
@@ -148,18 +157,6 @@ fun MusicPlayerScreen(
                 }
             }
     ) {
-        // Ambient background image blur layer
-        currentTrack?.albumArtUri?.let { artUri ->
-            AsyncImage(
-                model = artUri,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .alpha(0.18f)
-            )
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -168,7 +165,7 @@ fun MusicPlayerScreen(
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── 1. TOP BAR: DOWN CHEVRON | SONG / LYRICS | THEME & MORE ──
+            // ── 1. TOP BAR: DOWN CHEVRON | SONG / VIDEO / LYRICS | THEME & MORE ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -186,38 +183,54 @@ fun MusicPlayerScreen(
                     )
                 }
 
-                // Centered "Song | Lyrics" Header Toggle (Matching Screenshot)
+                // Centered "Song | Video | Lyrics" Header Toggle
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                        .background(Color.White.copy(alpha = 0.09f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
                     Text(
                         text = "Song",
                         color = if (activeTab == 0) Color.White else Color.White.copy(alpha = 0.45f),
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         fontWeight = if (activeTab == 0) FontWeight.Bold else FontWeight.Medium,
                         modifier = Modifier
                             .clickable { activeTab = 0 }
-                            .padding(horizontal = 8.dp)
+                            .padding(horizontal = 6.dp)
                     )
 
                     Text(
                         text = "|",
                         color = Color.White.copy(alpha = 0.25f),
-                        fontSize = 14.sp
+                        fontSize = 13.sp
+                    )
+
+                    Text(
+                        text = "Video",
+                        color = if (activeTab == 1) Color.White else Color.White.copy(alpha = 0.45f),
+                        fontSize = 14.sp,
+                        fontWeight = if (activeTab == 1) FontWeight.Bold else FontWeight.Medium,
+                        modifier = Modifier
+                            .clickable { activeTab = 1 }
+                            .padding(horizontal = 6.dp)
+                    )
+
+                    Text(
+                        text = "|",
+                        color = Color.White.copy(alpha = 0.25f),
+                        fontSize = 13.sp
                     )
 
                     Text(
                         text = "Lyrics",
-                        color = if (activeTab == 1) Color.White else Color.White.copy(alpha = 0.45f),
-                        fontSize = 15.sp,
-                        fontWeight = if (activeTab == 1) FontWeight.Bold else FontWeight.Medium,
+                        color = if (activeTab == 2) Color.White else Color.White.copy(alpha = 0.45f),
+                        fontSize = 14.sp,
+                        fontWeight = if (activeTab == 2) FontWeight.Bold else FontWeight.Medium,
                         modifier = Modifier
-                            .clickable { activeTab = 1 }
-                            .padding(horizontal = 8.dp)
+                            .clickable { activeTab = 2 }
+                            .padding(horizontal = 6.dp)
                     )
                 }
 
@@ -247,6 +260,22 @@ fun MusicPlayerScreen(
                             onDismissRequest = { showOptionsMenu = false },
                             modifier = Modifier.background(Color(0xFF1E1B2E))
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Download (Audio / Video)", color = Color.White) },
+                                leadingIcon = { Icon(Icons.Rounded.Download, null, tint = Color(0xFFF59E0B)) },
+                                onClick = {
+                                    showOptionsMenu = false
+                                    showDownloadModal = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Watch Official Video", color = Color.White) },
+                                leadingIcon = { Icon(Icons.Rounded.PlayCircle, null, tint = Color(0xFFE11D48)) },
+                                onClick = {
+                                    showOptionsMenu = false
+                                    activeTab = 1
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Equalizer", color = Color.White) },
                                 leadingIcon = { Icon(Icons.Rounded.Tune, null, tint = Color(0xFF10B981)) },
@@ -286,146 +315,317 @@ fun MusicPlayerScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            // ── 2. CENTER CONTENT (SONG COVER OR LYRICS VIEW) ──
+            // ── 2. CENTER CONTENT (SONG COVER, VIDEO, OR LYRICS VIEW) ──
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                if (activeTab == 0) {
-                    // ── SONG VIEW: HERO ALBUM COVER ──
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(22.dp),
-                            color = Color(0xFF1B1B22),
-                            shadowElevation = 18.dp,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
-                            modifier = Modifier
-                                .size(285.dp)
-                                .shadow(24.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.8f))
-                        ) {
-                            val artUri = currentTrack?.albumArtUri
-                            if (artUri != null) {
-                                AsyncImage(
-                                    model = artUri,
-                                    contentDescription = "Cover Art",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
+                when (activeTab) {
+                    0 -> {
+                        // ── SONG VIEW: SUPPORTS ALL 4 PLAYER SKINS ──
+                        val effectiveProgress = if (sliderDragging >= 0f) sliderDragging else {
+                            if (durationMs > 0L) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+                        }
+                        val displayPositionMs = if (sliderDragging >= 0f) (sliderDragging * durationMs).toLong() else positionMs
+
+                        when (playerSkinLayout) {
+                            PlayerSkinLayout.RADIAL_RING,
+                            PlayerSkinLayout.RADIAL_DRAWER -> {
+                                // ── 2. RADIAL VINYL / SWEEP RING SKIN (MATCHING SCREENSHOT 2 & 3) ──
+                                val sweepAngle = effectiveProgress * 360f
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(Brush.radialGradient(listOf(Color(0xFF2C3E50), Color(0xFF0F2027)))),
+                                        .size(270.dp)
+                                        .padding(8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.MusicNote,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = 0.6f),
-                                        modifier = Modifier.size(80.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // ── LYRICS VIEW: SYNCHRONIZED SCROLLING KARAOKE ──
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        when {
-                            lyricsLoading -> {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.5.dp)
-                                    Spacer(Modifier.height(12.dp))
-                                    Text("Fetching lyrics...", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
-                                }
-                            }
-                            syncedLines.isNotEmpty() -> {
-                                LazyColumn(
-                                    state = lyricsListState,
-                                    contentPadding = PaddingValues(vertical = 120.dp),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    itemsIndexed(syncedLines) { index, linePair ->
-                                        val isActive = index == activeLyricIndex
-                                        val lineTimeMs = linePair.first
-                                        val lineText = linePair.second
-
-                                        Text(
-                                            text = lineText,
-                                            color = if (isActive) Color.White else Color.White.copy(alpha = 0.35f),
-                                            fontSize = if (isActive) 22.sp else 16.sp,
-                                            fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Medium,
-                                            lineHeight = if (isActive) 30.sp else 24.sp,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable {
-                                                    connection.seekTo(lineTimeMs)
-                                                }
-                                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                                    // Outer Arc Track with live progress sweep
+                                    Canvas(modifier = Modifier.size(260.dp)) {
+                                        drawArc(
+                                            color = Color.White.copy(alpha = 0.18f),
+                                            startAngle = -90f,
+                                            sweepAngle = 360f,
+                                            useCenter = false,
+                                            style = Stroke(width = 4.5.dp.toPx(), cap = StrokeCap.Round)
                                         )
+                                        drawArc(
+                                            color = Color.White,
+                                            startAngle = -90f,
+                                            sweepAngle = sweepAngle,
+                                            useCenter = false,
+                                            style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                                        )
+                                    }
+
+                                    // Circular Artwork & Digital Center Timer
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color(0xFF1B1B22),
+                                        shadowElevation = 16.dp,
+                                        modifier = Modifier.size(236.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            val artUri = currentTrack?.albumArtUri
+                                            if (artUri != null) {
+                                                AsyncImage(
+                                                    model = artUri,
+                                                    contentDescription = "Cover Art",
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .alpha(0.55f)
+                                                )
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(
+                                                            Brush.radialGradient(
+                                                                listOf(Color(0xFF38234A), Color(0xFF0F0B18))
+                                                            )
+                                                        )
+                                                )
+                                            }
+
+                                            // Center Digital Time Counter "1:20" (Per Screenshot)
+                                            Text(
+                                                text = formatMs(displayPositionMs),
+                                                color = Color.White,
+                                                fontSize = 32.sp,
+                                                fontWeight = FontWeight.Black,
+                                                letterSpacing = 1.sp,
+                                                style = androidx.compose.ui.text.TextStyle(
+                                                    shadow = androidx.compose.ui.graphics.Shadow(
+                                                        color = Color.Black.copy(alpha = 0.8f),
+                                                        blurRadius = 12f
+                                                    )
+                                                )
+                                            )
+                                        }
                                     }
                                 }
                             }
-                            lyrics?.plainLyrics?.isNotBlank() == true -> {
-                                LazyColumn(
-                                    contentPadding = PaddingValues(vertical = 24.dp),
-                                    modifier = Modifier.fillMaxSize()
+                            PlayerSkinLayout.IMMERSIVE_DRAWER -> {
+                                // ── 4. SCENIC IMMERSIVE WALLPAPER SKIN (MATCHING SCREENSHOT 4) ──
+                                Surface(
+                                    shape = RoundedCornerShape(26.dp),
+                                    color = Color(0xFF1B1B22),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                    shadowElevation = 20.dp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(290.dp)
                                 ) {
-                                    item {
-                                        Text(
-                                            text = lyrics?.plainLyrics.orEmpty(),
-                                            color = Color.White.copy(alpha = 0.85f),
-                                            fontSize = 17.sp,
-                                            lineHeight = 32.sp,
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
+                                    Box(contentAlignment = Alignment.Center) {
+                                        val artUri = currentTrack?.albumArtUri
+                                        if (artUri != null) {
+                                            AsyncImage(
+                                                model = artUri,
+                                                contentDescription = "Cover Art",
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(
+                                                        Brush.verticalGradient(
+                                                            listOf(Color(0xFF2C3E50), Color(0xFF101921))
+                                                        )
+                                                    )
+                                            )
+                                        }
                                     }
                                 }
                             }
                             else -> {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
+                                // ── 1. MODERN CARD SKIN (HERO ALBUM COVER - SCREENSHOT 1) ──
+                                Surface(
+                                    shape = RoundedCornerShape(22.dp),
+                                    color = Color(0xFF1B1B22),
+                                    shadowElevation = 18.dp,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                                    modifier = Modifier
+                                        .size(285.dp)
+                                        .shadow(24.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.8f))
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Lyrics,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = 0.4f),
-                                        modifier = Modifier.size(54.dp)
-                                    )
-                                    Spacer(Modifier.height(14.dp))
-                                    Text(
-                                        "No lyrics found for this song",
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Spacer(Modifier.height(12.dp))
-                                    Button(
-                                        onClick = {
-                                            currentTrack?.let {
-                                                viewModel.fetchLyrics(it.name, it.artist)
+                                    val artUri = currentTrack?.albumArtUri
+                                    if (artUri != null) {
+                                        AsyncImage(
+                                            model = artUri,
+                                            contentDescription = "Cover Art",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Brush.radialGradient(listOf(Color(0xFF2C3E50), Color(0xFF0F2027)))),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.MusicNote,
+                                                contentDescription = null,
+                                                tint = Color.White.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(80.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    1 -> {
+                        // ── VIDEO VIEW: EMBEDDED HIGH-DEFINITION VIDEO PLAYBACK ──
+                        val ytVideoId = remember(currentTrack) {
+                            val track = currentTrack
+                            val path = track?.filePath.orEmpty()
+                            val art = track?.albumArtUri?.toString().orEmpty()
+                            when {
+                                path.startsWith("yt:") -> path.removePrefix("yt:")
+                                path.length == 11 && !path.contains("/") && !path.contains(".") -> path
+                                art.contains("/vi/") -> art.substringAfter("/vi/").substringBefore("/")
+                                else -> viewModel.ytCurrentVideo.value?.videoId
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(285.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(Color.Black),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (ytVideoId != null && ytVideoId.isNotBlank()) {
+                                YouTubeIFramePlayer(
+                                    videoId = ytVideoId,
+                                    isPlaying = isPlaying,
+                                    currentPositionMs = positionMs,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                AndroidView(
+                                    factory = { ctx ->
+                                        try {
+                                            androidx.media3.ui.PlayerView(ctx).apply {
+                                                useController = false
+                                                useArtwork = false
+                                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                                connection.bindPlayerView(this)
                                             }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f)),
-                                        shape = RoundedCornerShape(20.dp)
+                                        } catch (_: Throwable) {
+                                            android.view.View(ctx)
+                                        }
+                                    },
+                                    update = { pv ->
+                                        try {
+                                            if (pv is androidx.media3.ui.PlayerView) {
+                                                connection.bindPlayerView(pv)
+                                            }
+                                        } catch (_: Throwable) {}
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        // ── LYRICS VIEW: SYNCHRONIZED SCROLLING KARAOKE ──
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when {
+                                lyricsLoading -> {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.5.dp)
+                                        Spacer(Modifier.height(12.dp))
+                                        Text("Fetching lyrics...", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+                                    }
+                                }
+                                syncedLines.isNotEmpty() -> {
+                                    LazyColumn(
+                                        state = lyricsListState,
+                                        contentPadding = PaddingValues(vertical = 120.dp),
+                                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                                        modifier = Modifier.fillMaxSize()
                                     ) {
-                                        Text("Search Lyrics", color = Color.White, fontSize = 13.sp)
+                                        itemsIndexed(syncedLines) { index, linePair ->
+                                            val isActive = index == activeLyricIndex
+                                            val lineTimeMs = linePair.first
+                                            val lineText = linePair.second
+
+                                            Text(
+                                                text = lineText,
+                                                color = if (isActive) Color.White else Color.White.copy(alpha = 0.35f),
+                                                fontSize = if (isActive) 22.sp else 16.sp,
+                                                fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Medium,
+                                                lineHeight = if (isActive) 30.sp else 24.sp,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        connection.seekTo(lineTimeMs)
+                                                    }
+                                                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                lyrics?.plainLyrics?.isNotBlank() == true -> {
+                                    LazyColumn(
+                                        contentPadding = PaddingValues(vertical = 24.dp),
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        item {
+                                            Text(
+                                                text = lyrics?.plainLyrics.orEmpty(),
+                                                color = Color.White.copy(alpha = 0.85f),
+                                                fontSize = 17.sp,
+                                                lineHeight = 32.sp,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Lyrics,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = 0.4f),
+                                            modifier = Modifier.size(54.dp)
+                                        )
+                                        Spacer(Modifier.height(14.dp))
+                                        Text(
+                                            "No lyrics found for this song",
+                                            color = Color.White.copy(alpha = 0.7f),
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Spacer(Modifier.height(12.dp))
+                                        Button(
+                                            onClick = {
+                                                currentTrack?.let {
+                                                    viewModel.fetchLyrics(it.name, it.artist)
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                                            shape = RoundedCornerShape(20.dp)
+                                        ) {
+                                            Text("Search Lyrics", color = Color.White, fontSize = 13.sp)
+                                        }
                                     }
                                 }
                             }
@@ -464,8 +664,8 @@ fun MusicPlayerScreen(
 
             Spacer(Modifier.height(18.dp))
 
-            // ── 4. UTILITY TOOL ROW: 5 ICONS (MATCHING SCREENSHOT) ──
-            // [ 🤍 Like ] [ ➕≣ Add to Playlist ] [ 🎚️ ON Equalizer ] [ ⏱️ Sleep Timer ] [ ≣ Queue ]
+            // ── 4. UTILITY TOOL ROW: 6 ICONS ──
+            // [ 🤍 Like ] [ ⬇ Download ] [ ➕≣ Add to Playlist ] [ 🎚️ ON Equalizer ] [ ⏱️ Sleep Timer ] [ ≣ Queue ]
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -483,36 +683,49 @@ fun MusicPlayerScreen(
                             Toast.makeText(context, if (newFav) "Added to Favorites" else "Removed from Favorites", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    modifier = Modifier.size(42.dp)
+                    modifier = Modifier.size(38.dp)
                 ) {
                     Icon(
                         imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = "Favorite",
                         tint = if (isLiked) Color(0xFFEF4444) else Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.size(23.dp)
+                    )
+                }
+
+                // 2. Direct Download (Audio MP3 / Video MP4)
+                IconButton(
+                    onClick = { showDownloadModal = true },
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Download,
+                        contentDescription = "Download Track",
+                        tint = Color(0xFFF59E0B),
                         modifier = Modifier.size(24.dp)
                     )
                 }
 
-                // 2. Add to Playlist
+                // 3. Add to Playlist
                 IconButton(
                     onClick = { showAddToPlaylist = true },
-                    modifier = Modifier.size(42.dp)
+                    modifier = Modifier.size(38.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
                         contentDescription = "Add to Playlist",
                         tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(25.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
-                // 3. Equalizer Button with "ON" Badge (Per User Screenshot)
+                // 4. Equalizer Button with "ON" Badge
                 val isEqOn = eqState?.isEnabled == true
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
                         .clickable { showEqualizerModal = true }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -520,20 +733,20 @@ fun MusicPlayerScreen(
                             imageVector = Icons.Rounded.Tune,
                             contentDescription = "Equalizer",
                             tint = if (isEqOn) Color(0xFF10B981) else Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(21.dp)
                         )
                         if (isEqOn) {
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(3.dp))
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
                                     .background(Color(0xFF10B981))
-                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    .padding(horizontal = 3.dp, vertical = 1.dp)
                             ) {
                                 Text(
                                     text = "ON",
                                     color = Color.Black,
-                                    fontSize = 9.sp,
+                                    fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Black
                                 )
                             }
@@ -541,29 +754,29 @@ fun MusicPlayerScreen(
                     }
                 }
 
-                // 4. Sleep Timer Clock Icon
+                // 5. Sleep Timer Clock Icon
                 IconButton(
                     onClick = { showSleepTimerModal = true },
-                    modifier = Modifier.size(42.dp)
+                    modifier = Modifier.size(38.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Schedule,
                         contentDescription = "Sleep Timer",
                         tint = if (sleepTimerTargetMs > 0L) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(23.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
-                // 5. Queue / Current Playlist Icon
+                // 6. Queue / Current Playlist Icon
                 IconButton(
                     onClick = { showQueueModal = true },
-                    modifier = Modifier.size(42.dp)
+                    modifier = Modifier.size(38.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
                         contentDescription = "Queue",
                         tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(23.dp)
                     )
                 }
             }
@@ -891,6 +1104,176 @@ fun MusicPlayerScreen(
                             )
                         }
                     }
+                }
+            }
+        }
+
+        // Download Choice Dialog
+        if (showDownloadModal) {
+            val cur = currentTrack
+            DownloadChoiceDialog(
+                trackName = cur?.name ?: "Current Track",
+                onDownloadAudio = {
+                    if (cur != null) {
+                        Toast.makeText(context, "Starting MP3 Audio download...", Toast.LENGTH_SHORT).show()
+                        viewModel.downloadCurrentTrack { success, path ->
+                            Toast.makeText(
+                                context,
+                                if (success) "Downloaded audio to Music" else "Download failed",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                },
+                onDownloadVideo = {
+                    if (cur != null) {
+                        Toast.makeText(context, "Extracting HD Video stream...", Toast.LENGTH_SHORT).show()
+                        viewModel.downloadCurrentVideo { success, path ->
+                            Toast.makeText(
+                                context,
+                                if (success) "Downloaded HD video to Movies" else "Video download unavailable for this track",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                },
+                onDismiss = { showDownloadModal = false }
+            )
+        }
+    }
+}
+
+@Composable
+fun DownloadChoiceDialog(
+    trackName: String,
+    onDownloadAudio: () -> Unit,
+    onDownloadVideo: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF1E1B2E),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+            shadowElevation = 18.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF59E0B).copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Download,
+                        contentDescription = null,
+                        tint = Color(0xFFF59E0B),
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                Text(
+                    text = "Download Options",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    text = trackName,
+                    color = Color.White.copy(alpha = 0.65f),
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                // Option 1: Audio (MP3 320k)
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White.copy(alpha = 0.08f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                    onClick = {
+                        onDownloadAudio()
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF10B981).copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Rounded.MusicNote, null, tint = Color(0xFF10B981), modifier = Modifier.size(22.dp))
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Download Audio (MP3)", color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
+                            Text("High Quality 320kbps for offline listening", color = Color.White.copy(alpha = 0.5f), fontSize = 11.5.sp)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Option 2: Video (MP4 HD)
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White.copy(alpha = 0.08f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                    onClick = {
+                        onDownloadVideo()
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE11D48).copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Rounded.PlayCircle, null, tint = Color(0xFFE11D48), modifier = Modifier.size(22.dp))
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Download Video (MP4 HD)", color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Crisp 1080p / 720p official music video", color = Color.White.copy(alpha = 0.5f), fontSize = 11.5.sp)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
+
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancel", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
                 }
             }
         }

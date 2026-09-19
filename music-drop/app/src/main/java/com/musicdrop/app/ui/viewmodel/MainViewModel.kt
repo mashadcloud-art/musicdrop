@@ -143,7 +143,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setPlayerTheme(theme: com.musicdrop.app.ui.theme.PlayerThemeId) {
         _playerTheme.value = theme
-        settingsPrefs.edit().putString("player_theme", theme.name).apply()
+        _playerSkinLayout.value = theme.defaultSkin
+        settingsPrefs.edit().putString("player_theme", theme.name).putString("player_skin_layout", theme.defaultSkin.name).apply()
+    }
+
+    // ---- Player Skin Layout ----
+    private val _playerSkinLayout = MutableStateFlow(
+        try {
+            val savedSkin = settingsPrefs.getString("player_skin_layout", com.musicdrop.app.ui.theme.PlayerSkinLayout.ROUNDED_CARD.name)
+            com.musicdrop.app.ui.theme.PlayerSkinLayout.valueOf(savedSkin ?: com.musicdrop.app.ui.theme.PlayerSkinLayout.ROUNDED_CARD.name)
+        } catch (_: Exception) { com.musicdrop.app.ui.theme.PlayerSkinLayout.ROUNDED_CARD }
+    )
+    val playerSkinLayout: StateFlow<com.musicdrop.app.ui.theme.PlayerSkinLayout> = _playerSkinLayout.asStateFlow()
+
+    fun setPlayerSkinLayout(skin: com.musicdrop.app.ui.theme.PlayerSkinLayout) {
+        _playerSkinLayout.value = skin
+        settingsPrefs.edit().putString("player_skin_layout", skin.name).apply()
     }
 
     val equalizerManager: com.musicdrop.app.playback.EqualizerManager?

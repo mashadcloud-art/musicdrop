@@ -43,6 +43,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.musicdrop.app.data.model.MediaItem
@@ -56,16 +64,16 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class LibraryTab(val label: String) {
-    HOME("Home"),
-    SONGS("Songs"),
-    PLAYLISTS("Playlists"),
-    DOWNLOAD("Download"),
-    DEVICE("Device"),
-    ALBUMS("Albums"),
-    ARTISTS("Artists"),
-    GENRES("Genres"),
-    FOLDERS("Folders")
+enum class LibraryTab(val label: String, val icon: ImageVector) {
+    HOME("Home", Icons.Rounded.Home),
+    SONGS("Songs", Icons.Rounded.MusicNote),
+    PLAYLISTS("Playlists", Icons.AutoMirrored.Rounded.QueueMusic),
+    DOWNLOAD("Download", Icons.Rounded.Download),
+    DEVICE("Device", Icons.Rounded.PhoneAndroid),
+    ALBUMS("Albums", Icons.Rounded.Album),
+    ARTISTS("Artists", Icons.Rounded.Person),
+    GENRES("Genres", Icons.Rounded.Category),
+    FOLDERS("Folders", Icons.Rounded.Folder)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -182,42 +190,144 @@ fun LibraryScreen(
     val tabs = LibraryTab.values()
     val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
 
+    var isTopBarVisible by remember { mutableStateOf(true) }
+    val nestedScrollConnection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                val delta = available.y
+                if (delta < -14f && isTopBarVisible) {
+                    isTopBarVisible = false
+                } else if (delta > 14f && !isTopBarVisible) {
+                    isTopBarVisible = true
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0C0C10))
+            .nestedScroll(nestedScrollConnection)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // ── TOP BAR: BACK & SEARCH IN LIBRARY ────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // ── 1. OFFICIAL MUSICDROP BRAND HEADER (Matching Image 4) ─────────────────
+            AnimatedVisibility(
+                visible = isTopBarVisible,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
             ) {
-                IconButton(
-                    onClick = { onOpenSearch("") },
-                    modifier = Modifier.size(36.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
-                    )
+                    // Left: Bird Logo + "Music" + "Drop"
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val nextTheme = viewModel.cycleNextTheme()
+                                Toast.makeText(
+                                    context,
+                                    "Theme: ${nextTheme.name.replace('_', ' ').lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                    ) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(com.musicdrop.app.R.drawable.ic_bird_logo),
+                            contentDescription = "MusicDrop",
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Music",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.5).sp
+                        )
+                        Text(
+                            "Drop",
+                            color = com.musicdrop.app.ui.theme.VibrantCoral,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.5).sp
+                        )
+                    }
+
+                    // Right: Refresh, Search & Profile Avatar (Image 4)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = {
+                                viewModel.refreshAllDashboardCategories(force = true)
+                                Toast.makeText(context, "Refreshing live categories...", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Sync,
+                                contentDescription = "Refresh",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        IconButton(
+                            onClick = { isSearchActive = !isSearchActive },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = "Search",
+                                tint = if (isSearchActive) com.musicdrop.app.ui.theme.VibrantCoral else Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        // Pink avatar with white "O" (per Image 4)
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFD81B60))
+                                .clickable { onOpenSettings() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "O",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
+            }
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Search in Library Capsule Input Field
+            // ── 2. EXPANDABLE SEARCH BAR (Only shown when search icon tapped) ─────────
+            AnimatedVisibility(
+                visible = isSearchActive,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                         .height(42.dp)
                         .clip(RoundedCornerShape(21.dp))
                         .background(Color(0xFF1B1B22))
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(21.dp))
-                        .clickable { isSearchActive = !isSearchActive }
+                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(21.dp))
                         .padding(horizontal = 14.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -232,42 +342,34 @@ fun LibraryScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        if (!isSearchActive && searchQuery.isEmpty()) {
-                            Text(
-                                text = "Search in Library",
-                                color = Color(0xFF8E8E9B),
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                color = Color.White,
                                 fontSize = 14.sp
-                            )
-                        } else {
-                            androidx.compose.foundation.text.BasicTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                singleLine = true,
-                                textStyle = androidx.compose.ui.text.TextStyle(
-                                    color = Color.White,
-                                    fontSize = 14.sp
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(
-                                    onClick = { searchQuery = "" },
-                                    modifier = Modifier.size(20.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Close,
-                                        contentDescription = "Clear",
-                                        tint = Color.Gray,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = "Clear",
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
                         }
                     }
                 }
             }
 
-            // ── STICKY TAB BAR (Matching Image 1) ───────────────────────────────────
+            // ── 3. STICKY ICON TAB BAR (Home, Songs, Playlists... with Icons) ────────
             ScrollableTabRow(
                 selectedTabIndex = pagerState.currentPage,
                 containerColor = Color(0xFF0C0C10),
@@ -281,7 +383,7 @@ fun LibraryScreen(
                             modifier = Modifier
                                 .tabIndicatorOffset(tab)
                                 .height(3.dp)
-                                .padding(horizontal = 12.dp)
+                                .padding(horizontal = 8.dp)
                                 .background(Color.White, RoundedCornerShape(2.dp))
                         )
                     }
@@ -297,15 +399,29 @@ fun LibraryScreen(
                                 pagerState.animateScrollToPage(index)
                             }
                         },
-                        text = {
+                        selectedContentColor = Color.White,
+                        unselectedContentColor = Color(0xFF888899),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = tab.icon,
+                                contentDescription = tab.label,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (isSelected) Color.White else Color(0xFF888899)
+                            )
+                            Spacer(Modifier.width(6.dp))
                             Text(
                                 text = tab.label,
                                 color = if (isSelected) Color.White else Color(0xFF888899),
-                                fontSize = 15.sp,
+                                fontSize = 14.5.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
                         }
-                    )
+                    }
                 }
             }
 
