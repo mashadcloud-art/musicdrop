@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
+import android.os.Build
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,19 +26,26 @@ class NetworkMonitor(context: Context) {
             _isOnline.value = checkInitialConnectivity()
         }
 
+        override fun onUnavailable() {
+            _isOnline.value = false
+        }
+
         override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-            val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             _isOnline.value = hasInternet
         }
     }
 
     init {
         try {
-            val request = NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build()
-            connectivityManager?.registerNetworkCallback(request, networkCallback)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                connectivityManager?.registerDefaultNetworkCallback(networkCallback)
+            } else {
+                val request = android.net.NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build()
+                connectivityManager?.registerNetworkCallback(request, networkCallback)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -52,7 +59,7 @@ class NetworkMonitor(context: Context) {
             val caps = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
             caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         } catch (e: Exception) {
-            true // assume online on permission/system failure
+            false
         }
     }
 }

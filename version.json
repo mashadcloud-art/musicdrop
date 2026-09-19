@@ -1,8 +1,8 @@
 {
-  "versionCode": 142,
-  "versionName": "1.3.2",
-  "title": "MusicDrop v1.3.2 Available",
-  "changelog": "• Guaranteed Continuous Autoplay (Fix for song ending pause)\n• Smart Auto-Queue: Pre-fetches related album, movie & artist tracks\n• Instant Start: Audio silence & dead air skipping\n• DJ Mashup: Smooth 4.5s crossfade volume blending\n• 30-Minute Audio Cache Auto-Pruning\n• Smart Offline Mode: Auto-plays downloads with online/offline status banners",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.2/MusicDrop-v1.3.2.apk",
+  "versionCode": 143,
+  "versionName": "1.3.3",
+  "title": "MusicDrop v1.3.3 Available",
+  "changelog": "• DJ Overlap Mix (Next track starts & fades in before current track ends for continuous DJ mashup mix)\n• Settings Switch: Toggle DJ Overlap Crossfade and Silence Trimming on/off anytime\n• Premium Mini Player Seek Scrubber: Tap or drag to scrub forward/backward directly on the shrunk player bar with live time badge\n• Offline Detection Fix: Instant startup offline banner and seamless playback from downloaded library\n• Online Restoration Banner: Notifies when connection is restored to search and stream",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.3/MusicDrop-v1.3.3.apk",
   "forceUpdate": false
 }

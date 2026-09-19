@@ -202,7 +202,11 @@ class PlaybackConnection(private val context: Context) {
 
     private var isPreloadTriggered = false
     private var isCrossfadingOut = false
+    private var isOverlapTriggered = false
     private var fadeInJob: kotlinx.coroutines.Job? = null
+
+    var isDjCrossfadeEnabled: Boolean = true
+    var onOverlapNextTrack: (() -> Unit)? = null
 
     private fun fadeInVolume() {
         fadeInJob?.cancel()
@@ -223,6 +227,7 @@ class PlaybackConnection(private val context: Context) {
         progressJob?.cancel()
         isCrossfadingOut = false
         isPreloadTriggered = false
+        isOverlapTriggered = false
         progressJob = scope.launch {
             while (isActive) {
                 controller?.let { c ->
@@ -238,12 +243,18 @@ class PlaybackConnection(private val context: Context) {
                             onPreloadNextTrack?.invoke()
                         }
 
-                        // 2. Smooth DJ Mashup Crossfade: gentle fade-out during last 4.5 seconds
-                        if (dur > 10_000L && pos >= (dur - 4_500L)) {
+                        // 2. Smooth DJ Mashup Crossfade & Overlap (if enabled by user in Settings)
+                        if (isDjCrossfadeEnabled && dur > 10_000L && pos >= (dur - 4_500L)) {
                             isCrossfadingOut = true
                             val remaining = (dur - pos).coerceAtLeast(0L)
-                            val fadeVol = (remaining / 4_500f).coerceIn(0.08f, 1f)
+                            val fadeVol = (remaining / 4_500f).coerceIn(0.12f, 1f)
                             c.volume = fadeVol
+
+                            // Start next song ~3.5s before current song ends for seamless DJ mashup mix
+                            if (pos >= (dur - 3_500L) && !isOverlapTriggered) {
+                                isOverlapTriggered = true
+                                onOverlapNextTrack?.invoke()
+                            }
                         } else if (!isCrossfadingOut && (fadeInJob == null || fadeInJob?.isActive == false)) {
                             if (c.volume < 1f) c.volume = 1f
                         }

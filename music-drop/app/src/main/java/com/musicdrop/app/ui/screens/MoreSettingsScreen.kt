@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Palette
@@ -50,6 +51,8 @@ fun MoreSettingsScreen(
 ) {
     val appColors = LocalAppColors.current
     val currentTheme by viewModel.appTheme.collectAsState()
+    val isDjCrossfadeEnabled by viewModel.isDjCrossfadeEnabled.collectAsState()
+    val isSilenceTrimEnabled by viewModel.isSilenceTrimEnabled.collectAsState()
 
     Column(
         modifier = Modifier
@@ -227,6 +230,101 @@ fun MoreSettingsScreen(
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // ── Playback & Seamless DJ Mix ──
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = appColors.surface),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.GraphicEq, contentDescription = "DJ Mix", tint = appColors.accentPrimary)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Playback & Seamless DJ Mix", color = appColors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("Song transitions and gapless playback", color = appColors.textMuted, fontSize = 12.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Toggle 1: DJ Overlap Crossfade
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    "DJ Overlap Crossfade (Seamless Mix)",
+                                    color = appColors.textPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "Start next song before the current track ends for an uninterrupted DJ mashup blend.",
+                                    color = appColors.textSecondary,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                            Switch(
+                                checked = isDjCrossfadeEnabled,
+                                onCheckedChange = { viewModel.setDjCrossfadeEnabled(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = appColors.accentPrimary,
+                                    uncheckedThumbColor = appColors.textMuted,
+                                    uncheckedTrackColor = appColors.surfaceElevated
+                                )
+                            )
+                        }
+
+                        Divider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            thickness = 0.5.dp,
+                            color = appColors.surfaceBorder.copy(alpha = 0.3f)
+                        )
+
+                        // Toggle 2: Silence & Dead-Space Trimming
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    "Smart Silence Trimming",
+                                    color = appColors.textPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "Automatically eliminate silent lead-ins and trailing dead air between songs.",
+                                    color = appColors.textSecondary,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                            Switch(
+                                checked = isSilenceTrimEnabled,
+                                onCheckedChange = { viewModel.setSilenceTrimEnabled(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = appColors.accentPrimary,
+                                    uncheckedThumbColor = appColors.textMuted,
+                                    uncheckedTrackColor = appColors.surfaceElevated
+                                )
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Palette, contentDescription = null, tint = appColors.accentPrimary, modifier = Modifier.size(18.dp))

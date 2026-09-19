@@ -2992,6 +2992,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val pick = downloaded.random()
             playDownloadedTrack(pick, downloaded)
             _networkStatusBanner.value = "You're offline — playing from your downloaded library"
+        } else {
+            _networkStatusBanner.value = "You're offline — connect to internet or download music"
         }
     }
 
@@ -3231,6 +3233,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return nextMode
     }
 
+    private val _isDjCrossfadeEnabled = MutableStateFlow(prefs.getBoolean("dj_crossfade_enabled", true))
+    val isDjCrossfadeEnabled: StateFlow<Boolean> = _isDjCrossfadeEnabled.asStateFlow()
+
+    fun setDjCrossfadeEnabled(enabled: Boolean) {
+        _isDjCrossfadeEnabled.value = enabled
+        prefs.edit().putBoolean("dj_crossfade_enabled", enabled).apply()
+        playbackConnection.isDjCrossfadeEnabled = enabled
+    }
+
+    private val _isSilenceTrimEnabled = MutableStateFlow(prefs.getBoolean("silence_trim_enabled", true))
+    val isSilenceTrimEnabled: StateFlow<Boolean> = _isSilenceTrimEnabled.asStateFlow()
+
+    fun setSilenceTrimEnabled(enabled: Boolean) {
+        _isSilenceTrimEnabled.value = enabled
+        prefs.edit().putBoolean("silence_trim_enabled", enabled).apply()
+    }
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -3243,6 +3262,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         loadCharts()
         loadRecentUnified()
 
+        playbackConnection.isDjCrossfadeEnabled = _isDjCrossfadeEnabled.value
+
         // "Sometimes plays, sometimes doesn't": a stream URL (mainly YouTube's signed
         // googlevideo.com links) can die mid-session — e.g. a wifi/mobile-data IP
         // change — even though extraction succeeded a minute earlier. Re-extract and
@@ -3251,6 +3272,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         playbackConnection.onNeedsFreshStream = { currentPlaybackRetry?.invoke() }
         playbackConnection.onPlaybackEnded = { autoplayNext() }
         playbackConnection.onPreloadNextTrack = { preloadNextTrack() }
+        playbackConnection.onOverlapNextTrack = {
+            if (_isDjCrossfadeEnabled.value) {
+                playNextTrackFromQueue()
+            }
+        }
         playbackConnection.onSkipPreviousAction = { playPreviousTrack() }
         playbackConnection.onSkipNextAction = { playNextTrackFromQueue() }
         playbackConnection.onPlaybackFailed = {
@@ -3263,18 +3289,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Real-time network monitor for offline/online banners and seamless local fallback
         viewModelScope.launch {
-            var wasPreviouslyOnline: Boolean? = null
+            val initialOnline = networkMonitor.isCurrentlyConnected()
+            if (!initialOnline) {
+                _networkStatusBanner.value = "You're offline — playing from your downloaded library"
+            }
+            var wasPreviouslyOnline = initialOnline
             networkMonitor.isOnline.collect { online ->
-                if (wasPreviouslyOnline != null) {
-                    if (!online && wasPreviouslyOnline == true) {
-                        _networkStatusBanner.value = "You're offline — playing from your downloaded library"
-                    } else if (online && wasPreviouslyOnline == false) {
-                        _networkStatusBanner.value = "You're back online! Search & online streaming restored"
-                        launch {
-                            delay(4500)
-                            if (_networkStatusBanner.value?.contains("back online", ignoreCase = true) == true) {
-                                _networkStatusBanner.value = null
-                            }
+                if (!online && wasPreviouslyOnline) {
+                    _networkStatusBanner.value = "You're offline — playing from your downloaded library"
+                    if (!playbackConnection.isPlaying.value) {
+                        fallbackToOfflinePlayback()
+                    }
+                } else if (online && !wasPreviouslyOnline) {
+                    _networkStatusBanner.value = "You're back online! Search & online streaming restored"
+                    launch {
+                        delay(4500)
+                        if (_networkStatusBanner.value?.contains("back online", ignoreCase = true) == true) {
+                            _networkStatusBanner.value = null
                         }
                     }
                 }

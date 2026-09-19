@@ -43,6 +43,7 @@ import com.musicdrop.app.ui.theme.LocalAppColors
 import com.musicdrop.app.ui.viewmodel.MainViewModel
 
 import androidx.compose.animation.fadeIn
+import androidx.compose.ui.zIndex
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.viewinterop.AndroidView
@@ -107,6 +108,7 @@ class MainActivity : ComponentActivity() {
                                 .align(Alignment.TopCenter)
                                 .statusBarsPadding()
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .zIndex(100f)
                         ) {
                             networkBanner?.let { message ->
                                 val isBackOnline = message.contains("back online", ignoreCase = true)
@@ -365,7 +367,8 @@ fun MainAppContent(viewModel: MainViewModel) {
                             durationMs = durationMs,
                             onClick = { viewModel.openFullPlayer() },
                             onPlayPause = { viewModel.playbackConnection.togglePlayPause() },
-                            onSkipNext = { viewModel.playbackConnection.skipNext() }
+                            onSkipNext = { viewModel.playbackConnection.skipNext() },
+                            onSeek = { seekPos -> viewModel.playbackConnection.seekTo(seekPos) }
                         )
                     }
 
