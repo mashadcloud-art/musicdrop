@@ -2260,7 +2260,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun checkForAppUpdate(manualToast: Boolean = false) {
         viewModelScope.launch {
-            val info = com.musicdrop.app.data.updater.AppUpdateManager.checkForUpdate(getApplication())
+            val info = com.musicdrop.app.data.updater.AppUpdateManager.checkForUpdate(
+                context = getApplication(),
+                isManualCheck = manualToast
+            )
             _availableUpdate.value = info
             if (manualToast) {
                 if (info == null) {
@@ -2288,6 +2291,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun dismissUpdate() {
+        val info = _availableUpdate.value
+        if (info != null) {
+            try {
+                val prefs = getApplication<Application>().getSharedPreferences("app_update_prefs", android.content.Context.MODE_PRIVATE)
+                prefs.edit().putInt("dismissed_version_code", info.latestVersionCode).apply()
+            } catch (_: Exception) {}
+        }
         _availableUpdate.value = null
         _updateDownloadProgress.value = null
     }
