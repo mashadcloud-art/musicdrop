@@ -32,7 +32,6 @@ object AppUpdateManager {
 
     private const val GITHUB_VERSION_URL = "https://raw.githubusercontent.com/mashadcloud-art/musicdrop/main/version.json"
     private const val GITHUB_DOCS_VERSION_URL = "https://raw.githubusercontent.com/mashadcloud-art/musicdrop/main/docs/version.json"
-    private const val GITHUB_API_LATEST_URL = "https://api.github.com/repos/mashadcloud-art/musicdrop/releases/latest"
 
     private val httpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -43,19 +42,23 @@ object AppUpdateManager {
             .build()
     }
 
-    suspend fun checkForUpdate(context: Context): AppUpdateInfo? = withContext(Dispatchers.IO) {
+    suspend fun checkForUpdate(context: Context, isManualCheck: Boolean = false): AppUpdateInfo? = withContext(Dispatchers.IO) {
         val currentCode = BuildConfig.VERSION_CODE
+        val currentName = BuildConfig.VERSION_NAME.trim()
+
+        val prefs = context.getSharedPreferences("app_update_prefs", Context.MODE_PRIVATE)
+        val dismissedCode = prefs.getInt("dismissed_version_code", 0)
+
         val endpoints = listOf(
             "$GITHUB_VERSION_URL?nocache=${System.currentTimeMillis()}",
-            "$GITHUB_DOCS_VERSION_URL?nocache=${System.currentTimeMillis()}",
-            GITHUB_API_LATEST_URL
+            "$GITHUB_DOCS_VERSION_URL?nocache=${System.currentTimeMillis()}"
         )
 
         for (endpoint in endpoints) {
             try {
                 val request = Request.Builder()
                     .url(endpoint)
-                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 13) MusicDrop/${BuildConfig.VERSION_NAME}")
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 13) MusicDrop/$currentName")
                     .header("Cache-Control", "no-cache, no-store, must-revalidate")
                     .header("Pragma", "no-cache")
                     .build()
@@ -65,46 +68,27 @@ object AppUpdateManager {
                     val raw = response.body?.string() ?: continue
                     val json = JSONObject(raw)
 
-                    // 1. Direct version.json schema
-                    var remoteCode = json.optInt("versionCode", json.optInt("min_version_code", 0))
-                    var remoteName = json.optString("versionName", json.optString("version", ""))
-                    var downloadUrl = json.optString("downloadUrl", json.optString("update_url", ""))
-                    var title = json.optString("title", "")
-                    var changelog = json.optString("changelog", "")
+                    val remoteCode = json.optInt("versionCode", json.optInt("min_version_code", 0))
+                    val remoteName = json.optString("versionName", json.optString("version", "")).trim()
+                    val downloadUrl = json.optString("downloadUrl", json.optString("update_url", "")).trim()
+                    val title = json.optString("title", "MusicDrop v$remoteName Available")
+                    val changelog = json.optString(
+                        "changelog",
+                        "• Performance optimizations\n• Stability and UI improvements"
+                    )
                     val force = json.optBoolean("forceUpdate", false)
 
-                    // 2. GitHub Releases API schema fallback
-                    if (remoteCode == 0 && json.has("tag_name")) {
-                        val tag = json.optString("tag_name", "").removePrefix("v")
-                        remoteName = tag
-                        val parts = tag.split(".")
-                        remoteCode = try {
-                            val major = parts.getOrNull(0)?.toIntOrNull() ?: 1
-                            val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
-                            val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
-                            100 + (minor * 10) + patch + 30
-                        } catch (_: Exception) { 146 }
-                        title = json.optString("name", "MusicDrop v$remoteName Available")
-                        changelog = json.optString("body", "• Performance optimizations\n• Stability and UI improvements")
-
-                        val assets = json.optJSONArray("assets")
-                        if (assets != null) {
-                            for (i in 0 until assets.length()) {
-                                val asset = assets.optJSONObject(i)
-                                val name = asset?.optString("name", "").orEmpty()
-                                if (name.endsWith(".apk", ignoreCase = true)) {
-                                    downloadUrl = asset?.optString("browser_download_url", "").orEmpty()
-                                    break
-                                }
-                            }
-                        }
+                    // 1. If remote version is equal or lower than current installed version, DO NOT UPDATE
+                    if (remoteCode <= currentCode || remoteName.equals(currentName, ignoreCase = true)) {
+                        return@withContext null
                     }
 
-                    if (title.isBlank()) {
-                        title = "MusicDrop v$remoteName Available"
+                    // 2. If the user dismissed this version already, do not repeatedly show it (unless forced or manual check)
+                    if (!isManualCheck && !force && remoteCode <= dismissedCode) {
+                        return@withContext null
                     }
 
-                    if (remoteCode > currentCode && downloadUrl.isNotBlank()) {
+                    if (downloadUrl.isNotBlank()) {
                         return@withContext AppUpdateInfo(
                             latestVersionCode = remoteCode,
                             latestVersionName = remoteName.ifBlank { "v$remoteCode" },

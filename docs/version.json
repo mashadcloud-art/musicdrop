@@ -1,8 +1,8 @@
 {
-  "versionCode": 146,
-  "versionName": "1.3.6",
-  "title": "MusicDrop v1.3.6 Available",
-  "changelog": "• Theme & Skin Studio: 4 layout skins (Rounded Card, Radial Vinyl Ring with center digital time counter, Radial Ring Up Next Drawer, Scenic Mountain Wallpaper) inspired by extracted player styles\n• Video Mode & Direct Embedded Player: 3-way toggle (Song | Video | Lyrics) with instant embedded HD playback\n• Direct Download Hub: Download Audio (MP3 320kbps) & Download Video (MP4 HD) right from the player utility row\n• Pure Gradient Backgrounds: Clean, vivid theme backdrops with removed blown-up cover art blur\n• Collapsible Dashboard Header: Sticky icon tabs with scroll-collapse branding header\n• Immersive System Bars: Hidden Android navigation bar for distraction-free edge-to-edge experience",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.6/MusicDrop-v1.3.6.apk",
+  "versionCode": 147,
+  "versionName": "1.3.7",
+  "title": "MusicDrop v1.3.7 Available",
+  "changelog": "• Status Bar & Header Clearance: Fixed mobile header overlapping system clock and status bar time with safe display cutout and bright white status bar text\n• Vinyl Turntable Theme: Added authentic rotating grooved black vinyl record with center album artwork label and animated metallic tonearm needle\n• Radial Ring Up Next Drawer: Added circular progress ring with elapsed time counter, flanking skip controls, and bottom queue drawer sheet with floating amber play button\n• HD Video Mode & Floating Screen: Smooth video playback with dedicated Floating Screen (PiP) picture-in-picture mode support",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.7/MusicDrop-v1.3.7.apk",
   "forceUpdate": false
 }

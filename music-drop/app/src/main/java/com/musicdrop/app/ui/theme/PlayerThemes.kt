@@ -7,6 +7,14 @@ enum class PlayerSkinLayout(
     val title: String,
     val subtitle: String
 ) {
+    VINYL_TURNTABLE(
+        "Vinyl Turntable",
+        "Classic rotating grooved vinyl record with tonearm needle"
+    ),
+    RADIAL_DRAWER(
+        "Ring & Up Next Drawer",
+        "Circular progress ring with side controls and queue sheet"
+    ),
     ROUNDED_CARD(
         "Modern Card",
         "Centered album artwork with floating progress pill"
@@ -14,10 +22,6 @@ enum class PlayerSkinLayout(
     RADIAL_RING(
         "Radial Vinyl Ring",
         "Circular sweep progress ring with center time counter"
-    ),
-    RADIAL_DRAWER(
-        "Ring & Up Next Drawer",
-        "Circular progress ring with side controls and queue sheet"
     ),
     IMMERSIVE_DRAWER(
         "Scenic Wallpaper",
@@ -31,6 +35,24 @@ enum class PlayerThemeId(
     val previewColors: List<Color>,
     val defaultSkin: PlayerSkinLayout = PlayerSkinLayout.ROUNDED_CARD
 ) {
+    VINYL_CLASSIC(
+        "Vinyl Classic",
+        "Classic grooved vinyl disc with tonearm needle & cosmic twilight",
+        listOf(Color(0xFF2C2F4D), Color(0xFF1B1D35), Color(0xFF0D0E1A)),
+        PlayerSkinLayout.VINYL_TURNTABLE
+    ),
+    VINYL_MIDNIGHT(
+        "Vinyl Midnight",
+        "Jet-black vinyl disc on pure OLED darkness",
+        listOf(Color(0xFF1A1A1A), Color(0xFF0F0F0F), Color(0xFF050505)),
+        PlayerSkinLayout.VINYL_TURNTABLE
+    ),
+    VINYL_GOLD(
+        "Vinyl Vintage Gold",
+        "Warm vintage amber grooves with brass tonearm",
+        listOf(Color(0xFF4A3416), Color(0xFF2B1C0B), Color(0xFF120A03)),
+        PlayerSkinLayout.VINYL_TURNTABLE
+    ),
     MIDNIGHT_OLED(
         "OLED Midnight",
         "True pitch black with sleek dark glass accents",
@@ -124,6 +146,15 @@ enum class PlayerThemeId(
 
     fun getBackgroundBrush(fallbackAccent: Color = Color(0xFFE91E63)): Brush {
         return when (this) {
+            VINYL_CLASSIC -> Brush.verticalGradient(
+                colors = listOf(Color(0xFF33385E), Color(0xFF1E213D), Color(0xFF0D0E1C))
+            )
+            VINYL_MIDNIGHT -> Brush.verticalGradient(
+                colors = listOf(Color(0xFF181818), Color(0xFF0D0D0D), Color(0xFF000000))
+            )
+            VINYL_GOLD -> Brush.verticalGradient(
+                colors = listOf(Color(0xFF523B1A), Color(0xFF2E200C), Color(0xFF120B03))
+            )
             MIDNIGHT_OLED -> Brush.verticalGradient(
                 colors = listOf(Color(0xFF121212), Color(0xFF080808), Color(0xFF000000))
             )

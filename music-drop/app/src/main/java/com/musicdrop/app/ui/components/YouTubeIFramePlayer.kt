@@ -99,7 +99,7 @@ fun YouTubeIFramePlayer(
                     <iframe 
                         id="player"
                         type="text/html" 
-                        src="https://www.youtube.com/embed/$cleanVideoId?autoplay=1&mute=1&playsinline=1&controls=0&enablejsapi=1&rel=0&modestbranding=1&vq=hd1080&hd=1&suggestedQuality=hd1080" 
+                        src="https://www.youtube-nocookie.com/embed/$cleanVideoId?autoplay=1&mute=1&playsinline=1&controls=0&enablejsapi=1&rel=0&modestbranding=1&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com&vq=hd1080&hd=1&suggestedQuality=hd1080" 
                         frameborder="0" 
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                         allowfullscreen>
@@ -293,6 +293,7 @@ fun YouTubeIFramePlayer(
                         cacheMode = WebSettings.LOAD_DEFAULT
                         useWideViewPort = true
                         loadWithOverviewMode = true
+                        userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                     }
                     webChromeClient = WebChromeClient()
                     webViewClient = object : WebViewClient() {

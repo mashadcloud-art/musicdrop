@@ -1,10 +1,14 @@
 package com.musicdrop.app.ui.components
 
+import android.app.Activity
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,7 +31,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -57,6 +63,19 @@ fun PlayerThemeDialog(
     val initialIndex = remember { themes.indexOf(currentTheme).coerceAtLeast(0) }
     val pagerState = rememberPagerState(initialPage = initialIndex) { themes.size }
 
+    val view = LocalView.current
+    DisposableEffect(Unit) {
+        val window = (view.context as? Activity)?.window
+        if (window != null) {
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            val prevLight = insetsController.isAppearanceLightStatusBars
+            insetsController.isAppearanceLightStatusBars = false
+            onDispose { insetsController.isAppearanceLightStatusBars = prevLight }
+        } else {
+            onDispose {}
+        }
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
@@ -65,7 +84,8 @@ fun PlayerThemeDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFF0F0F14))
-                .statusBarsPadding()
+                .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
+                .padding(top = 10.dp)
                 .navigationBarsPadding()
         ) {
             Column(
@@ -159,7 +179,7 @@ fun PlayerThemeDialog(
                     )
                 }
 
-                // ── 4. Large Orange/Amber APPLY Button ──
+                // ── 4. Large Orange/Amber APPLY Button (Matching Screenshot 3) ──
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -173,18 +193,28 @@ fun PlayerThemeDialog(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFF59E0B)
                         ),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = RoundedCornerShape(26.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(54.dp)
                     ) {
-                        Text(
-                            text = "APPLY",
-                            color = Color.White,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "👑",
+                                fontSize = 18.sp
+                            )
+                            Text(
+                                text = "APPLY",
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp
+                            )
+                        }
                     }
                 }
             }
@@ -195,10 +225,301 @@ fun PlayerThemeDialog(
 @Composable
 private fun ThemeSkinCardContent(theme: PlayerThemeId) {
     when (theme.defaultSkin) {
+        PlayerSkinLayout.VINYL_TURNTABLE -> VinylTurntablePreview(theme)
         PlayerSkinLayout.ROUNDED_CARD -> RoundedCardPreview(theme)
         PlayerSkinLayout.RADIAL_RING -> RadialRingPreview(theme)
         PlayerSkinLayout.RADIAL_DRAWER -> RadialDrawerPreview(theme)
         PlayerSkinLayout.IMMERSIVE_DRAWER -> ImmersiveDrawerPreview(theme)
+    }
+}
+
+/** Layout: Vinyl Turntable with Grooved Disc & Tonearm Needle (Matching Screenshot 3) */
+@Composable
+private fun VinylTurntablePreview(theme: PlayerThemeId) {
+    val infiniteTransition = rememberInfiniteTransition(label = "vinyl_spin_preview")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 18000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "vinyl_rotation"
+    )
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Orange Crown Corner Ribbon (Matching Screenshot 3 top left)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .size(48.dp)
+                .clip(RoundedCornerShape(bottomEnd = 24.dp))
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(Color(0xFFF59E0B), Color(0xFFD97706))
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("👑", fontSize = 16.sp)
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Top Pill: Song | Lyrics
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 36.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White.copy(alpha = 0.12f),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text("Song", color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                        Text(" | ", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp)
+                        Text("Lyrics", color = Color.White.copy(alpha = 0.7f), fontSize = 11.5.sp)
+                        Spacer(Modifier.width(3.dp))
+                        Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(11.dp))
+                    }
+                }
+                Row {
+                    Icon(Icons.Rounded.Checkroom, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Filled.MoreVert, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+            }
+
+            // Center: Rotating Vinyl Record Disc with Grooves & Tonearm
+            Box(
+                modifier = Modifier.size(195.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // Vinyl Disc Canvas (Black grooved record)
+                Canvas(
+                    modifier = Modifier
+                        .size(182.dp)
+                        .rotate(rotation)
+                ) {
+                    val radius = size.minDimension / 2f
+                    val center = Offset(size.width / 2f, size.height / 2f)
+
+                    // Outer vinyl base
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(Color(0xFF1E1E24), Color(0xFF121216), Color(0xFF070709))
+                        ),
+                        radius = radius,
+                        center = center
+                    )
+
+                    // Concentric vinyl sound grooves
+                    for (i in 1..9) {
+                        val grooveRadius = radius * (0.42f + (i * 0.058f))
+                        drawCircle(
+                            color = Color.White.copy(alpha = if (i % 2 == 0) 0.08f else 0.04f),
+                            radius = grooveRadius,
+                            center = center,
+                            style = Stroke(width = 1.dp.toPx())
+                        )
+                    }
+
+                    // Vinyl rim sheen highlight
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.12f),
+                        radius = radius - 1.5f,
+                        center = center,
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
+                }
+
+                // Center Album Artwork Label (The mountain/galaxy artwork inside the vinyl)
+                Box(
+                    modifier = Modifier
+                        .size(86.dp)
+                        .clip(CircleShape)
+                        .border(1.5.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                        .rotate(rotation)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFF2C3E50), Color(0xFF4A2B68), Color(0xFF0F172A))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MusicNote,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(34.dp)
+                    )
+                    // Center Spindle Hole
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF0F0F14))
+                            .border(1.5.dp, Color(0xFF94A3B8), CircleShape)
+                    )
+                }
+
+                // Metallic Tonearm Needle Arm Overlay (Extending from top right onto the record)
+                Canvas(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val pivot = Offset(size.width * 0.62f, size.height * 0.08f)
+                    val elbow = Offset(size.width * 0.82f, size.height * 0.28f)
+                    val stylus = Offset(size.width * 0.68f, size.height * 0.44f)
+
+                    // Pivot base circle
+                    drawCircle(
+                        brush = Brush.radialGradient(listOf(Color(0xFFE2E8F0), Color(0xFF64748B))),
+                        radius = 8.dp.toPx(),
+                        center = pivot
+                    )
+                    drawCircle(
+                        color = Color.White,
+                        radius = 4.dp.toPx(),
+                        center = pivot
+                    )
+
+                    // Metallic arm lines
+                    drawLine(
+                        brush = Brush.linearGradient(listOf(Color(0xFFCBD5E1), Color(0xFF94A3B8))),
+                        start = pivot,
+                        end = elbow,
+                        strokeWidth = 3.5.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        brush = Brush.linearGradient(listOf(Color(0xFF94A3B8), Color(0xFFE2E8F0))),
+                        start = elbow,
+                        end = stylus,
+                        strokeWidth = 3.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+
+                    // Headshell / Stylus cartridge resting on record
+                    drawCircle(
+                        color = Color(0xFFF1F5F9),
+                        radius = 4.5.dp.toPx(),
+                        center = stylus
+                    )
+                }
+            }
+
+            // Track Info
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Over the Horizon",
+                    color = Color.White,
+                    fontSize = 16.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "hello Talk",
+                    color = Color.White.copy(alpha = 0.65f),
+                    fontSize = 12.sp
+                )
+            }
+
+            // 5 Utility Icons Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.FavoriteBorder, null, tint = Color.White, modifier = Modifier.size(19.dp))
+                Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null, tint = Color.White, modifier = Modifier.size(21.dp))
+                Icon(Icons.Rounded.Tune, null, tint = Color.White, modifier = Modifier.size(19.dp))
+                Icon(Icons.Rounded.Schedule, null, tint = Color.White, modifier = Modifier.size(19.dp))
+                Icon(Icons.AutoMirrored.Rounded.QueueMusic, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+
+            // Pill Seekbar: [ 10 ] [ 0:36 / 2:59 ] [ 10 ]
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.Replay10, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(2.dp))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.32f)
+                            .align(Alignment.CenterStart)
+                            .height(3.dp)
+                            .background(Color.White, RoundedCornerShape(2.dp))
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.White,
+                        modifier = Modifier.align(Alignment.Center)
+                    ) {
+                        Text(
+                            text = "0:36 / 2:59",
+                            color = Color.Black,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                Icon(Icons.Rounded.Forward10, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+            }
+
+            // Playback Controls Row: [ 🔀 ] [ ⏮ ] [ ⏸ ] [ ⏭ ] [ 🔁 ]
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.Shuffle, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(19.dp))
+                Icon(Icons.Rounded.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(25.dp))
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(CircleShape)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Rounded.Pause, null, tint = Color.Black, modifier = Modifier.size(28.dp))
+                }
+                Icon(Icons.Rounded.SkipNext, null, tint = Color.White, modifier = Modifier.size(25.dp))
+                Icon(Icons.Rounded.Repeat, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(19.dp))
+            }
+        }
     }
 }
 
@@ -411,113 +732,188 @@ private fun RadialRingPreview(theme: PlayerThemeId) {
     }
 }
 
-/** Layout 3: Radial Ring with Up Next Queue Drawer (Image 3) */
+/** Layout 3: Radial Ring with Up Next Queue Drawer (Matching Screenshot 2) */
 @Composable
 private fun RadialDrawerPreview(theme: PlayerThemeId) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Top Ring with side controls
-        Row(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .padding(top = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(Icons.Rounded.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(26.dp))
-            Box(
-                modifier = Modifier.size(140.dp),
-                contentAlignment = Alignment.Center
+            // Top Ring with side controls (⏮ on left, ⏭ on right)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-                    drawCircle(color = Color.White.copy(alpha = 0.2f), style = Stroke(4.dp.toPx()))
-                    drawArc(color = Color(0xFFF59E0B), startAngle = -90f, sweepAngle = 130f, useCenter = false, style = Stroke(5.dp.toPx(), cap = StrokeCap.Round))
-                }
+                Icon(Icons.Rounded.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(28.dp))
                 Box(
-                    modifier = Modifier
-                        .size(114.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF221626)),
+                    modifier = Modifier.size(150.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("1:20", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                        val radius = size.minDimension / 2f
+                        val center = Offset(size.width / 2f, size.height / 2f)
+                        drawCircle(color = Color.White.copy(alpha = 0.25f), style = Stroke(4.5.dp.toPx()))
+                        // Scrubber arc up to 1:40
+                        drawArc(
+                            color = Color.White,
+                            startAngle = -90f,
+                            sweepAngle = 180f,
+                            useCenter = false,
+                            style = Stroke(5.dp.toPx(), cap = StrokeCap.Round)
+                        )
+                        // White Knob dot at 1:40
+                        drawCircle(
+                            color = Color.White,
+                            radius = 6.dp.toPx(),
+                            center = Offset(center.x - radius, center.y)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(122.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(Color(0xFF3B2A1C), Color(0xFF1F1510))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("1:40", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                Icon(Icons.Rounded.SkipNext, null, tint = Color.White, modifier = Modifier.size(28.dp))
+            }
+
+            // Title with Shuffle on Left & Comment on Right (Screenshot 2)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.Shuffle, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    Text("| Hridayam | Pranav | Ka...", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("Think Music India", color = Color.White.copy(alpha = 0.6f), fontSize = 11.5.sp)
+                }
+                Icon(Icons.Rounded.ChatBubbleOutline, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+            }
+
+            // 5 Icons Row: Favorite, Timer, Add to playlist, Queue, Equalizer ON
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Filled.FavoriteBorder, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.Schedule, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.AutoMirrored.Rounded.QueueMusic, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Tune, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(2.dp))
+                    Text("ON", color = Color.White, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            Icon(Icons.Rounded.SkipNext, null, tint = Color.White, modifier = Modifier.size(26.dp))
-        }
 
-        // Title
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Over the Horizon", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text("hello Talk", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
-        }
-
-        // 5 Icons Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Icon(Icons.Filled.FavoriteBorder, null, tint = Color.White, modifier = Modifier.size(18.dp))
-            Icon(Icons.Rounded.Schedule, null, tint = Color.White, modifier = Modifier.size(18.dp))
-            Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null, tint = Color.White, modifier = Modifier.size(18.dp))
-            Icon(Icons.AutoMirrored.Rounded.QueueMusic, null, tint = Color.White, modifier = Modifier.size(18.dp))
-            Icon(Icons.Rounded.Tune, null, tint = Color.White, modifier = Modifier.size(18.dp))
-        }
-
-        // Up Next Drawer Sheet (Card at bottom with songs)
-        Surface(
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-            color = Color.White,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(130.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+            // Up Next Drawer Sheet with Floating Amber Circle Play Button (Screenshot 2)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    color = Color.White,
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFEA580C)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Rounded.MusicNote, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("All The Way Up", color = Color.Black, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                        Text("Ed Records • HD", color = Color.Gray, fontSize = 10.sp)
+                    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                        // Song 1
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF1E293B)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Rounded.MusicNote, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Naughty Boy ft. Beyoncé", color = Color(0xFF1E293B), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("NaughtyBoyVEVO", color = Color.Gray, fontSize = 10.sp)
+                                    Spacer(Modifier.width(6.dp))
+                                    Surface(shape = RoundedCornerShape(3.dp), color = Color(0xFFF1F5F9)) {
+                                        Text("320K", color = Color.Gray, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp))
+                                    }
+                                }
+                            }
+                            Icon(Icons.Filled.MoreVert, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        // Song 2
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF334155)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Rounded.MusicNote, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("OK Kanmani - Mental Manadhil", color = Color(0xFF1E293B), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("SonyMusicSouthVEVO", color = Color.Gray, fontSize = 10.sp)
+                                    Spacer(Modifier.width(6.dp))
+                                    Surface(shape = RoundedCornerShape(3.dp), color = Color(0xFFF1F5F9)) {
+                                        Text("320K", color = Color.Gray, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp))
+                                    }
+                                }
+                            }
+                            Icon(Icons.Filled.MoreVert, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+
+                // Floating Amber Circle Play Button (Docked on right edge per Screenshot 2)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-20).dp, y = (-20).dp)
+                        .size(46.dp)
+                        .shadow(8.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF59E0B)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF0284C7)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Rounded.MusicNote, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Haunting Winter Snow", color = Color.Black, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                        Text("Zac Nelson • HD", color = Color.Gray, fontSize = 10.sp)
-                    }
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
             }
         }

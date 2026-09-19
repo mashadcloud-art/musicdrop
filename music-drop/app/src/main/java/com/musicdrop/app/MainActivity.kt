@@ -64,9 +64,16 @@ class MainActivity : ComponentActivity() {
         var hasShownOpeningSplashThisProcess = false
     }
 
+    private var activeViewModel: MainViewModel? = null
+
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _ -> }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        activeViewModel?.setIsInPipMode(isInPictureInPictureMode)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,6 +98,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val viewModel: MainViewModel = viewModel()
+            activeViewModel = viewModel
             val appTheme by viewModel.appTheme.collectAsState()
             val availableUpdate by viewModel.availableUpdate.collectAsState()
             val updateProgress by viewModel.updateDownloadProgress.collectAsState()

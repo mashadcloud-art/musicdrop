@@ -368,6 +368,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val ytExpanded: StateFlow<Boolean> = _ytExpanded.asStateFlow()
     private var ytSearchJob: Job? = null
 
+    // ── Picture-in-Picture / Floating Screen state ──
+    private val _isInPipMode = MutableStateFlow(false)
+    val isInPipMode: StateFlow<Boolean> = _isInPipMode.asStateFlow()
+    fun setIsInPipMode(inPip: Boolean) {
+        _isInPipMode.value = inPip
+    }
+
     private val _ytExtractionResult = MutableStateFlow<YouTubeExtractionResult?>(null)
     val ytExtractionResult: StateFlow<YouTubeExtractionResult?> = _ytExtractionResult.asStateFlow()
 

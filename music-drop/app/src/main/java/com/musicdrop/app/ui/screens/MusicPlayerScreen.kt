@@ -1,5 +1,9 @@
 package com.musicdrop.app.ui.screens
 
+import android.app.Activity
+import android.app.PictureInPictureParams
+import android.os.Build
+import android.util.Rational
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -29,24 +33,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
 import coil.compose.AsyncImage
 import androidx.compose.foundation.Canvas
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.viewinterop.AndroidView
 import com.musicdrop.app.ui.components.YouTubeIFramePlayer
 import com.musicdrop.app.ui.theme.PlayerSkinLayout
+import com.musicdrop.app.data.model.MediaItem
 import com.musicdrop.app.data.model.UnifiedTrack
 import com.musicdrop.app.ui.components.AddToPlaylistDialog
 import com.musicdrop.app.ui.components.EqualizerDialog
@@ -76,6 +87,10 @@ fun MusicPlayerScreen(
     val equalizerManager = viewModel.equalizerManager
     val eqState by equalizerManager?.state?.collectAsState() ?: remember { mutableStateOf(null) }
 
+    val isInPipMode by viewModel.isInPipMode.collectAsState()
+    val ytCurrentVideo by viewModel.ytCurrentVideo.collectAsState()
+    val isVideoLoading by viewModel.videoModeLoading.collectAsState()
+
     val context = androidx.compose.ui.platform.LocalContext.current
     val appColors = LocalAppColors.current
 
@@ -95,6 +110,64 @@ fun MusicPlayerScreen(
     var showDownloadModal by remember { mutableStateOf(false) }
     var sleepTimerTargetMs by remember { mutableLongStateOf(0L) }
     var showOptionsMenu by remember { mutableStateOf(false) }
+
+    // Fix mobile header hiding the mobile time: enforce white status bar icons when player is visible
+    val view = LocalView.current
+    DisposableEffect(Unit) {
+        val window = (view.context as? Activity)?.window
+        if (window != null) {
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            val prevLight = insetsController.isAppearanceLightStatusBars
+            insetsController.isAppearanceLightStatusBars = false
+            onDispose { insetsController.isAppearanceLightStatusBars = prevLight }
+        } else {
+            onDispose {}
+        }
+    }
+
+    // Resolve video ID from current track metadata or online search
+    val effectiveVideoId = remember(currentTrack, ytCurrentVideo) {
+        val track = currentTrack
+        val path = track?.filePath.orEmpty()
+        val art = track?.albumArtUri?.toString().orEmpty()
+        when {
+            path.startsWith("yt:") -> path.removePrefix("yt:")
+            path.length == 11 && !path.contains("/") && !path.contains(".") && !path.contains(":") -> path
+            art.contains("/vi_webp/") -> art.substringAfter("/vi_webp/").substringBefore("/").substringBefore("?")
+            art.contains("/vi/") -> art.substringAfter("/vi/").substringBefore("/").substringBefore("?")
+            ytCurrentVideo?.videoId?.isNotBlank() == true -> ytCurrentVideo?.videoId
+            else -> null
+        }
+    }
+
+    // Automatically resolve video when Video tab is selected
+    LaunchedEffect(activeTab, currentTrack?.id) {
+        if (activeTab == 1 && effectiveVideoId == null) {
+            viewModel.resolveVideoForCurrentTrack()
+        }
+    }
+
+    // Floating Screen / Picture-in-Picture mode display: pristine full screen video only
+    if (isInPipMode) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            if (effectiveVideoId != null) {
+                YouTubeIFramePlayer(
+                    videoId = effectiveVideoId,
+                    isPlaying = isPlaying,
+                    currentPositionMs = positionMs,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                CircularProgressIndicator(color = Color(0xFFE11D48))
+            }
+        }
+        return
+    }
 
     // Check favorite status
     LaunchedEffect(currentTrack?.id) {
@@ -160,7 +233,8 @@ fun MusicPlayerScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
+                .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
+                .padding(top = 10.dp)
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -331,9 +405,130 @@ fun MusicPlayerScreen(
                         val displayPositionMs = if (sliderDragging >= 0f) (sliderDragging * durationMs).toLong() else positionMs
 
                         when (playerSkinLayout) {
-                            PlayerSkinLayout.RADIAL_RING,
+                            PlayerSkinLayout.VINYL_TURNTABLE -> {
+                                // ── 1. VINYL TURNTABLE SKIN (MATCHING SCREENSHOT 3) ──
+                                VinylTurntableLayout(
+                                    currentTrack = currentTrack,
+                                    isPlaying = isPlaying,
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                )
+                            }
                             PlayerSkinLayout.RADIAL_DRAWER -> {
-                                // ── 2. RADIAL VINYL / SWEEP RING SKIN (MATCHING SCREENSHOT 2 & 3) ──
+                                // ── 2. RADIAL RING WITH FLANKING BUTTONS (MATCHING SCREENSHOT 2) ──
+                                val sweepAngle = effectiveProgress * 360f
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Flanking Previous Button on Left of Circle
+                                    IconButton(
+                                        onClick = { connection.skipPrevious() },
+                                        modifier = Modifier.size(46.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.SkipPrevious,
+                                            contentDescription = "Previous",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
+
+                                    // Center Circular Progress Ring & Artwork
+                                    Box(
+                                        modifier = Modifier.size(230.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Canvas(modifier = Modifier.fillMaxSize()) {
+                                            val radius = size.minDimension / 2f
+                                            val center = Offset(size.width / 2f, size.height / 2f)
+                                            drawCircle(
+                                                color = Color.White.copy(alpha = 0.22f),
+                                                style = Stroke(width = 4.5.dp.toPx())
+                                            )
+                                            drawArc(
+                                                color = Color.White,
+                                                startAngle = -90f,
+                                                sweepAngle = sweepAngle,
+                                                useCenter = false,
+                                                style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+                                            )
+                                            // Scrubber Knob dot at current progress
+                                            val angleRad = Math.toRadians((sweepAngle - 90f).toDouble())
+                                            val knobX = (center.x + (radius - 2.5.dp.toPx()) * Math.cos(angleRad)).toFloat()
+                                            val knobY = (center.y + (radius - 2.5.dp.toPx()) * Math.sin(angleRad)).toFloat()
+                                            drawCircle(
+                                                color = Color.White,
+                                                radius = 6.dp.toPx(),
+                                                center = Offset(knobX, knobY)
+                                            )
+                                        }
+
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = Color(0xFF1B1B22),
+                                            shadowElevation = 16.dp,
+                                            modifier = Modifier.size(198.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                val artUri = currentTrack?.albumArtUri
+                                                if (artUri != null) {
+                                                    AsyncImage(
+                                                        model = artUri,
+                                                        contentDescription = "Cover Art",
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .alpha(0.55f)
+                                                    )
+                                                } else {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .background(
+                                                                Brush.radialGradient(
+                                                                    listOf(Color(0xFF38234A), Color(0xFF0F0B18))
+                                                                )
+                                                            )
+                                                    )
+                                                }
+
+                                                // Center Digital Time Counter "1:40" (Screenshot 2)
+                                                Text(
+                                                    text = formatMs(displayPositionMs),
+                                                    color = Color.White,
+                                                    fontSize = 34.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    letterSpacing = 1.sp,
+                                                    style = androidx.compose.ui.text.TextStyle(
+                                                        shadow = androidx.compose.ui.graphics.Shadow(
+                                                            color = Color.Black.copy(alpha = 0.85f),
+                                                            blurRadius = 14f
+                                                        )
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Flanking Next Button on Right of Circle
+                                    IconButton(
+                                        onClick = { connection.skipNext() },
+                                        modifier = Modifier.size(46.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.SkipNext,
+                                            contentDescription = "Next",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            PlayerSkinLayout.RADIAL_RING -> {
+                                // ── 3. RADIAL VINYL / SWEEP RING SKIN ──
                                 val sweepAngle = effectiveProgress * 360f
                                 Box(
                                     modifier = Modifier
@@ -341,7 +536,6 @@ fun MusicPlayerScreen(
                                         .padding(8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    // Outer Arc Track with live progress sweep
                                     Canvas(modifier = Modifier.size(260.dp)) {
                                         drawArc(
                                             color = Color.White.copy(alpha = 0.18f),
@@ -359,7 +553,6 @@ fun MusicPlayerScreen(
                                         )
                                     }
 
-                                    // Circular Artwork & Digital Center Timer
                                     Surface(
                                         shape = CircleShape,
                                         color = Color(0xFF1B1B22),
@@ -389,7 +582,6 @@ fun MusicPlayerScreen(
                                                 )
                                             }
 
-                                            // Center Digital Time Counter "1:20" (Per Screenshot)
                                             Text(
                                                 text = formatMs(displayPositionMs),
                                                 color = Color.White,
@@ -408,7 +600,7 @@ fun MusicPlayerScreen(
                                 }
                             }
                             PlayerSkinLayout.IMMERSIVE_DRAWER -> {
-                                // ── 4. SCENIC IMMERSIVE WALLPAPER SKIN (MATCHING SCREENSHOT 4) ──
+                                // ── 4. SCENIC IMMERSIVE WALLPAPER SKIN ──
                                 Surface(
                                     shape = RoundedCornerShape(26.dp),
                                     color = Color(0xFF1B1B22),
@@ -442,7 +634,7 @@ fun MusicPlayerScreen(
                                 }
                             }
                             else -> {
-                                // ── 1. MODERN CARD SKIN (HERO ALBUM COVER - SCREENSHOT 1) ──
+                                // ── 5. MODERN CARD SKIN (HERO ALBUM COVER - SCREENSHOT 1) ──
                                 Surface(
                                     shape = RoundedCornerShape(22.dp),
                                     color = Color(0xFF1B1B22),
@@ -480,19 +672,7 @@ fun MusicPlayerScreen(
                         }
                     }
                     1 -> {
-                        // ── VIDEO VIEW: EMBEDDED HIGH-DEFINITION VIDEO PLAYBACK ──
-                        val ytVideoId = remember(currentTrack) {
-                            val track = currentTrack
-                            val path = track?.filePath.orEmpty()
-                            val art = track?.albumArtUri?.toString().orEmpty()
-                            when {
-                                path.startsWith("yt:") -> path.removePrefix("yt:")
-                                path.length == 11 && !path.contains("/") && !path.contains(".") -> path
-                                art.contains("/vi/") -> art.substringAfter("/vi/").substringBefore("/")
-                                else -> viewModel.ytCurrentVideo.value?.videoId
-                            }
-                        }
-
+                        // ── VIDEO VIEW: EMBEDDED HIGH-DEFINITION VIDEO PLAYBACK & FLOATING SCREEN ──
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -501,36 +681,75 @@ fun MusicPlayerScreen(
                                 .background(Color.Black),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (ytVideoId != null && ytVideoId.isNotBlank()) {
+                            if (effectiveVideoId != null && effectiveVideoId.isNotBlank()) {
                                 YouTubeIFramePlayer(
-                                    videoId = ytVideoId,
+                                    videoId = effectiveVideoId,
                                     isPlaying = isPlaying,
                                     currentPositionMs = positionMs,
                                     modifier = Modifier.fillMaxSize()
                                 )
+
+                                // Top Right Overlay: Floating Screen (PiP) Icon Button
+                                Row(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconButton(
+                                        onClick = {
+                                            val activity = context as? Activity
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                try {
+                                                    val params = PictureInPictureParams.Builder()
+                                                        .setAspectRatio(Rational(16, 9))
+                                                        .build()
+                                                    activity?.enterPictureInPictureMode(params)
+                                                } catch (_: Throwable) {
+                                                    Toast.makeText(context, "Picture-in-Picture not supported on this device", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.Black.copy(alpha = 0.65f))
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PictureInPictureAlt,
+                                            contentDescription = "Floating Screen (PiP)",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
                             } else {
-                                AndroidView(
-                                    factory = { ctx ->
-                                        try {
-                                            androidx.media3.ui.PlayerView(ctx).apply {
-                                                useController = false
-                                                useArtwork = false
-                                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                                                connection.bindPlayerView(this)
-                                            }
-                                        } catch (_: Throwable) {
-                                            android.view.View(ctx)
-                                        }
-                                    },
-                                    update = { pv ->
-                                        try {
-                                            if (pv is androidx.media3.ui.PlayerView) {
-                                                connection.bindPlayerView(pv)
-                                            }
-                                        } catch (_: Throwable) {}
-                                    },
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFFE11D48),
+                                        strokeWidth = 3.dp
+                                    )
+                                    Spacer(Modifier.height(14.dp))
+                                    Text(
+                                        text = if (isVideoLoading) "Loading official HD video..." else "Resolving official video stream...",
+                                        color = Color.White,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Spacer(Modifier.height(12.dp))
+                                    Button(
+                                        onClick = { viewModel.resolveVideoForCurrentTrack() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.18f)),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
+                                        Text("Search & Play Video", color = Color.White, fontSize = 12.sp)
+                                    }
+                                }
                             }
                         }
                     }
@@ -636,319 +855,572 @@ fun MusicPlayerScreen(
 
             Spacer(Modifier.height(10.dp))
 
-            // ── 3. TRACK TITLE & ARTIST NAME (SINGLE-LINE MARQUEE) ──
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                horizontalAlignment = Alignment.Start
-            ) {
-                Text(
-                    text = currentTrack?.name ?: "No Track Playing",
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = currentTrack?.artist?.ifBlank { "MusicDrop" } ?: "MusicDrop",
-                    color = Color.White.copy(alpha = 0.65f),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            if (activeTab == 0 && playerSkinLayout == PlayerSkinLayout.RADIAL_DRAWER) {
+                // ── RADIAL DRAWER SKIN: DEDICATED CONTROLS (MATCHING SCREENSHOT 2) ──
+                Spacer(Modifier.height(10.dp))
 
-            Spacer(Modifier.height(18.dp))
-
-            // ── 4. UTILITY TOOL ROW: 6 ICONS ──
-            // [ 🤍 Like ] [ ⬇ Download ] [ ➕≣ Add to Playlist ] [ 🎚️ ON Equalizer ] [ ⏱️ Sleep Timer ] [ ≣ Queue ]
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 1. Favorite / Like Heart
-                IconButton(
-                    onClick = {
-                        val cur = currentTrack
-                        if (cur != null) {
-                            val newFav = viewModel.toggleFavoriteTrack(cur)
-                            isLiked = newFav
-                            Toast.makeText(context, if (newFav) "Added to Favorites" else "Removed from Favorites", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (isLiked) Color(0xFFEF4444) else Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(23.dp)
-                    )
-                }
-
-                // 2. Direct Download (Audio MP3 / Video MP4)
-                IconButton(
-                    onClick = { showDownloadModal = true },
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Download,
-                        contentDescription = "Download Track",
-                        tint = Color(0xFFF59E0B),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                // 3. Add to Playlist
-                IconButton(
-                    onClick = { showAddToPlaylist = true },
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                        contentDescription = "Add to Playlist",
-                        tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                // 4. Equalizer Button with "ON" Badge
-                val isEqOn = eqState?.isEnabled == true
-                Box(
+                // Title row with Shuffle on Left & Comment on Right
+                Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { showEqualizerModal = true }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { connection.toggleShuffle() },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Shuffle,
+                            contentDescription = "Shuffle",
+                            tint = if (isShuffle) Color(0xFF10B981) else Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                    ) {
+                        Text(
+                            text = currentTrack?.name ?: "No Track Playing",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = currentTrack?.artist?.ifBlank { "MusicDrop" } ?: "MusicDrop",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { activeTab = 2 },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ChatBubbleOutline,
+                            contentDescription = "Lyrics",
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // 5 Icons Row: Favorite, Sleep Timer, Add to Playlist, Queue, Equalizer ON
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            val cur = currentTrack
+                            if (cur != null) {
+                                val newFav = viewModel.toggleFavoriteTrack(cur)
+                                isLiked = newFav
+                                Toast.makeText(context, if (newFav) "Added to Favorites" else "Removed from Favorites", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (isLiked) Color(0xFFEF4444) else Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showSleepTimerModal = true },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Schedule,
+                            contentDescription = "Sleep Timer",
+                            tint = if (sleepTimerTargetMs > 0L) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showAddToPlaylist = true },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            contentDescription = "Add to Playlist",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showQueueModal = true },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                            contentDescription = "Queue",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    val isEqOn = eqState?.isEnabled == true
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { showEqualizerModal = true }
+                            .padding(4.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Rounded.Tune,
                             contentDescription = "Equalizer",
                             tint = if (isEqOn) Color(0xFF10B981) else Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(21.dp)
+                            modifier = Modifier.size(19.dp)
                         )
                         if (isEqOn) {
-                            Spacer(Modifier.width(3.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xFF10B981))
-                                    .padding(horizontal = 3.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = "ON",
-                                    color = Color.Black,
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                            }
+                            Spacer(Modifier.width(2.dp))
+                            Text("ON", color = Color(0xFF10B981), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
-                // 5. Sleep Timer Clock Icon
-                IconButton(
-                    onClick = { showSleepTimerModal = true },
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Schedule,
-                        contentDescription = "Sleep Timer",
-                        tint = if (sleepTimerTargetMs > 0L) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                Spacer(Modifier.height(14.dp))
 
-                // 6. Queue / Current Playlist Icon
-                IconButton(
-                    onClick = { showQueueModal = true },
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                        contentDescription = "Queue",
-                        tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(23.dp)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(14.dp))
-
-            // ── 5. SEEKBAR ROW: [ ⟲ 10 ] [ ────── ( 1:40 / 2:10 ) ────── ] [ ⟳ 10 ] ──
-            val effectiveProgress = if (sliderDragging >= 0f) sliderDragging else {
-                if (durationMs > 0L) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
-            }
-            val displayPositionMs = if (sliderDragging >= 0f) (sliderDragging * durationMs).toLong() else positionMs
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Rewind 10 Seconds Button
-                IconButton(
-                    onClick = {
-                        val target = maxOf(0L, positionMs - 10_000L)
-                        connection.seekTo(target)
-                    },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Replay10,
-                        contentDescription = "Rewind 10s",
-                        tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                // Scrubber Slider with Centered Floating Pill Badge [ 1:40 / 2:10 ]
+                // Up Next Drawer Sheet with Floating Amber Circle Play Button (Screenshot 2)
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 6.dp),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .heightIn(min = 135.dp, max = 165.dp)
                 ) {
-                    Slider(
-                        value = effectiveProgress,
-                        onValueChange = { sliderDragging = it },
-                        onValueChangeFinished = {
-                            if (sliderDragging >= 0f && durationMs > 0L) {
-                                connection.seekTo((sliderDragging * durationMs).toLong())
-                            }
-                            sliderDragging = -1f
-                        },
-                        colors = SliderDefaults.colors(
-                            thumbColor = Color.Transparent,
-                            activeTrackColor = Color.White,
-                            inactiveTrackColor = Color.White.copy(alpha = 0.22f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Floating Centered Pill: "1:40 / 2:10" (Matches Screenshot)
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color.White.copy(alpha = 0.95f),
-                        shadowElevation = 4.dp,
-                        modifier = Modifier.padding(bottom = 2.dp)
+                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                        color = Color.White,
+                        shadowElevation = 16.dp,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp)
                     ) {
-                        Text(
-                            text = "${formatMs(displayPositionMs)} / ${formatMs(durationMs)}",
-                            color = Color(0xFF14131D),
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp, vertical = 14.dp)
+                        ) {
+                            val nextTrack = upNextQueue.firstOrNull()
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (nextTrack != null) {
+                                            viewModel.playYouTubeVideoWithContext(nextTrack, upNextQueue)
+                                        } else {
+                                            showQueueModal = true
+                                        }
+                                    },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFF1E293B)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (nextTrack?.thumbnailUrl?.isNotBlank() == true) {
+                                        AsyncImage(
+                                            model = nextTrack.thumbnailUrl,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        Icon(Icons.Rounded.MusicNote, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = nextTrack?.title ?: "Up Next: Tap to view queue",
+                                        color = Color(0xFF0F172A),
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = nextTrack?.channelTitle ?: "MusicDrop Queue",
+                                        color = Color(0xFF64748B),
+                                        fontSize = 11.5.sp,
+                                        maxLines = 1
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color(0xFFF1F5F9))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text("320K", color = Color(0xFF475569), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    // Floating Amber Circle Play Button on Right Side (Matching Screenshot 2)
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFF59E0B),
+                        shadowElevation = 10.dp,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(end = 24.dp)
+                            .size(50.dp)
+                            .clickable { connection.togglePlayPause() }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = "Play/Pause",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
                 }
-
-                // Forward 10 Seconds Button
-                IconButton(
-                    onClick = {
-                        val target = minOf(durationMs, positionMs + 10_000L)
-                        connection.seekTo(target)
-                    },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Forward10,
-                        contentDescription = "Forward 10s",
-                        tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(14.dp))
-
-            // ── 6. PLAYBACK CONTROLS ROW: [ 🔀 ] [ ⏮ ] [ ▶ ] [ ⏭ ] [ 🔁 ] ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Shuffle Button
-                IconButton(
-                    onClick = { connection.toggleShuffle() },
-                    modifier = Modifier.size(46.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Shuffle,
-                        contentDescription = "Shuffle",
-                        tint = if (isShuffle) Color(0xFF10B981) else Color.White.copy(alpha = 0.6f),
-                        modifier = Modifier.size(23.dp)
-                    )
-                }
-
-                // Previous Button
-                IconButton(
-                    onClick = { connection.skipPrevious() },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipPrevious,
-                        contentDescription = "Previous",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                // Center Large Solid White Circle Play/Pause Button (Matching Screenshot)
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White,
-                    shadowElevation = 8.dp,
+            } else {
+                // ── STANDARD FULL LAYOUT (FOR VINYL TURNTABLE, MODERN CARD, & OTHER THEMES) ──
+                // ── 3. TRACK TITLE & ARTIST NAME (SINGLE-LINE MARQUEE) ──
+                Column(
                     modifier = Modifier
-                        .size(66.dp)
-                        .clickable { connection.togglePlayPause() }
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalAlignment = Alignment.Start
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = if (isPlaying) "Pause" else "Play",
-                            tint = Color(0xFF14131D),
-                            modifier = Modifier.size(36.dp)
-                        )
-                    }
-                }
-
-                // Next Button
-                IconButton(
-                    onClick = { connection.skipNext() },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = "Next",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
+                    Text(
+                        text = currentTrack?.name ?: "No Track Playing",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = currentTrack?.artist?.ifBlank { "MusicDrop" } ?: "MusicDrop",
+                        color = Color.White.copy(alpha = 0.65f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                // Repeat Button (With "1" Badge for Repeat One)
-                IconButton(
-                    onClick = { connection.toggleRepeat() },
-                    modifier = Modifier.size(46.dp)
+                Spacer(Modifier.height(18.dp))
+
+                // ── 4. UTILITY TOOL ROW: 6 ICONS ──
+                // [ 🤍 Like ] [ ⬇ Download ] [ ➕≣ Add to Playlist ] [ 🎚️ ON Equalizer ] [ ⏱️ Sleep Timer ] [ ≣ Queue ]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    // 1. Favorite / Like Heart
+                    IconButton(
+                        onClick = {
+                            val cur = currentTrack
+                            if (cur != null) {
+                                val newFav = viewModel.toggleFavoriteTrack(cur)
+                                isLiked = newFav
+                                Toast.makeText(context, if (newFav) "Added to Favorites" else "Removed from Favorites", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.size(38.dp)
+                    ) {
                         Icon(
-                            imageVector = if (isRepeat) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                            contentDescription = "Repeat",
-                            tint = if (isRepeat) Color(0xFF10B981) else Color.White.copy(alpha = 0.6f),
+                            imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (isLiked) Color(0xFFEF4444) else Color.White.copy(alpha = 0.85f),
                             modifier = Modifier.size(23.dp)
                         )
+                    }
+
+                    // 2. Direct Download (Audio MP3 / Video MP4)
+                    IconButton(
+                        onClick = { showDownloadModal = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = "Download Track",
+                            tint = Color(0xFFF59E0B),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    // 3. Add to Playlist
+                    IconButton(
+                        onClick = { showAddToPlaylist = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            contentDescription = "Add to Playlist",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    // 4. Equalizer Button with "ON" Badge
+                    val isEqOn = eqState?.isEnabled == true
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { showEqualizerModal = true }
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Rounded.Tune,
+                                contentDescription = "Equalizer",
+                                tint = if (isEqOn) Color(0xFF10B981) else Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier.size(21.dp)
+                            )
+                            if (isEqOn) {
+                                Spacer(Modifier.width(3.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color(0xFF10B981))
+                                        .padding(horizontal = 3.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        text = "ON",
+                                        color = Color.Black,
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 5. Sleep Timer Clock Icon
+                    IconButton(
+                        onClick = { showSleepTimerModal = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Schedule,
+                            contentDescription = "Sleep Timer",
+                            tint = if (sleepTimerTargetMs > 0L) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // 6. Queue / Current Playlist Icon
+                    IconButton(
+                        onClick = { showQueueModal = true },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                            contentDescription = "Queue",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(23.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // ── 5. SEEKBAR ROW: [ ⟲ 10 ] [ ────── ( 1:40 / 2:10 ) ────── ] [ ⟳ 10 ] ──
+                val effectiveProgress = if (sliderDragging >= 0f) sliderDragging else {
+                    if (durationMs > 0L) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+                }
+                val displayPositionMs = if (sliderDragging >= 0f) (sliderDragging * durationMs).toLong() else positionMs
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Rewind 10 Seconds Button
+                    IconButton(
+                        onClick = {
+                            val target = maxOf(0L, positionMs - 10_000L)
+                            connection.seekTo(target)
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Replay10,
+                            contentDescription = "Rewind 10s",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // Scrubber Slider with Centered Floating Pill Badge [ 1:40 / 2:10 ]
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Slider(
+                            value = effectiveProgress,
+                            onValueChange = { sliderDragging = it },
+                            onValueChangeFinished = {
+                                if (sliderDragging >= 0f && durationMs > 0L) {
+                                    connection.seekTo((sliderDragging * durationMs).toLong())
+                                }
+                                sliderDragging = -1f
+                            },
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color.Transparent,
+                                activeTrackColor = Color.White,
+                                inactiveTrackColor = Color.White.copy(alpha = 0.22f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Floating Centered Pill: "1:40 / 2:10" (Matches Screenshot)
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White.copy(alpha = 0.95f),
+                            shadowElevation = 4.dp,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        ) {
+                            Text(
+                                text = "${formatMs(displayPositionMs)} / ${formatMs(durationMs)}",
+                                color = Color(0xFF14131D),
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+
+                    // Forward 10 Seconds Button
+                    IconButton(
+                        onClick = {
+                            val target = minOf(durationMs, positionMs + 10_000L)
+                            connection.seekTo(target)
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Forward10,
+                            contentDescription = "Forward 10s",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // ── 6. PLAYBACK CONTROLS ROW: [ 🔀 ] [ ⏮ ] [ ▶ ] [ ⏭ ] [ 🔁 ] ──
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Shuffle Button
+                    IconButton(
+                        onClick = { connection.toggleShuffle() },
+                        modifier = Modifier.size(46.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Shuffle,
+                            contentDescription = "Shuffle",
+                            tint = if (isShuffle) Color(0xFF10B981) else Color.White.copy(alpha = 0.6f),
+                            modifier = Modifier.size(23.dp)
+                        )
+                    }
+
+                    // Previous Button
+                    IconButton(
+                        onClick = { connection.skipPrevious() },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipPrevious,
+                            contentDescription = "Previous",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    // Center Large Solid White Circle Play/Pause Button (Matching Screenshot)
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 8.dp,
+                        modifier = Modifier
+                            .size(66.dp)
+                            .clickable { connection.togglePlayPause() }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = if (isPlaying) "Pause" else "Play",
+                                tint = Color(0xFF14131D),
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                    }
+
+                    // Next Button
+                    IconButton(
+                        onClick = { connection.skipNext() },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipNext,
+                            contentDescription = "Next",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    // Repeat Button (With "1" Badge for Repeat One)
+                    IconButton(
+                        onClick = { connection.toggleRepeat() },
+                        modifier = Modifier.size(46.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isRepeat) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                                contentDescription = "Repeat",
+                                tint = if (isRepeat) Color(0xFF10B981) else Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(23.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1287,3 +1759,172 @@ private fun formatMs(ms: Long): String {
     val seconds = totalSeconds % 60
     return String.format("%d:%02d", minutes, seconds)
 }
+
+/**
+ * Layout 1: Vinyl Turntable with Rotating Grooved Disc, Center Album Art Label,
+ * and Metallic Tonearm Needle (Matching Screenshot 3).
+ */
+@Composable
+fun VinylTurntableLayout(
+    currentTrack: MediaItem?,
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "vinyl_turntable_spin")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 20000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "vinyl_angle"
+    )
+    val effectiveRotation = if (isPlaying) rotation else 0f
+
+    // Animated tonearm angle: moves onto the vinyl track when playing
+    val tonearmTargetAngle = if (isPlaying) 0f else -18f
+    val animatedTonearmAngle by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = tonearmTargetAngle,
+        animationSpec = tween(durationMillis = 700),
+        label = "tonearm_angle"
+    )
+
+    Box(
+        modifier = modifier
+            .size(280.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // 1. Black Grooved Vinyl Disc Canvas
+        Canvas(
+            modifier = Modifier
+                .size(265.dp)
+                .rotate(effectiveRotation)
+        ) {
+            val radius = size.minDimension / 2f
+            val center = Offset(size.width / 2f, size.height / 2f)
+
+            // Outer vinyl base
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF1E1E24), Color(0xFF121216), Color(0xFF070709))
+                ),
+                radius = radius,
+                center = center
+            )
+
+            // Concentric sound grooves
+            for (i in 1..10) {
+                val grooveRadius = radius * (0.44f + (i * 0.052f))
+                drawCircle(
+                    color = Color.White.copy(alpha = if (i % 2 == 0) 0.07f else 0.035f),
+                    radius = grooveRadius,
+                    center = center,
+                    style = Stroke(width = 1.dp.toPx())
+                )
+            }
+
+            // Vinyl outer rim highlight
+            drawCircle(
+                color = Color.White.copy(alpha = 0.14f),
+                radius = radius - 1.5f,
+                center = center,
+                style = Stroke(width = 1.5.dp.toPx())
+            )
+        }
+
+        // 2. Center Album Artwork Label
+        val artUri = currentTrack?.albumArtUri
+        Box(
+            modifier = Modifier
+                .size(116.dp)
+                .clip(CircleShape)
+                .border(2.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                .rotate(effectiveRotation),
+            contentAlignment = Alignment.Center
+        ) {
+            if (artUri != null) {
+                AsyncImage(
+                    model = artUri,
+                    contentDescription = "Cover Art",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFF2C3E50), Color(0xFF4A2B68), Color(0xFF0F172A))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MusicNote,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
+            }
+
+            // Center Spindle Hole
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF0F0F14))
+                    .border(2.dp, Color(0xFF94A3B8), CircleShape)
+            )
+        }
+
+        // 3. Metallic Tonearm Needle Arm Overlay
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .rotate(animatedTonearmAngle)
+        ) {
+            val pivot = Offset(size.width * 0.78f, size.height * 0.10f)
+            val elbow = Offset(size.width * 0.90f, size.height * 0.36f)
+            val stylus = Offset(size.width * 0.68f, size.height * 0.54f)
+
+            // Pivot base circle
+            drawCircle(
+                brush = Brush.radialGradient(listOf(Color(0xFFE2E8F0), Color(0xFF475569))),
+                radius = 11.dp.toPx(),
+                center = pivot
+            )
+            drawCircle(
+                color = Color.White,
+                radius = 5.dp.toPx(),
+                center = pivot
+            )
+
+            // Metallic arm lines
+            drawLine(
+                brush = Brush.linearGradient(listOf(Color(0xFFCBD5E1), Color(0xFF64748B))),
+                start = pivot,
+                end = elbow,
+                strokeWidth = 4.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            drawLine(
+                brush = Brush.linearGradient(listOf(Color(0xFF64748B), Color(0xFFE2E8F0))),
+                start = elbow,
+                end = stylus,
+                strokeWidth = 3.5.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+
+            // Headshell / Stylus cartridge resting on record
+            drawCircle(
+                color = Color(0xFFF1F5F9),
+                radius = 5.5.dp.toPx(),
+                center = stylus
+            )
+        }
+    }
+}
+
