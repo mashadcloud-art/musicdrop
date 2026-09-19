@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "FileDropNative"
+rootProject.name = "MusicDrop"
 include(":app")
