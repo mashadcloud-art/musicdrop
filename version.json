@@ -1,8 +1,8 @@
 {
-  "versionCode": 154,
-  "versionName": "1.4.4",
-  "title": "MusicDrop v1.4.4 Available",
-  "changelog": "• Up Next Anchored to Bottom: Fixed Up Next queue sheet opening at the top; it now slides up strictly from the bottom as an interactive half-screen sheet\n• Transparent Music Controller for Videos: Full frosted glass transparency and dynamic ambient glow applied to the docked player controls in video mode too\n• Branded Video Loading Overlay: Replaced YouTube's default play button and loading flash with an official MusicDrop app icon and loading indicator until playback begins",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.4/MusicDrop-v1.4.4.apk",
+  "versionCode": 155,
+  "versionName": "1.4.5",
+  "title": "MusicDrop v1.4.5 Available",
+  "changelog": "• Public Directory Saving for Recent Files: Audio files now save directly to /Music/MusicDrop/ and videos to /Movies/MusicDrop/ with instant MediaStore indexing, making them visible immediately in Android's Recent files tab and file managers\n• Native MP3 & Video File Sharing: Share downloaded MP3 tracks and MP4 videos directly via Android system share sheet (WhatsApp, Telegram, Quick Share, etc.) from player options and Library\n• Video Mode Stability: Fixed video switching app/playback stopping; audio playback continues seamlessly and without interruption while official synced video is displayed",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.5/MusicDrop-v1.4.5.apk",
   "forceUpdate": false
 }

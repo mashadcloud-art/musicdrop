@@ -334,6 +334,142 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return internalDir
     }
 
+    /**
+     * Primary public Music directory: /storage/emulated/0/Music/MusicDrop/
+     * Saved files here are indexed by Android's MediaScanner and show up immediately
+     * in the system "Recent" files tab, file managers, and music apps.
+     */
+    fun getPublicMusicDir(): java.io.File {
+        val publicMusic = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC)
+        val musicDropDir = java.io.File(publicMusic, "MusicDrop")
+        try {
+            if (!musicDropDir.exists()) musicDropDir.mkdirs()
+            if (musicDropDir.canWrite()) return musicDropDir
+        } catch (_: Exception) {}
+
+        val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+        val dlDropDir = java.io.File(downloadsDir, "MusicDrop")
+        try {
+            if (!dlDropDir.exists()) dlDropDir.mkdirs()
+            if (dlDropDir.canWrite()) return dlDropDir
+        } catch (_: Exception) {}
+
+        return getSafeMusicDir()
+    }
+
+    /**
+     * Primary public Movies directory: /storage/emulated/0/Movies/MusicDrop/
+     * Saved MP4 videos here are indexed by Android's MediaScanner and show up immediately
+     * in the system "Recent" files tab, file managers, and video gallery apps.
+     */
+    fun getPublicMoviesDir(): java.io.File {
+        val publicMovies = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MOVIES)
+        val moviesDropDir = java.io.File(publicMovies, "MusicDrop")
+        try {
+            if (!moviesDropDir.exists()) moviesDropDir.mkdirs()
+            if (moviesDropDir.canWrite()) return moviesDropDir
+        } catch (_: Exception) {}
+
+        val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+        val dlDropDir = java.io.File(downloadsDir, "MusicDrop")
+        try {
+            if (!dlDropDir.exists()) dlDropDir.mkdirs()
+            if (dlDropDir.canWrite()) return dlDropDir
+        } catch (_: Exception) {}
+
+        return getSafeMusicDir()
+    }
+
+    /**
+     * Share downloaded audio / video file directly via Android's native share sheet (FileProvider).
+     * Allows one-tap sharing of the MP3, M4A, or MP4 video to WhatsApp, Telegram, Gmail, Bluetooth, etc.
+     */
+    fun shareDownloadedFile(context: android.content.Context, track: com.musicdrop.app.data.repository.DownloadedTrack) {
+        val file = java.io.File(track.filePath)
+        if (!file.exists() || file.length() == 0L) {
+            android.widget.Toast.makeText(context, "Downloaded file not found on storage", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val isVideo = track.mimeType.startsWith("video") || file.name.endsWith(".mp4")
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = if (isVideo) "video/mp4" else if (track.mimeType.isNotBlank()) track.mimeType else "audio/*"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                putExtra(android.content.Intent.EXTRA_SUBJECT, track.title)
+                putExtra(android.content.Intent.EXTRA_TEXT, "Shared from MusicDrop: ${track.title}")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val chooser = android.content.Intent.createChooser(intent, "Share ${track.title}")
+            chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(context, "Could not share file: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Share any media file directly with specified file path and MIME type.
+     */
+    fun shareMediaFile(context: android.content.Context, filePath: String, mimeType: String, title: String) {
+        val file = java.io.File(filePath)
+        if (!file.exists() || file.length() == 0L) {
+            android.widget.Toast.makeText(context, "File does not exist", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val isVideo = mimeType.startsWith("video") || file.name.endsWith(".mp4")
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = if (isVideo) "video/mp4" else if (mimeType.isNotBlank()) mimeType else "audio/*"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                putExtra(android.content.Intent.EXTRA_SUBJECT, title)
+                putExtra(android.content.Intent.EXTRA_TEXT, "Shared from MusicDrop: $title")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val chooser = android.content.Intent.createChooser(intent, "Share $title")
+            chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(context, "Could not share file: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Share the currently playing track. If downloaded locally, shares the actual MP3/MP4 file.
+     * If streaming online, shares track details with a link.
+     */
+    fun shareCurrentTrack(context: android.content.Context) {
+        val current = playbackConnection.currentTrack.value ?: return
+        val currentIdStr = current.id.toString()
+        val downloaded = _downloadedTracks.value.firstOrNull {
+            it.title.equals(current.name, ignoreCase = true) || it.key.contains(currentIdStr)
+        }
+        if (downloaded != null) {
+            shareDownloadedFile(context, downloaded)
+        } else {
+            val ytId = current.filePath?.takeIf { it.length == 11 && !it.contains("/") } ?: (if (current.id != 0L) currentIdStr else "")
+            val link = if (ytId.isNotBlank()) "https://youtu.be/$ytId" else ""
+            val shareText = "🎵 ${current.name} - ${current.artist}\n$link\n\nShared via MusicDrop"
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(android.content.Intent.EXTRA_SUBJECT, current.name)
+                putExtra(android.content.Intent.EXTRA_TEXT, shareText)
+            }
+            val chooser = android.content.Intent.createChooser(intent, "Share ${current.name}")
+            chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+        }
+    }
+
     // ---- YouTube Music (official Data API v3 search + IFrame Player playback) ----
     private val _ytSearchQuery = MutableStateFlow("")
     val ytSearchQuery: StateFlow<String> = _ytSearchQuery.asStateFlow()
@@ -765,7 +901,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val cleanTitle = result.title.replace(Regex("[^a-zA-Z0-9 _-]"), "").trim().take(80).ifBlank { "YouTube_Audio" }
                 val ext = if (mimeType.contains("webm") || mimeType.contains("opus")) "opus" else "m4a"
                 val fileName = "$cleanTitle.$ext"
-                val safeDir = getSafeMusicDir()
+                val safeDir = getPublicMusicDir()
                 var outFile = java.io.File(safeDir, fileName)
 
                 var ok = streamDownloadToFile(streamUrl, outFile) { progress, current, total ->
@@ -867,8 +1003,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 val cleanTitle = result.title.replace(Regex("[^a-zA-Z0-9 _-]"), "").trim().take(80).ifBlank { "YouTube_Video" }
                 val fileName = "$cleanTitle.mp4"
-                val moviesDir = getApplication<android.app.Application>().getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES)
-                val safeDir = if (moviesDir != null && moviesDir.exists()) moviesDir else getSafeMusicDir()
+                val safeDir = getPublicMoviesDir()
                 var outFile = java.io.File(safeDir, fileName)
 
                 val ok = streamDownloadToFile(video.url, outFile) { progress, current, total ->
@@ -2113,137 +2248,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Video Mode: switch the currently-playing YouTube song between audio-only and a
-     * real video+audio stream, played through the SAME ExoPlayer/MediaSession (see
-     * PlaybackConnection.bindPlayerView) rather than a separate embedded player — so
-     * lock screen controls, the queue and stream caching all keep working exactly as
-     * they do for audio. Seamlessly preserves current timestamp so playback doesn't restart.
-     */
     fun setVideoMode(enabled: Boolean) {
-        val curTrack = playbackConnection.currentTrack.value
-        val isCurrentVideo = curTrack?.mediaType == MediaType.VIDEO
-        if (_isVideoMode.value == enabled && (enabled == isCurrentVideo)) return
-        if (!enabled) {
-            _userWantsVideoMode.value = false
-            _isVideoMode.value = false
-            if (isCurrentVideo && curTrack != null) {
-                val currentPos = playbackConnection.currentPositionMs.value
-                val target = _ytCurrentVideo.value ?: YouTubeSearchResult(
-                    videoId = curTrack.filePath.orEmpty(),
-                    title = curTrack.name,
-                    channelTitle = curTrack.artist,
-                    thumbnailUrl = curTrack.albumArtUri?.toString().orEmpty()
-                )
-                playYouTubeVideo(target, startPositionMs = currentPos)
-            }
-        } else {
-            if (!isCurrentVideo) {
-                _isVideoMode.value = false
-            }
-            toggleVideoMode()
+        _userWantsVideoMode.value = enabled
+        _isVideoMode.value = enabled
+        if (enabled) {
+            resolveVideoForCurrentTrack()
         }
     }
 
     fun toggleVideoMode() {
-        val curTrack = playbackConnection.currentTrack.value ?: return
-
-        // If currently in video mode, switch cleanly back to audio
-        if (_isVideoMode.value) {
-            _userWantsVideoMode.value = false
-            _isVideoMode.value = false
-            val currentPos = playbackConnection.currentPositionMs.value
-            val target = _ytCurrentVideo.value ?: YouTubeSearchResult(
-                videoId = curTrack.filePath.orEmpty(),
-                title = curTrack.name,
-                channelTitle = curTrack.artist,
-                thumbnailUrl = curTrack.albumArtUri?.toString().orEmpty()
-            )
-            if (curTrack.mediaType == MediaType.VIDEO) {
-                playYouTubeVideo(target, startPositionMs = currentPos)
-            }
-            return
-        }
-
-        _userWantsVideoMode.value = true
-
-        // If already playing an offline MP4 video, simply toggle UI mode
-        if (curTrack.mediaType == MediaType.VIDEO || curTrack.filePath?.endsWith(".mp4", ignoreCase = true) == true) {
-            _isVideoMode.value = true
-            return
-        }
-
-        // Strictly resolve video ID for THIS CURRENT TRACK (never reuse stale video from prior tracks)
-        var vidId = extractValidVideoId(curTrack.filePath)
-            ?: extractValidVideoId(curTrack.albumArtUri?.toString())
-            ?: extractValidVideoId(curTrack.uri.toString())
-            ?: _ytCurrentVideo.value?.takeIf { it.title.equals(curTrack.name, ignoreCase = true) || it.videoId == curTrack.filePath }?.videoId
-
-        val currentPos = playbackConnection.currentPositionMs.value
-        _videoModeLoading.value = true
-
-        viewModelScope.launch {
-            if (vidId == null && curTrack.name.isNotBlank()) {
-                try {
-                    val detailed = YouTubeSearchRepository.searchDetailed("${curTrack.name} ${curTrack.artist} official video")
-                    val matched = detailed.songs.firstOrNull()
-                    vidId = matched?.videoId
-                    if (matched != null) {
-                        _ytCurrentVideo.value = matched
-                    }
-                } catch (_: Exception) {}
-            }
-
-            if (vidId == null) {
-                _videoModeLoading.value = false
-                android.widget.Toast.makeText(
-                    getApplication(),
-                    "No official video available for this song",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-                return@launch
-            }
-
-            val videoTarget = _ytCurrentVideo.value?.takeIf { it.videoId == vidId } ?: YouTubeSearchResult(
-                videoId = vidId!!,
-                title = curTrack.name,
-                channelTitle = curTrack.artist,
-                thumbnailUrl = curTrack.albumArtUri?.toString().orEmpty()
-            )
-            _ytCurrentVideo.value = videoTarget
-
-            val video = try {
-                com.musicdrop.app.data.youtube.NewPipeYouTubeExtractor.getInstance(getApplication())
-                    .extractVideo(vidId!!)
-            } catch (e: Exception) {
-                null
-            }
-            _videoModeLoading.value = false
-
-            _isVideoMode.value = true
-            if (video != null && video.url.isNotBlank()) {
-                val videoMediaItem = MediaItem(
-                    id = videoTarget.videoId.hashCode().toLong(),
-                    uri = Uri.parse(video.url),
-                    name = videoTarget.title.ifBlank { "YouTube Video" },
-                    size = 0L,
-                    dateAdded = System.currentTimeMillis() / 1000,
-                    mimeType = "video/mp4",
-                    mediaType = MediaType.VIDEO,
-                    durationMs = if (video.durationSec > 0) video.durationSec * 1000L else 0L,
-                    artist = videoTarget.channelTitle,
-                    album = "YouTube Music",
-                    isSong = true,
-                    filePath = videoTarget.videoId,
-                    bucketName = "YouTube Stream",
-                    albumArtUri = curTrack.albumArtUri
-                )
-                playbackConnection.playTrack(videoMediaItem, listOf(videoMediaItem), startPositionMs = currentPos)
-            } else {
-                // Progressive stream is not provided by YouTube (DASH only);
-                // We keep _isVideoMode.value = true so the player's embedded video view streams the official video seamlessly!
-            }
-        }
+        val newMode = !_isVideoMode.value
+        setVideoMode(newMode)
     }
 
     fun extractValidVideoId(raw: String?): String? {
@@ -2870,7 +2885,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (current != null && current.uri.toString().startsWith("http")) {
             viewModelScope.launch {
                 try {
-                    val safeDir = getSafeMusicDir()
+                    val safeDir = getPublicMusicDir()
                     val cleanTitle = current.name.replace(Regex("[^a-zA-Z0-9 _-]"), "").trim().take(80).ifBlank { "Track" }
                     val ext = if (current.mimeType.contains("webm") || current.mimeType.contains("opus")) "opus" else "m4a"
                     val fileName = "$cleanTitle.$ext"
@@ -2890,6 +2905,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         )
                         com.musicdrop.app.data.repository.DownloadedTracksStore.add(getApplication(), downloadedTrack)
                         _downloadedTracks.value = com.musicdrop.app.data.repository.DownloadedTracksStore.getAll(getApplication())
+                        android.media.MediaScannerConnection.scanFile(
+                            getApplication(),
+                            arrayOf(outFile.absolutePath),
+                            arrayOf(if (ext == "opus") "audio/opus" else "audio/mp4"),
+                            null
+                        )
                         onDone(true, outFile.absolutePath)
                         return@launch
                     }

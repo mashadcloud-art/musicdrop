@@ -425,12 +425,22 @@ class PlaybackConnection(private val context: Context) {
      * just won't have anything to render until it does.
      */
     fun bindPlayerView(playerView: androidx.media3.ui.PlayerView) {
-        withController { c -> playerView.player = c }
+        withController { c ->
+            try {
+                playerView.player = c
+            } catch (t: Throwable) {
+                android.util.Log.e("PlaybackConnection", "bindPlayerView error: ${t.message}")
+            }
+        }
     }
 
     fun unbindPlayerView(playerView: androidx.media3.ui.PlayerView) {
-        if (playerView.player === controller) {
-            playerView.player = null
+        try {
+            if (playerView.player === controller) {
+                playerView.player = null
+            }
+        } catch (t: Throwable) {
+            android.util.Log.e("PlaybackConnection", "unbindPlayerView error: ${t.message}")
         }
     }
 }

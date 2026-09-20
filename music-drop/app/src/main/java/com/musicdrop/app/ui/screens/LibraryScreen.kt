@@ -493,7 +493,15 @@ fun LibraryScreen(
 
                     LibraryTab.DEVICE -> DeviceMusicTabContent(
                         allAudio = allAudio,
-                        onSongClick = { song -> viewModel.playTrack(song, allAudio) }
+                        onSongClick = { song -> viewModel.playTrack(song, allAudio) },
+                        onShareClick = { song ->
+                            viewModel.shareMediaFile(
+                                context = context,
+                                filePath = song.filePath.orEmpty(),
+                                mimeType = "audio/*",
+                                title = song.name
+                            )
+                        }
                     )
 
                     LibraryTab.ALBUMS -> AlbumsTabContent(
@@ -1021,6 +1029,7 @@ fun LibraryDetailScreen(
     viewModel: MainViewModel,
     onBack: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var isSearchActive by remember { mutableStateOf(false) }
@@ -1230,7 +1239,18 @@ fun LibraryDetailScreen(
 
                 // ── Song List Items ──────────────────────────────────────────
                 items(displayedTracks, key = { "detail_song_${it.id}" }) { song ->
-                    SongItemRow(song = song, onClick = { viewModel.playTrack(song, displayedTracks) })
+                    SongItemRow(
+                        song = song,
+                        onClick = { viewModel.playTrack(song, displayedTracks) },
+                        onShareClick = {
+                            viewModel.shareMediaFile(
+                                context = context,
+                                filePath = song.filePath.orEmpty(),
+                                mimeType = "audio/*",
+                                title = song.name
+                            )
+                        }
+                    )
                 }
             }
         }
@@ -1294,7 +1314,11 @@ private fun SectionHeader(title: String, onViewAll: () -> Unit) {
 }
 
 @Composable
-private fun SongItemRow(song: MediaItem, onClick: () -> Unit) {
+private fun SongItemRow(
+    song: MediaItem,
+    onClick: () -> Unit,
+    onShareClick: (() -> Unit)? = null
+) {
     val dateFormat = remember { SimpleDateFormat("MM-dd", Locale.getDefault()) }
     val dateStr = remember(song.dateAdded) {
         try {
@@ -1381,15 +1405,15 @@ private fun SongItemRow(song: MediaItem, onClick: () -> Unit) {
 
         Spacer(modifier = Modifier.width(6.dp))
 
-        // 3-dot Menu Icon
+        // Share or 3-dot Menu Icon
         IconButton(
-            onClick = {},
+            onClick = onShareClick ?: {},
             modifier = Modifier.size(28.dp)
         ) {
             Icon(
-                imageVector = Icons.Rounded.MoreVert,
-                contentDescription = "Options",
-                tint = Color(0xFF8E8E9B),
+                imageVector = if (onShareClick != null) Icons.Rounded.Share else Icons.Rounded.MoreVert,
+                contentDescription = if (onShareClick != null) "Share file" else "Options",
+                tint = if (onShareClick != null) Color(0xFF38BDF8) else Color(0xFF8E8E9B),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -1668,6 +1692,8 @@ fun DownloadsTabContent(
         derivedStateOf { listState.firstVisibleItemIndex > 4 }
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     Box(modifier = Modifier.fillMaxSize()) {
         if (downloadedTracks.isEmpty()) {
             Box(
@@ -1748,7 +1774,8 @@ fun DownloadsTabContent(
                     val mediaItem = remember(track) { track.toMediaItem() }
                     SongItemRow(
                         song = mediaItem,
-                        onClick = { onTrackClick(track) }
+                        onClick = { onTrackClick(track) },
+                        onShareClick = { viewModel.shareDownloadedFile(context, track) }
                     )
                 }
             }
@@ -1785,7 +1812,8 @@ fun DownloadsTabContent(
 @Composable
 fun DeviceMusicTabContent(
     allAudio: List<MediaItem>,
-    onSongClick: (MediaItem) -> Unit
+    onSongClick: (MediaItem) -> Unit,
+    onShareClick: ((MediaItem) -> Unit)? = null
 ) {
     val localAudio = remember(allAudio) {
         allAudio.filter { it.isSong || it.durationMs > 15_000L }
@@ -1850,7 +1878,8 @@ fun DeviceMusicTabContent(
                 items(localAudio, key = { it.id }) { song ->
                     SongItemRow(
                         song = song,
-                        onClick = { onSongClick(song) }
+                        onClick = { onSongClick(song) },
+                        onShareClick = onShareClick?.let { { it(song) } }
                     )
                 }
             }

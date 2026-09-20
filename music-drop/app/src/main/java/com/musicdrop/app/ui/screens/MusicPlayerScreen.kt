@@ -134,7 +134,12 @@ fun MusicPlayerScreen(
         }
     }
 
-    val isDirectExoVideo = currentTrack?.mediaType == MediaType.VIDEO
+    val isDirectExoVideo = currentTrack?.mediaType == MediaType.VIDEO &&
+        (currentTrack?.filePath?.endsWith(".mp4", ignoreCase = true) == true ||
+         currentTrack?.filePath?.startsWith("/") == true ||
+         currentTrack?.filePath?.startsWith("content://") == true ||
+         currentTrack?.uri?.scheme == "content" ||
+         currentTrack?.uri?.scheme == "file")
     val isVideoMode by viewModel.isVideoMode.collectAsState()
 
     // Resolve video ID from current track metadata or online search
@@ -142,24 +147,15 @@ fun MusicPlayerScreen(
         val track = currentTrack ?: return@remember null
         val path = track.filePath.orEmpty()
         val art = track.albumArtUri?.toString().orEmpty()
+        val uriStr = track.uri.toString()
         when {
             path.startsWith("yt:") -> path.removePrefix("yt:")
             path.length == 11 && !path.contains("/") && !path.contains(".") && !path.contains(":") -> path
             art.contains("/vi_webp/") -> art.substringAfter("/vi_webp/").substringBefore("/").substringBefore("?")
             art.contains("/vi/") -> art.substringAfter("/vi/").substringBefore("/").substringBefore("?")
-            ytCurrentVideo?.videoId?.isNotBlank() == true -> {
-                val yt = ytCurrentVideo
-                if (yt != null && (
-                    yt.videoId == path ||
-                    track.name.contains(yt.title, ignoreCase = true) ||
-                    yt.title.contains(track.name, ignoreCase = true) ||
-                    track.artist.contains(yt.channelTitle, ignoreCase = true) ||
-                    yt.channelTitle.contains(track.artist, ignoreCase = true) ||
-                    track.id == 0L
-                )) {
-                    yt.videoId
-                } else null
-            }
+            uriStr.contains("v=") -> uriStr.substringAfter("v=").substringBefore("&").substringBefore("?")
+            uriStr.contains("youtu.be/") -> uriStr.substringAfter("youtu.be/").substringBefore("?").substringBefore("&")
+            ytCurrentVideo?.videoId?.isNotBlank() == true -> ytCurrentVideo?.videoId
             else -> null
         }
     }
@@ -167,7 +163,7 @@ fun MusicPlayerScreen(
     // Automatically switch to video mode and resolve video when Video tab is selected or track changes
     LaunchedEffect(activeTab, currentTrack?.id) {
         if (activeTab == 1) {
-            if (currentTrack?.mediaType != MediaType.VIDEO && !isVideoMode) {
+            if (!isVideoMode) {
                 viewModel.setVideoMode(true)
             }
             viewModel.resolveVideoForCurrentTrack()
@@ -178,7 +174,7 @@ fun MusicPlayerScreen(
     LaunchedEffect(activeTab) {
         if (activeTab != 1) {
             isVideoControlsCollapsed = false
-            if (isVideoMode || currentTrack?.mediaType == MediaType.VIDEO) {
+            if (isVideoMode) {
                 viewModel.setVideoMode(false)
             }
         }
@@ -213,16 +209,20 @@ fun MusicPlayerScreen(
                         }
                     },
                     update = { view ->
-                        if (view is androidx.media3.ui.PlayerView) {
-                            view.useArtwork = false
-                            view.resizeMode = pipResizeMode
-                            connection.bindPlayerView(view)
-                        }
+                        try {
+                            if (view is androidx.media3.ui.PlayerView) {
+                                view.useArtwork = false
+                                view.resizeMode = pipResizeMode
+                                connection.bindPlayerView(view)
+                            }
+                        } catch (_: Throwable) {}
                     },
                     onRelease = { view ->
-                        if (view is androidx.media3.ui.PlayerView) {
-                            connection.unbindPlayerView(view)
-                        }
+                        try {
+                            if (view is androidx.media3.ui.PlayerView) {
+                                connection.unbindPlayerView(view)
+                            }
+                        } catch (_: Throwable) {}
                     },
                     modifier = Modifier.fillMaxSize()
                 )
@@ -722,16 +722,20 @@ fun MusicPlayerScreen(
                                         }
                                     },
                                     update = { view ->
-                                        if (view is androidx.media3.ui.PlayerView) {
-                                            view.useArtwork = false
-                                            view.resizeMode = playerResizeMode
-                                            connection.bindPlayerView(view)
-                                        }
+                                        try {
+                                            if (view is androidx.media3.ui.PlayerView) {
+                                                view.useArtwork = false
+                                                view.resizeMode = playerResizeMode
+                                                connection.bindPlayerView(view)
+                                            }
+                                        } catch (_: Throwable) {}
                                     },
                                     onRelease = { view ->
-                                        if (view is androidx.media3.ui.PlayerView) {
-                                            connection.unbindPlayerView(view)
-                                        }
+                                        try {
+                                            if (view is androidx.media3.ui.PlayerView) {
+                                                connection.unbindPlayerView(view)
+                                            }
+                                        } catch (_: Throwable) {}
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -1354,6 +1358,14 @@ fun MusicPlayerScreen(
                                         onClick = {
                                             showOptionsMenu = false
                                             showQueueModal = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Share Track / File", color = Color.White) },
+                                        leadingIcon = { Icon(Icons.Rounded.Share, null, tint = Color(0xFF38BDF8)) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            viewModel.shareCurrentTrack(context)
                                         }
                                     )
                                     if (activeTab == 1) {
@@ -2156,25 +2168,27 @@ fun MusicPlayerScreen(
                 trackName = cur?.name ?: "Current Track",
                 onDownloadAudio = {
                     if (cur != null) {
-                        Toast.makeText(context, "Starting MP3 Audio download...", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Saving MP3 Audio to Music/MusicDrop...", Toast.LENGTH_SHORT).show()
                         viewModel.downloadCurrentTrack { success, path ->
-                            Toast.makeText(
-                                context,
-                                if (success) "Downloaded audio to Music" else "Download failed",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            if (success) {
+                                Toast.makeText(context, "Saved to Music/MusicDrop", Toast.LENGTH_SHORT).show()
+                                viewModel.shareMediaFile(context, path, "audio/mp4", cur.name)
+                            } else {
+                                Toast.makeText(context, "Download failed", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 },
                 onDownloadVideo = {
                     if (cur != null) {
-                        Toast.makeText(context, "Extracting HD Video stream...", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Saving HD Video to Movies/MusicDrop...", Toast.LENGTH_SHORT).show()
                         viewModel.downloadCurrentVideo { success, path ->
-                            Toast.makeText(
-                                context,
-                                if (success) "Downloaded HD video to Movies" else "Video download unavailable for this track",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            if (success) {
+                                Toast.makeText(context, "Saved to Movies/MusicDrop", Toast.LENGTH_SHORT).show()
+                                viewModel.shareMediaFile(context, path, "video/mp4", cur.name)
+                            } else {
+                                Toast.makeText(context, "Video download unavailable for this track", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 },

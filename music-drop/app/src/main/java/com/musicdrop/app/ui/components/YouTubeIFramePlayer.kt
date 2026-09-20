@@ -345,67 +345,86 @@ fun YouTubeIFramePlayer(
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
-                WebView(context).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                    setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                    setBackgroundColor(Color.BLACK)
-                    settings.apply {
-                        javaScriptEnabled = true
-                        domStorageEnabled = true
-                        mediaPlaybackRequiresUserGesture = false
-                        mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                        cacheMode = WebSettings.LOAD_DEFAULT
-                        useWideViewPort = true
-                        loadWithOverviewMode = true
-                        userAgentString = "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
-                    }
-                    webChromeClient = WebChromeClient()
-                    webViewClient = object : WebViewClient() {
-                        override fun shouldInterceptRequest(
-                            view: WebView?,
-                            request: WebResourceRequest?
-                        ): WebResourceResponse? {
-                            val url = request?.url?.toString().orEmpty()
-                            if (url.contains("doubleclick.net") ||
-                                url.contains("googleads") ||
-                                url.contains("pagead2.googlesyndication.com") ||
-                                url.contains("/api/stats/ads") ||
-                                url.contains("/pagead/") ||
-                                url.contains("adservice.google.")
-                            ) {
-                                return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+                try {
+                    WebView(context).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        setBackgroundColor(Color.BLACK)
+                        settings.apply {
+                            javaScriptEnabled = true
+                            domStorageEnabled = true
+                            mediaPlaybackRequiresUserGesture = false
+                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            cacheMode = WebSettings.LOAD_DEFAULT
+                            useWideViewPort = true
+                            loadWithOverviewMode = true
+                            userAgentString = "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                        }
+                        webChromeClient = WebChromeClient()
+                        webViewClient = object : WebViewClient() {
+                            override fun shouldInterceptRequest(
+                                view: WebView?,
+                                request: WebResourceRequest?
+                            ): WebResourceResponse? {
+                                val url = request?.url?.toString().orEmpty()
+                                if (url.contains("doubleclick.net") ||
+                                    url.contains("googleads") ||
+                                    url.contains("pagead2.googlesyndication.com") ||
+                                    url.contains("/api/stats/ads") ||
+                                    url.contains("/pagead/") ||
+                                    url.contains("adservice.google.")
+                                ) {
+                                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+                                }
+                                return super.shouldInterceptRequest(view, request)
                             }
-                            return super.shouldInterceptRequest(view, request)
                         }
+                        tag = cleanVideoId
+                        webViewRef.value = this
+                        addJavascriptInterface(VideoStateBridge {
+                            post {
+                                isVideoStarted = true
+                            }
+                        }, "AndroidApp")
+                        loadDataWithBaseURL("https://www.youtube-nocookie.com", htmlData, "text/html", "UTF-8", null)
                     }
-                    tag = cleanVideoId
-                    webViewRef.value = this
-                    addJavascriptInterface(VideoStateBridge {
-                        post {
-                            isVideoStarted = true
-                        }
-                    }, "AndroidApp")
-                    loadDataWithBaseURL("https://www.youtube-nocookie.com", htmlData, "text/html", "UTF-8", null)
+                } catch (t: Throwable) {
+                    android.util.Log.e("YouTubeIFramePlayer", "Error creating WebView", t)
+                    View(context).apply { setBackgroundColor(Color.BLACK) }
                 }
             },
-            update = { webView ->
+            update = { view ->
+                val webView = view as? WebView ?: return@AndroidView
                 webViewRef.value = webView
-                if (webView.tag != cleanVideoId) {
-                    webView.tag = cleanVideoId
-                    isVideoStarted = false
-                    webView.evaluateJavascript(
-                        "try { if (typeof loadNewVideo === 'function' && loadNewVideo('$cleanVideoId')) {} else { window.location.reload(); } } catch(e) { window.location.reload(); }",
-                        null
-                    )
-                } else {
-                    val curSec = (currentPositionMs / 1000).toInt()
-                    webView.evaluateJavascript(
-                        "try { setResize($resizeMode); syncPlay($isPlaying); if (player && Math.abs((player.getCurrentTime() || 0) - $curSec) > 2.5) { syncSeek($curSec); } } catch(e) {}",
-                        null
-                    )
+                try {
+                    if (webView.tag != cleanVideoId) {
+                        webView.tag = cleanVideoId
+                        isVideoStarted = false
+                        webView.evaluateJavascript(
+                            "try { if (typeof loadNewVideo === 'function' && loadNewVideo('$cleanVideoId')) {} else { window.location.reload(); } } catch(e) { window.location.reload(); }",
+                            null
+                        )
+                    } else {
+                        val curSec = (currentPositionMs / 1000).toInt()
+                        webView.evaluateJavascript(
+                            "try { setResize($resizeMode); syncPlay($isPlaying); if (player && Math.abs((player.getCurrentTime() || 0) - $curSec) > 2.5) { syncSeek($curSec); } } catch(e) {}",
+                            null
+                        )
+                    }
+                } catch (_: Throwable) {}
+            },
+            onRelease = { view ->
+                val webView = view as? WebView ?: return@AndroidView
+                try {
+                    webView.stopLoading()
+                    webView.loadUrl("about:blank")
+                    webView.onPause()
+                    webView.destroy()
+                } catch (_: Throwable) {}
+                if (webViewRef.value === webView) {
+                    webViewRef.value = null
                 }
             }
         )
