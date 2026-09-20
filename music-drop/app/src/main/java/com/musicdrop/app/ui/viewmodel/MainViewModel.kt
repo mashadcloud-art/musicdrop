@@ -2111,11 +2111,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * they do for audio. Seamlessly preserves current timestamp so playback doesn't restart.
      */
     fun setVideoMode(enabled: Boolean) {
-        if (_isVideoMode.value == enabled) return
+        val curTrack = playbackConnection.currentTrack.value
+        val isCurrentVideo = curTrack?.mediaType == MediaType.VIDEO
+        if (_isVideoMode.value == enabled && (enabled == isCurrentVideo)) return
         if (!enabled) {
             _userWantsVideoMode.value = false
             _isVideoMode.value = false
+            if (isCurrentVideo && curTrack != null) {
+                val currentPos = playbackConnection.currentPositionMs.value
+                val target = _ytCurrentVideo.value ?: YouTubeSearchResult(
+                    videoId = curTrack.filePath.orEmpty(),
+                    title = curTrack.name,
+                    channelTitle = curTrack.artist,
+                    thumbnailUrl = curTrack.albumArtUri?.toString().orEmpty()
+                )
+                playYouTubeVideo(target, startPositionMs = currentPos)
+            }
         } else {
+            if (!isCurrentVideo) {
+                _isVideoMode.value = false
+            }
             toggleVideoMode()
         }
     }
@@ -2128,8 +2143,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _userWantsVideoMode.value = false
             _isVideoMode.value = false
             val currentPos = playbackConnection.currentPositionMs.value
-            val target = _ytCurrentVideo.value
-            if (target != null && curTrack.mediaType == MediaType.VIDEO) {
+            val target = _ytCurrentVideo.value ?: YouTubeSearchResult(
+                videoId = curTrack.filePath.orEmpty(),
+                title = curTrack.name,
+                channelTitle = curTrack.artist,
+                thumbnailUrl = curTrack.albumArtUri?.toString().orEmpty()
+            )
+            if (curTrack.mediaType == MediaType.VIDEO) {
                 playYouTubeVideo(target, startPositionMs = currentPos)
             }
             return

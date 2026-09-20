@@ -58,6 +58,7 @@ import androidx.compose.foundation.Canvas
 import com.musicdrop.app.ui.components.YouTubeIFramePlayer
 import com.musicdrop.app.ui.theme.PlayerSkinLayout
 import com.musicdrop.app.data.model.MediaItem
+import com.musicdrop.app.data.model.MediaType
 import com.musicdrop.app.data.model.UnifiedTrack
 import com.musicdrop.app.ui.components.AddToPlaylistDialog
 import com.musicdrop.app.ui.components.EqualizerDialog
@@ -125,6 +126,9 @@ fun MusicPlayerScreen(
         }
     }
 
+    val isDirectExoVideo = currentTrack?.mediaType == MediaType.VIDEO
+    val isVideoMode by viewModel.isVideoMode.collectAsState()
+
     // Resolve video ID from current track metadata or online search
     val effectiveVideoId = remember(currentTrack, ytCurrentVideo) {
         val track = currentTrack
@@ -140,10 +144,21 @@ fun MusicPlayerScreen(
         }
     }
 
-    // Automatically resolve video when Video tab is selected
+    // Automatically switch to video mode when Video tab is selected
     LaunchedEffect(activeTab, currentTrack?.id) {
-        if (activeTab == 1 && effectiveVideoId == null) {
-            viewModel.resolveVideoForCurrentTrack()
+        if (activeTab == 1) {
+            if (currentTrack?.mediaType != MediaType.VIDEO && !isVideoMode) {
+                viewModel.setVideoMode(true)
+            }
+        }
+    }
+
+    // Automatically return to audio stream when switching away from Video tab
+    LaunchedEffect(activeTab) {
+        if (activeTab != 1) {
+            if (isVideoMode || currentTrack?.mediaType == MediaType.VIDEO) {
+                viewModel.setVideoMode(false)
+            }
         }
     }
 
@@ -155,7 +170,36 @@ fun MusicPlayerScreen(
                 .background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
-            if (effectiveVideoId != null) {
+            if (isDirectExoVideo) {
+                AndroidView(
+                    factory = { ctx ->
+                        try {
+                            androidx.media3.ui.PlayerView(ctx).apply {
+                                useController = false
+                                useArtwork = false
+                                defaultArtwork = null
+                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                connection.bindPlayerView(this)
+                            }
+                        } catch (_: Throwable) {
+                            android.view.View(ctx)
+                        }
+                    },
+                    update = { view ->
+                        if (view is androidx.media3.ui.PlayerView) {
+                            view.useArtwork = false
+                            view.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            connection.bindPlayerView(view)
+                        }
+                    },
+                    onRelease = { view ->
+                        if (view is androidx.media3.ui.PlayerView) {
+                            connection.unbindPlayerView(view)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else if (effectiveVideoId != null) {
                 YouTubeIFramePlayer(
                     videoId = effectiveVideoId,
                     isPlaying = isPlaying,
@@ -672,7 +716,7 @@ fun MusicPlayerScreen(
                         }
                     }
                     1 -> {
-                        // ── VIDEO VIEW: EMBEDDED HIGH-DEFINITION VIDEO PLAYBACK & FLOATING SCREEN ──
+                        // ── VIDEO VIEW: NATIVE HARDWARE-ACCELERATED VIDEO PLAYBACK & FLOATING SCREEN ──
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -681,49 +725,60 @@ fun MusicPlayerScreen(
                                 .background(Color.Black),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (effectiveVideoId != null && effectiveVideoId.isNotBlank()) {
+                            if (isDirectExoVideo) {
+                                AndroidView(
+                                    factory = { ctx ->
+                                        try {
+                                            androidx.media3.ui.PlayerView(ctx).apply {
+                                                useController = false
+                                                useArtwork = false
+                                                defaultArtwork = null
+                                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                                connection.bindPlayerView(this)
+                                            }
+                                        } catch (_: Throwable) {
+                                            android.view.View(ctx)
+                                        }
+                                    },
+                                    update = { view ->
+                                        if (view is androidx.media3.ui.PlayerView) {
+                                            view.useArtwork = false
+                                            view.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                            connection.bindPlayerView(view)
+                                        }
+                                    },
+                                    onRelease = { view ->
+                                        if (view is androidx.media3.ui.PlayerView) {
+                                            connection.unbindPlayerView(view)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else if (isVideoLoading) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFFE11D48),
+                                        strokeWidth = 3.dp
+                                    )
+                                    Spacer(Modifier.height(14.dp))
+                                    Text(
+                                        text = "Loading official HD video...",
+                                        color = Color.White,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            } else if (effectiveVideoId != null && effectiveVideoId.isNotBlank()) {
                                 YouTubeIFramePlayer(
                                     videoId = effectiveVideoId,
                                     isPlaying = isPlaying,
                                     currentPositionMs = positionMs,
                                     modifier = Modifier.fillMaxSize()
                                 )
-
-                                // Top Right Overlay: Floating Screen (PiP) Icon Button
-                                Row(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(10.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    IconButton(
-                                        onClick = {
-                                            val activity = context as? Activity
-                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                                try {
-                                                    val params = PictureInPictureParams.Builder()
-                                                        .setAspectRatio(Rational(16, 9))
-                                                        .build()
-                                                    activity?.enterPictureInPictureMode(params)
-                                                } catch (_: Throwable) {
-                                                    Toast.makeText(context, "Picture-in-Picture not supported on this device", Toast.LENGTH_SHORT).show()
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.Black.copy(alpha = 0.65f))
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.PictureInPictureAlt,
-                                            contentDescription = "Floating Screen (PiP)",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
                             } else {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -736,19 +791,55 @@ fun MusicPlayerScreen(
                                     )
                                     Spacer(Modifier.height(14.dp))
                                     Text(
-                                        text = if (isVideoLoading) "Loading official HD video..." else "Resolving official video stream...",
+                                        text = "Resolving official video stream...",
                                         color = Color.White,
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.Medium
                                     )
                                     Spacer(Modifier.height(12.dp))
                                     Button(
-                                        onClick = { viewModel.resolveVideoForCurrentTrack() },
+                                        onClick = { viewModel.setVideoMode(true) },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.18f)),
                                         shape = RoundedCornerShape(16.dp)
                                     ) {
                                         Text("Search & Play Video", color = Color.White, fontSize = 12.sp)
                                     }
+                                }
+                            }
+
+                            // Top Right Overlay: Floating Screen (PiP) Icon Button
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(
+                                    onClick = {
+                                        val activity = context as? Activity
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                            try {
+                                                val params = PictureInPictureParams.Builder()
+                                                    .setAspectRatio(Rational(16, 9))
+                                                    .build()
+                                                activity?.enterPictureInPictureMode(params)
+                                            } catch (_: Throwable) {
+                                                Toast.makeText(context, "Picture-in-Picture not supported on this device", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Black.copy(alpha = 0.65f))
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PictureInPictureAlt,
+                                        contentDescription = "Floating Screen (PiP)",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
                             }
                         }

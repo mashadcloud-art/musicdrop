@@ -1,8 +1,8 @@
 {
-  "versionCode": 147,
-  "versionName": "1.3.7",
-  "title": "MusicDrop v1.3.7 Available",
-  "changelog": "• Status Bar & Header Clearance: Fixed mobile header overlapping system clock and status bar time with safe display cutout and bright white status bar text\n• Vinyl Turntable Theme: Added authentic rotating grooved black vinyl record with center album artwork label and animated metallic tonearm needle\n• Radial Ring Up Next Drawer: Added circular progress ring with elapsed time counter, flanking skip controls, and bottom queue drawer sheet with floating amber play button\n• HD Video Mode & Floating Screen: Smooth video playback with dedicated Floating Screen (PiP) picture-in-picture mode support",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.7/MusicDrop-v1.3.7.apk",
+  "versionCode": 148,
+  "versionName": "1.3.8",
+  "title": "MusicDrop v1.3.8 Available",
+  "changelog": "• Native HD Video Playback: Restored direct ExoPlayer PlayerView video streaming with hardware acceleration\n• Instant Video Mode: Seamlessly switches between HQ Audio and HD Video at exact playback position\n• Fixed Video Playback: Eliminated broken iframe player errors and YouTube embed restrictions\n• Floating Screen (PiP): Smooth native Picture-in-Picture mode for video viewing",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.8/MusicDrop-v1.3.8.apk",
   "forceUpdate": false
 }

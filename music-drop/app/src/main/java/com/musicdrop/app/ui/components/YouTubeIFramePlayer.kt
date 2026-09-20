@@ -84,56 +84,40 @@ fun YouTubeIFramePlayer(
                     align-items: center;
                     justify-content: center;
                 }
-                iframe {
+                #player {
                     width: 1280px;
                     height: 720px;
                     border: none;
                     display: block;
                 }
-                #error-overlay { display: none !important; }
             </style>
         </head>
         <body>
             <div id="wrapper">
                 <div id="stage">
-                    <iframe 
-                        id="player"
-                        type="text/html" 
-                        src="https://www.youtube-nocookie.com/embed/$cleanVideoId?autoplay=1&mute=1&playsinline=1&controls=0&enablejsapi=1&rel=0&modestbranding=1&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com&vq=hd1080&hd=1&suggestedQuality=hd1080" 
-                        frameborder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen>
-                    </iframe>
+                    <div id="player"></div>
                 </div>
             </div>
             <script>
                 // Continuous Ad Skipper & Fast-Forward Engine
                 function autoSkipAds() {
                     try {
-                        var p = document.getElementById('player');
-                        var docs = [document];
-                        if (p) {
-                            try { if (p.contentDocument) docs.push(p.contentDocument); } catch(e) {}
+                        var skipBtns = document.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .videoAdUiSkipButton, .ytp-skip-ad-button, button.ytp-ad-skip-button, .ytp-ad-overlay-close-button');
+                        for (var b = 0; b < skipBtns.length; b++) {
+                            try { skipBtns[b].click(); } catch(e) {}
                         }
-                        for (var d = 0; d < docs.length; d++) {
-                            var doc = docs[d];
-                            var skipBtns = doc.querySelectorAll('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .videoAdUiSkipButton, .ytp-skip-ad-button, button.ytp-ad-skip-button, .ytp-ad-overlay-close-button');
-                            for (var b = 0; b < skipBtns.length; b++) {
-                                try { skipBtns[b].click(); } catch(e) {}
-                            }
-                            var ad = doc.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay');
-                            var v = doc.querySelector('video');
-                            if (ad && v) {
-                                v.muted = true;
-                                v.playbackRate = 16.0;
-                                if (isFinite(v.duration) && v.duration > 0) {
-                                    v.currentTime = v.duration;
-                                }
+                        var v = document.querySelector('video');
+                        var ad = document.querySelector('.ad-showing, .ad-interrupting, .ytp-ad-player-overlay');
+                        if (ad && v) {
+                            v.muted = true;
+                            v.playbackRate = 16.0;
+                            if (isFinite(v.duration) && v.duration > 0) {
+                                v.currentTime = v.duration;
                             }
                         }
                     } catch(e) {}
                 }
-                setInterval(autoSkipAds, 150);
+                setInterval(autoSkipAds, 200);
 
                 var scaleMode = $resizeMode; // 0: Fit (16:9), 1: Fill (Zoom), 2: Wide
                 function applyStageScale() {
@@ -179,6 +163,21 @@ fun YouTubeIFramePlayer(
 
                 function onYouTubeIframeAPIReady() {
                     player = new YT.Player('player', {
+                        width: '1280',
+                        height: '720',
+                        videoId: '$cleanVideoId',
+                        playerVars: {
+                            'autoplay': 1,
+                            'mute': 1,
+                            'controls': 0,
+                            'playsinline': 1,
+                            'rel': 0,
+                            'modestbranding': 1,
+                            'enablejsapi': 1,
+                            'fs': 0,
+                            'iv_load_policy': 3,
+                            'origin': 'https://www.youtube.com'
+                        },
                         events: {
                             'onReady': function(event) {
                                 try {
@@ -189,7 +188,7 @@ fun YouTubeIFramePlayer(
                                 var interval = setInterval(function() {
                                     enforceQuality();
                                     checks++;
-                                    if (checks >= 8) clearInterval(interval);
+                                    if (checks >= 6) clearInterval(interval);
                                 }, 500);
                             },
                             'onStateChange': function(event) {
@@ -197,13 +196,8 @@ fun YouTubeIFramePlayer(
                                     enforceQuality();
                                 }
                             },
-                            'onPlaybackQualityChange': function(event) {
-                                if (event.data !== 'hd1080' && event.data !== 'hd720' && event.data !== 'highres') {
-                                    enforceQuality();
-                                }
-                            },
                             'onError': function(event) {
-                                console.log('YouTube iframe error code: ' + event.data);
+                                console.log('YouTube iframe error: ' + event.data);
                             }
                         }
                     });
@@ -293,7 +287,6 @@ fun YouTubeIFramePlayer(
                         cacheMode = WebSettings.LOAD_DEFAULT
                         useWideViewPort = true
                         loadWithOverviewMode = true
-                        userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                     }
                     webChromeClient = WebChromeClient()
                     webViewClient = object : WebViewClient() {
@@ -307,10 +300,7 @@ fun YouTubeIFramePlayer(
                                 url.contains("pagead2.googlesyndication.com") ||
                                 url.contains("/api/stats/ads") ||
                                 url.contains("/pagead/") ||
-                                url.contains("adservice.google.") ||
-                                url.contains("youtube.com/ptracking") ||
-                                url.contains("youtube.com/get_midroll_info") ||
-                                url.contains("googlesyndication.com")
+                                url.contains("adservice.google.")
                             ) {
                                 return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
                             }
