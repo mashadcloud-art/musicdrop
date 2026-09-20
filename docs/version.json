@@ -1,8 +1,8 @@
 {
-  "versionCode": 150,
-  "versionName": "1.4.0",
-  "title": "MusicDrop v1.4.0 Available",
-  "changelog": "• Refined Modern Player: Top bar with MusicDrop pill, Audio/Video switcher, Queue, and PiP\n• Streamlined Player Sheet: Drag handle, Now Playing status, title with chevron, quick heart & download, orange seek bar, solid white circle play button, and Save pill\n• Fixed Header & Tab Insets: Home, Songs, and Playlists tabs never overlap or hide under the system status bar\n• Dedicated Search Page: Tapping search navigates to the dedicated search page with full results and persistent search history\n• Video Sizing & Edge-to-Edge: Full Screen toggle and 16:9 / Fill (Crop) / Wide aspect ratio switcher",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.0/MusicDrop-v1.4.0.apk",
+  "versionCode": 151,
+  "versionName": "1.4.1",
+  "title": "MusicDrop v1.4.1 Available",
+  "changelog": "• True Edge-to-Edge Media Player: Video takes full available screen width and height without letterboxed card padding or purple gaps\n• Docked Dark Sheet: Matching Screenshot 1 with drag handle, orange NOW PLAYING indicator, HD VIDEO badge, track title with navigation chevron, heart & download, orange scrubber, prominent white circular play button, and Save pill\n• YouTube Video Fix: Fixed 'Video unavailable' error by applying Mobile Chrome UA and instant loadVideoById video switching for copyrighted music\n• Dedicated Search Page & Search History: Instant navigation and query persistence across YouTube & local tracks",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.1/MusicDrop-v1.4.1.apk",
   "forceUpdate": false
 }

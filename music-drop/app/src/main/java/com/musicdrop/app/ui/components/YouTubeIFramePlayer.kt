@@ -161,6 +161,21 @@ fun YouTubeIFramePlayer(
                     } catch(e) {}
                 }
 
+                function loadNewVideo(newVid) {
+                    if (player && typeof player.loadVideoById === 'function') {
+                        try {
+                            player.loadVideoById({
+                                videoId: newVid,
+                                suggestedQuality: 'hd1080'
+                            });
+                            player.mute();
+                            player.playVideo();
+                            return true;
+                        } catch(e) {}
+                    }
+                    return false;
+                }
+
                 function onYouTubeIframeAPIReady() {
                     player = new YT.Player('player', {
                         width: '1280',
@@ -175,8 +190,7 @@ fun YouTubeIFramePlayer(
                             'modestbranding': 1,
                             'enablejsapi': 1,
                             'fs': 0,
-                            'iv_load_policy': 3,
-                            'origin': 'https://www.youtube.com'
+                            'iv_load_policy': 3
                         },
                         events: {
                             'onReady': function(event) {
@@ -198,6 +212,13 @@ fun YouTubeIFramePlayer(
                             },
                             'onError': function(event) {
                                 console.log('YouTube iframe error: ' + event.data);
+                                // Error 100, 101, 150: restricted embed -> fallback to nocookie embed
+                                try {
+                                    var p = document.getElementById('player');
+                                    if (p) {
+                                        p.innerHTML = '<iframe width="1280" height="720" src="https://www.youtube-nocookie.com/embed/' + '$cleanVideoId' + '?autoplay=1&mute=1&playsinline=1&controls=0&rel=0&enablejsapi=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:1280px;height:720px;border:none;"></iframe>';
+                                    }
+                                } catch(err) {}
                             }
                         }
                     });
@@ -287,6 +308,7 @@ fun YouTubeIFramePlayer(
                         cacheMode = WebSettings.LOAD_DEFAULT
                         useWideViewPort = true
                         loadWithOverviewMode = true
+                        userAgentString = "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
                     }
                     webChromeClient = WebChromeClient()
                     webViewClient = object : WebViewClient() {
@@ -309,14 +331,17 @@ fun YouTubeIFramePlayer(
                     }
                     tag = cleanVideoId
                     webViewRef.value = this
-                    loadDataWithBaseURL("https://www.youtube.com", htmlData, "text/html", "UTF-8", null)
+                    loadDataWithBaseURL("https://www.youtube-nocookie.com", htmlData, "text/html", "UTF-8", null)
                 }
             },
             update = { webView ->
                 webViewRef.value = webView
                 if (webView.tag != cleanVideoId) {
                     webView.tag = cleanVideoId
-                    webView.loadDataWithBaseURL("https://www.youtube.com", htmlData, "text/html", "UTF-8", null)
+                    webView.evaluateJavascript(
+                        "try { if (typeof loadNewVideo === 'function' && loadNewVideo('$cleanVideoId')) {} else { window.location.reload(); } } catch(e) { window.location.reload(); }",
+                        null
+                    )
                 } else {
                     val curSec = (currentPositionMs / 1000).toInt()
                     webView.evaluateJavascript(

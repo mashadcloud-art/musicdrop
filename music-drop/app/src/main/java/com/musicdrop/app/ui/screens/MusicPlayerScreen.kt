@@ -134,25 +134,38 @@ fun MusicPlayerScreen(
 
     // Resolve video ID from current track metadata or online search
     val effectiveVideoId = remember(currentTrack, ytCurrentVideo) {
-        val track = currentTrack
-        val path = track?.filePath.orEmpty()
-        val art = track?.albumArtUri?.toString().orEmpty()
+        val track = currentTrack ?: return@remember null
+        val path = track.filePath.orEmpty()
+        val art = track.albumArtUri?.toString().orEmpty()
         when {
             path.startsWith("yt:") -> path.removePrefix("yt:")
             path.length == 11 && !path.contains("/") && !path.contains(".") && !path.contains(":") -> path
             art.contains("/vi_webp/") -> art.substringAfter("/vi_webp/").substringBefore("/").substringBefore("?")
             art.contains("/vi/") -> art.substringAfter("/vi/").substringBefore("/").substringBefore("?")
-            ytCurrentVideo?.videoId?.isNotBlank() == true -> ytCurrentVideo?.videoId
+            ytCurrentVideo?.videoId?.isNotBlank() == true -> {
+                val yt = ytCurrentVideo
+                if (yt != null && (
+                    yt.videoId == path ||
+                    track.name.contains(yt.title, ignoreCase = true) ||
+                    yt.title.contains(track.name, ignoreCase = true) ||
+                    track.artist.contains(yt.channelTitle, ignoreCase = true) ||
+                    yt.channelTitle.contains(track.artist, ignoreCase = true) ||
+                    track.id == 0L
+                )) {
+                    yt.videoId
+                } else null
+            }
             else -> null
         }
     }
 
-    // Automatically switch to video mode when Video tab is selected
+    // Automatically switch to video mode and resolve video when Video tab is selected or track changes
     LaunchedEffect(activeTab, currentTrack?.id) {
         if (activeTab == 1) {
             if (currentTrack?.mediaType != MediaType.VIDEO && !isVideoMode) {
                 viewModel.setVideoMode(true)
             }
+            viewModel.resolveVideoForCurrentTrack()
         }
     }
 
@@ -285,19 +298,15 @@ fun MusicPlayerScreen(
             }
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
-                .padding(top = 10.dp)
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ── 1. TOP BAR (MATCHING SCREENSHOT 1) ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -815,17 +824,9 @@ fun MusicPlayerScreen(
                         }
 
                         Box(
-                            modifier = if (isVideoControlsCollapsed) {
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Black)
-                            } else {
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(285.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(Color.Black)
-                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black),
                             contentAlignment = Alignment.Center
                         ) {
                             if (isDirectExoVideo) {
@@ -857,19 +858,19 @@ fun MusicPlayerScreen(
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
-                            } else if (isVideoLoading) {
+                            } else if (isVideoLoading || (effectiveVideoId.isNullOrBlank() && isVideoMode)) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center,
                                     modifier = Modifier.padding(16.dp)
                                 ) {
                                     CircularProgressIndicator(
-                                        color = Color(0xFFE11D48),
+                                        color = Color(0xFFF97316),
                                         strokeWidth = 3.dp
                                     )
                                     Spacer(Modifier.height(14.dp))
                                     Text(
-                                        text = "Loading official HD video...",
+                                        text = "Resolving official HD video...",
                                         color = Color.White,
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.Medium
@@ -890,7 +891,7 @@ fun MusicPlayerScreen(
                                     modifier = Modifier.padding(16.dp)
                                 ) {
                                     CircularProgressIndicator(
-                                        color = Color(0xFFE11D48),
+                                        color = Color(0xFFF97316),
                                         strokeWidth = 3.dp
                                     )
                                     Spacer(Modifier.height(14.dp))
@@ -910,7 +911,6 @@ fun MusicPlayerScreen(
                                     }
                                 }
                             }
-
 
                             // If controls collapsed (Edge-to-Edge Mode), show sleek floating bottom control pill
                             if (isVideoControlsCollapsed) {
@@ -1021,12 +1021,12 @@ fun MusicPlayerScreen(
                                     }
                                 }
                             } else {
-                                // Bottom Strip on 285dp card: Quick Edge-to-Edge & Resize Mode buttons
+                                // Bottom Strip on Video: Quick Full Screen & Resize Mode buttons (Screenshot 1)
                                 Row(
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
                                         .fillMaxWidth()
-                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -1037,10 +1037,10 @@ fun MusicPlayerScreen(
                                         onClick = { isVideoControlsCollapsed = true }
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Icon(Icons.Rounded.Fullscreen, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                                            Icon(Icons.Rounded.Fullscreen, null, tint = Color.White, modifier = Modifier.size(16.dp))
                                             Spacer(Modifier.width(4.dp))
                                             Text("Full Screen", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                                         }
@@ -1053,10 +1053,10 @@ fun MusicPlayerScreen(
                                         onClick = { videoResizeMode = (videoResizeMode + 1) % 3 }
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Icon(Icons.Rounded.AspectRatio, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                            Icon(Icons.Rounded.AspectRatio, null, tint = Color.White, modifier = Modifier.size(15.dp))
                                             Spacer(Modifier.width(4.dp))
                                             Text(
                                                 text = when (videoResizeMode) {
@@ -1174,578 +1174,340 @@ fun MusicPlayerScreen(
                 }
             }
 
+            // ── 3. DOCKED BOTTOM CONTROLS CARD (MATCHING SCREENSHOT 1) ──
             if (!(activeTab == 1 && isVideoControlsCollapsed)) {
-                Spacer(Modifier.height(10.dp))
-
-                if (activeTab == 0 && playerSkinLayout == PlayerSkinLayout.RADIAL_DRAWER) {
-                // ── RADIAL DRAWER SKIN: DEDICATED CONTROLS (MATCHING SCREENSHOT 2) ──
-                Spacer(Modifier.height(10.dp))
-
-                // Title row with Shuffle on Left & Comment on Right
-                Row(
+                Surface(
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    color = Color(0xFF0C131D),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .navigationBarsPadding()
                 ) {
-                    IconButton(
-                        onClick = { connection.toggleShuffle() },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Shuffle,
-                            contentDescription = "Shuffle",
-                            tint = if (isShuffle) Color(0xFF10B981) else Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 10.dp)
                     ) {
-                        Text(
-                            text = currentTrack?.name ?: "No Track Playing",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = currentTrack?.artist?.ifBlank { "MusicDrop" } ?: "MusicDrop",
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { activeTab = 2 },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.ChatBubbleOutline,
-                            contentDescription = "Lyrics",
-                            tint = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(14.dp))
-
-                // 5 Icons Row: Favorite, Sleep Timer, Add to Playlist, Queue, Equalizer ON
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = {
-                            val cur = currentTrack
-                            if (cur != null) {
-                                val newFav = viewModel.toggleFavoriteTrack(cur)
-                                isLiked = newFav
-                                Toast.makeText(context, if (newFav) "Added to Favorites" else "Removed from Favorites", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = if (isLiked) Color(0xFFEF4444) else Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { showSleepTimerModal = true },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Schedule,
-                            contentDescription = "Sleep Timer",
-                            tint = if (sleepTimerTargetMs > 0L) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { showAddToPlaylist = true },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                            contentDescription = "Add to Playlist",
-                            tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { showQueueModal = true },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                            contentDescription = "Queue",
-                            tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    val isEqOn = eqState?.isEnabled == true
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { showEqualizerModal = true }
-                            .padding(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Tune,
-                            contentDescription = "Equalizer",
-                            tint = if (isEqOn) Color(0xFF10B981) else Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(19.dp)
-                        )
-                        if (isEqOn) {
-                            Spacer(Modifier.width(2.dp))
-                            Text("ON", color = Color(0xFF10B981), fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(14.dp))
-
-                // Up Next Drawer Sheet with Floating Amber Circle Play Button (Screenshot 2)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .heightIn(min = 135.dp, max = 165.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                        color = Color.White,
-                        shadowElevation = 16.dp,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 16.dp, vertical = 14.dp)
-                        ) {
-                            val nextTrack = upNextQueue.firstOrNull()
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        if (nextTrack != null) {
-                                            viewModel.playYouTubeVideoWithContext(nextTrack, upNextQueue)
-                                        } else {
-                                            showQueueModal = true
-                                        }
-                                    },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(42.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF1E293B)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (nextTrack?.thumbnailUrl?.isNotBlank() == true) {
-                                        AsyncImage(
-                                            model = nextTrack.thumbnailUrl,
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    } else {
-                                        Icon(Icons.Rounded.MusicNote, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                                    }
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = nextTrack?.title ?: "Up Next: Tap to view queue",
-                                        color = Color(0xFF0F172A),
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = nextTrack?.channelTitle ?: "MusicDrop Queue",
-                                        color = Color(0xFF64748B),
-                                        fontSize = 11.5.sp,
-                                        maxLines = 1
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color(0xFFF1F5F9))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text("320K", color = Color(0xFF475569), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-
-                    // Floating Amber Circle Play Button on Right Side (Matching Screenshot 2)
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFFF59E0B),
-                        shadowElevation = 10.dp,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(end = 24.dp)
-                            .size(50.dp)
-                            .clickable { connection.togglePlayPause() }
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                contentDescription = "Play/Pause",
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                    }
-                }
-            } else {
-                // ── SCREENSHOT 1 LOOK: DEDICATED STREAMLINED MUSIC CONTROLS ──
-                // Drag handle
-                Box(
-                    modifier = Modifier
-                        .width(38.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color.White.copy(alpha = 0.35f))
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                // 1. Status Indicator Row: [ 🟠 NOW PLAYING ∨ ] ... [ HD VIDEO / HQ AUDIO ]
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Drag handle
                         Box(
                             modifier = Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFF97316))
+                                .align(Alignment.CenterHorizontally)
+                                .width(36.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color.White.copy(alpha = 0.35f))
                         )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "NOW PLAYING",
-                            color = Color(0xFFF97316),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Rounded.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = Color(0xFFF97316),
-                            modifier = Modifier.size(15.dp)
-                        )
-                    }
 
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF1E1E26),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF97316).copy(alpha = 0.4f))
-                    ) {
-                        Text(
-                            text = if (activeTab == 1) "HD VIDEO" else "HQ AUDIO",
-                            color = Color(0xFFF97316),
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
-                        )
-                    }
-                }
+                        Spacer(Modifier.height(8.dp))
 
-                Spacer(Modifier.height(6.dp))
-
-                // 2. Track Title & Artist (with Right Chevron, Heart & Download buttons)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                        // 1. Status Indicator Row: [ 🟠 NOW PLAYING ∨ ] ... [ HD VIDEO / HQ AUDIO ]
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = currentTrack?.name ?: "No Track Playing",
-                                color = Color.White,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                modifier = Modifier
-                                    .weight(1f, fill = false)
-                                    .basicMarquee(iterations = Int.MAX_VALUE)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.Rounded.ChevronRight,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.7f),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = currentTrack?.artist?.ifBlank { "Think Music India" } ?: "MusicDrop",
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 13.5.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    // Heart / Like
-                    IconButton(
-                        onClick = {
-                            val cur = currentTrack
-                            if (cur != null) {
-                                val newFav = viewModel.toggleFavoriteTrack(cur)
-                                isLiked = newFav
-                                Toast.makeText(context, if (newFav) "Added to Favorites" else "Removed from Favorites", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = if (isLiked) Color(0xFFEF4444) else Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(23.dp)
-                        )
-                    }
-
-                    // Download (Choice Dialog: MP3 Audio or MP4 Video)
-                    IconButton(
-                        onClick = { showDownloadModal = true },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Download,
-                            contentDescription = "Download",
-                            tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(23.dp)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                // 3. Orange Scrubber Slider with Start and End Timestamps
-                val effectiveProgress = if (sliderDragging >= 0f) sliderDragging else {
-                    if (durationMs > 0L) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
-                }
-                val displayPositionMs = if (sliderDragging >= 0f) (sliderDragging * durationMs).toLong() else positionMs
-
-                Slider(
-                    value = effectiveProgress,
-                    onValueChange = { frac -> sliderDragging = frac },
-                    onValueChangeFinished = {
-                        if (durationMs > 0L && sliderDragging >= 0f) {
-                            connection.seekTo((sliderDragging * durationMs).toLong())
-                        }
-                        sliderDragging = -1f
-                    },
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFFF97316),
-                        activeTrackColor = Color(0xFFF97316),
-                        inactiveTrackColor = Color.White.copy(alpha = 0.18f)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(24.dp)
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = formatMs(displayPositionMs),
-                        color = Color.White.copy(alpha = 0.55f),
-                        fontSize = 11.5.sp
-                    )
-                    Text(
-                        text = formatMs(durationMs),
-                        color = Color.White.copy(alpha = 0.55f),
-                        fontSize = 11.5.sp
-                    )
-                }
-
-                Spacer(Modifier.height(10.dp))
-
-                // 4. Playback Controls Row: [ 🔀 ] [ ⏮ ] [ ⏸ (White Circle) ] [ ⏭ ] [ 🔁 ]
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Shuffle
-                    IconButton(
-                        onClick = { connection.toggleShuffle() },
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Shuffle,
-                            contentDescription = "Shuffle",
-                            tint = if (isShuffle) Color(0xFFF97316) else Color.White.copy(alpha = 0.55f),
-                            modifier = Modifier.size(23.dp)
-                        )
-                    }
-
-                    // Previous
-                    IconButton(
-                        onClick = { connection.skipPrevious() },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.SkipPrevious,
-                            contentDescription = "Previous",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-
-                    // Solid White Circle Play/Pause Button
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White,
-                        shadowElevation = 10.dp,
-                        onClick = { connection.togglePlayPause() },
-                        modifier = Modifier.size(68.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                contentDescription = if (isPlaying) "Pause" else "Play",
-                                tint = Color.Black,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-                    }
-
-                    // Next
-                    IconButton(
-                        onClick = { connection.skipNext() },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.SkipNext,
-                            contentDescription = "Next",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-
-                    // Repeat
-                    IconButton(
-                        onClick = { connection.toggleRepeat() },
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isRepeat) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                            contentDescription = "Repeat",
-                            tint = if (isRepeat) Color(0xFFF97316) else Color.White.copy(alpha = 0.55f),
-                            modifier = Modifier.size(23.dp)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                // 5. Bottom Row: "Playing from Continuous Radio Mix" ... [ ＋ Save ]
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Playing from",
-                            color = Color.White.copy(alpha = 0.45f),
-                            fontSize = 11.sp
-                        )
-                        Text(
-                            text = currentTrack?.album?.ifBlank { "Continuous Radio Mix" } ?: "Continuous Radio Mix",
-                            color = Color.White,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFF22222C),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
-                        onClick = { showAddToPlaylist = true }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                                contentDescription = null,
-                                tint = Color(0xFFF97316),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(5.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF97316))
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "NOW PLAYING",
+                                    color = Color(0xFFF97316),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = Color(0xFFF97316),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color.Transparent,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF97316).copy(alpha = 0.45f))
+                            ) {
+                                Text(
+                                    text = if (activeTab == 1) "HD VIDEO" else "HQ AUDIO",
+                                    color = Color(0xFFF97316),
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // 2. Track Title & Artist (with Right Chevron, Heart & Download buttons)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = currentTrack?.name ?: "No Track Playing",
+                                        color = Color.White,
+                                        fontSize = 16.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        modifier = Modifier
+                                            .weight(1f, fill = false)
+                                            .basicMarquee(iterations = Int.MAX_VALUE)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Rounded.ChevronRight,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = currentTrack?.artist?.ifBlank { "Think Music India" } ?: "MusicDrop",
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            // Heart / Like
+                            IconButton(
+                                onClick = {
+                                    val cur = currentTrack
+                                    if (cur != null) {
+                                        val newFav = viewModel.toggleFavoriteTrack(cur)
+                                        isLiked = newFav
+                                        Toast.makeText(context, if (newFav) "Added to Favorites" else "Removed from Favorites", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                    contentDescription = "Favorite",
+                                    tint = if (isLiked) Color(0xFFEF4444) else Color.White.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(23.dp)
+                                )
+                            }
+
+                            // Download (Choice Dialog: MP3 Audio or MP4 Video)
+                            IconButton(
+                                onClick = { showDownloadModal = true },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Download,
+                                    contentDescription = "Download",
+                                    tint = Color.White.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(23.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(6.dp))
+
+                        // 3. Orange Scrubber Slider with Start and End Timestamps
+                        val effectiveProgress = if (sliderDragging >= 0f) sliderDragging else {
+                            if (durationMs > 0L) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+                        }
+                        val displayPositionMs = if (sliderDragging >= 0f) (sliderDragging * durationMs).toLong() else positionMs
+
+                        Slider(
+                            value = effectiveProgress,
+                            onValueChange = { frac -> sliderDragging = frac },
+                            onValueChangeFinished = {
+                                if (durationMs > 0L && sliderDragging >= 0f) {
+                                    connection.seekTo((sliderDragging * durationMs).toLong())
+                                }
+                                sliderDragging = -1f
+                            },
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFFF97316),
+                                activeTrackColor = Color(0xFFF97316),
+                                inactiveTrackColor = Color.White.copy(alpha = 0.18f)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(22.dp)
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
                             Text(
-                                text = "Save",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
+                                text = formatMs(displayPositionMs),
+                                color = Color.White.copy(alpha = 0.55f),
+                                fontSize = 11.5.sp
+                            )
+                            Text(
+                                text = formatMs(durationMs),
+                                color = Color.White.copy(alpha = 0.55f),
+                                fontSize = 11.5.sp
                             )
                         }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // 4. Playback Controls Row: [ 🔀 ] [ ⏮ ] [ ⏸ (White Circle) ] [ ⏭ ] [ 🔁 ]
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Shuffle
+                            IconButton(
+                                onClick = { connection.toggleShuffle() },
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Shuffle,
+                                    contentDescription = "Shuffle",
+                                    tint = if (isShuffle) Color(0xFFF97316) else Color.White.copy(alpha = 0.55f),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            // Previous
+                            IconButton(
+                                onClick = { connection.skipPrevious() },
+                                modifier = Modifier.size(46.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.SkipPrevious,
+                                    contentDescription = "Previous",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+
+                            // Solid White Circle Play/Pause Button
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White,
+                                shadowElevation = 10.dp,
+                                onClick = { connection.togglePlayPause() },
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                        contentDescription = if (isPlaying) "Pause" else "Play",
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(34.dp)
+                                    )
+                                }
+                            }
+
+                            // Next
+                            IconButton(
+                                onClick = { connection.skipNext() },
+                                modifier = Modifier.size(46.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.SkipNext,
+                                    contentDescription = "Next",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+
+                            // Repeat
+                            IconButton(
+                                onClick = { connection.toggleRepeat() },
+                                modifier = Modifier.size(42.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isRepeat) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                                    contentDescription = "Repeat",
+                                    tint = if (isRepeat) Color(0xFFF97316) else Color.White.copy(alpha = 0.55f),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(10.dp))
+
+                        // 5. Bottom Row: "Playing from Continuous Radio Mix" ... [ ＋ Save ]
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Playing from",
+                                    color = Color.White.copy(alpha = 0.45f),
+                                    fontSize = 10.5.sp
+                                )
+                                Text(
+                                    text = currentTrack?.album?.ifBlank { "Continuous Radio Mix" } ?: "Continuous Radio Mix",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0xFF1E2634),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                                onClick = { showAddToPlaylist = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                        contentDescription = null,
+                                        tint = Color(0xFFF97316),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(
+                                        text = "Save",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(4.dp))
                     }
                 }
-
-                Spacer(Modifier.height(14.dp))
             }
         }
-    }
 
         // ── DIALOGS ──
         if (showEqualizerModal) {

@@ -3437,6 +3437,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (idx >= 0) {
                     _localQueue.value = queue.subList(idx + 1, queue.size)
                 }
+                if (_isVideoMode.value) {
+                    resolveVideoForCurrentTrack()
+                }
             }
         }
 
