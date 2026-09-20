@@ -4,5 +4,5 @@
   "title": "MusicDrop v1.4.6 Available",
   "changelog": "• Video Opening Crash Fix: Fixed an issue where opening the video player or switching to Video mode caused the app to crash and close due to an incompatible adaptive-icon resource parser in Jetpack Compose\n• Safe WebView Cleanup: Improved lifecycle handling when opening, dismissing, or re-opening video streams so the app remains perfectly smooth and stable\n• Auto Video Tab Activation: Automatically navigates to the Video tab when opening local or downloaded MP4 videos",
   "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.6/MusicDrop-v1.4.6.apk",
-  "forceUpdate": false
+  "forceUpdate": true
 }
