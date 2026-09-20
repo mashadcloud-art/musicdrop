@@ -212,89 +212,86 @@ fun LibraryScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0C0C10))
-            .nestedScroll(nestedScrollConnection)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
+        ) {
             // ── 1. OFFICIAL MUSICDROP BRAND HEADER (Matching Image 4) ─────────────────
-            AnimatedVisibility(
-                visible = isTopBarVisible,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Left: Bird Logo + "Music" + "Drop"
                 Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
-                        .padding(top = 4.dp)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            val nextTheme = viewModel.cycleNextTheme()
+                            Toast.makeText(
+                                context,
+                                "Theme: ${nextTheme.name.replace('_', ' ').lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                 ) {
-                    // Left: Bird Logo + "Music" + "Drop"
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                val nextTheme = viewModel.cycleNextTheme()
-                                Toast.makeText(
-                                    context,
-                                    "Theme: ${nextTheme.name.replace('_', ' ').lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(com.musicdrop.app.R.drawable.ic_bird_logo),
+                        contentDescription = "MusicDrop",
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Music",
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Text(
+                        "Drop",
+                        color = com.musicdrop.app.ui.theme.VibrantCoral,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-0.5).sp
+                    )
+                }
+
+                // Right: Refresh, Search & Profile Avatar (Image 4)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            viewModel.refreshAllDashboardCategories(force = true)
+                            Toast.makeText(context, "Refreshing live categories...", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(38.dp)
                     ) {
-                        androidx.compose.foundation.Image(
-                            painter = androidx.compose.ui.res.painterResource(com.musicdrop.app.R.drawable.ic_bird_logo),
-                            contentDescription = "MusicDrop",
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Music",
-                            color = Color.White,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.5).sp
-                        )
-                        Text(
-                            "Drop",
-                            color = com.musicdrop.app.ui.theme.VibrantCoral,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = (-0.5).sp
+                        Icon(
+                            imageVector = Icons.Rounded.Sync,
+                            contentDescription = "Refresh",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
-
-                    // Right: Refresh, Search & Profile Avatar (Image 4)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = {
-                                viewModel.refreshAllDashboardCategories(force = true)
-                                Toast.makeText(context, "Refreshing live categories...", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Sync,
-                                contentDescription = "Refresh",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(6.dp))
-                        IconButton(
-                            onClick = { isSearchActive = !isSearchActive },
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Search,
-                                contentDescription = "Search",
-                                tint = if (isSearchActive) com.musicdrop.app.ui.theme.VibrantCoral else Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
+                    IconButton(
+                        onClick = { onOpenSearch("") },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = "Search",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
                         // Pink avatar with white "O" (per Image 4)
                         Box(
                             modifier = Modifier
@@ -313,7 +310,6 @@ fun LibraryScreen(
                         }
                     }
                 }
-            }
 
             // ── 2. EXPANDABLE SEARCH BAR (Only shown when search icon tapped) ─────────
             AnimatedVisibility(

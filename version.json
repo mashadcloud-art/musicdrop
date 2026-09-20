@@ -1,8 +1,8 @@
 {
-  "versionCode": 149,
-  "versionName": "1.3.9",
-  "title": "MusicDrop v1.3.9 Available",
-  "changelog": "• Edge-to-Edge Video: Full immersive edge-to-edge video mode with expandable bottom controls\n• Video Sizing Options: Switch dynamically between 16:9 Fit, Fill Zoom (Crop), and Wide Stretch\n• Collapsible Music Controls: Collapse player controls while watching video to maximize video screen size\n• Sleek Floating Player Pill: Floating frosted glass bar with mini progress scrubber, quick controls, and one-tap restore\n• Native ExoPlayer Hardware Acceleration & Fixed Video Playback",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.9/MusicDrop-v1.3.9.apk",
+  "versionCode": 150,
+  "versionName": "1.4.0",
+  "title": "MusicDrop v1.4.0 Available",
+  "changelog": "• Refined Modern Player: Top bar with MusicDrop pill, Audio/Video switcher, Queue, and PiP\n• Streamlined Player Sheet: Drag handle, Now Playing status, title with chevron, quick heart & download, orange seek bar, solid white circle play button, and Save pill\n• Fixed Header & Tab Insets: Home, Songs, and Playlists tabs never overlap or hide under the system status bar\n• Dedicated Search Page: Tapping search navigates to the dedicated search page with full results and persistent search history\n• Video Sizing & Edge-to-Edge: Full Screen toggle and 16:9 / Fill (Crop) / Wide aspect ratio switcher",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.0/MusicDrop-v1.4.0.apk",
   "forceUpdate": false
 }

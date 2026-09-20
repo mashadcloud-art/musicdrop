@@ -582,6 +582,39 @@ fun DiscoverScreen(
                     contentPadding = PaddingValues(top = 2.dp, bottom = 90.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
+                    // ── TOP SEARCH QUICK-LAUNCH PILL (Navigates to dedicated Search screen) ──
+                    item(key = "home_search_bar") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(23.dp))
+                                .background(Color(0xFF1E1E26))
+                                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(23.dp))
+                                .clickable { onOpenSearchWithQuery("") }
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Search,
+                                    contentDescription = "Search",
+                                    tint = Color(0xFFF97316),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = searchHints[currentHintIndex],
+                                    color = Color.White.copy(alpha = 0.55f),
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
 
 
 

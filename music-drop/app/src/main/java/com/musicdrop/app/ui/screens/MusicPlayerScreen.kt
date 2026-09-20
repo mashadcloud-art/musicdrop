@@ -293,93 +293,149 @@ fun MusicPlayerScreen(
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── 1. TOP BAR: DOWN CHEVRON | SONG / VIDEO / LYRICS | THEME & MORE ──
+            // ── 1. TOP BAR (MATCHING SCREENSHOT 1) ──
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
+                    .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Minimize Chevron
-                IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
-                    Icon(
-                        imageVector = Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = "Collapse",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                // Centered "Song | Video | Lyrics" Header Toggle
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White.copy(alpha = 0.09f))
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                ) {
-                    Text(
-                        text = "Song",
-                        color = if (activeTab == 0) Color.White else Color.White.copy(alpha = 0.45f),
-                        fontSize = 14.sp,
-                        fontWeight = if (activeTab == 0) FontWeight.Bold else FontWeight.Medium,
-                        modifier = Modifier
-                            .clickable { activeTab = 0 }
-                            .padding(horizontal = 6.dp)
-                    )
-
-                    Text(
-                        text = "|",
-                        color = Color.White.copy(alpha = 0.25f),
-                        fontSize = 13.sp
-                    )
-
-                    Text(
-                        text = "Video",
-                        color = if (activeTab == 1) Color.White else Color.White.copy(alpha = 0.45f),
-                        fontSize = 14.sp,
-                        fontWeight = if (activeTab == 1) FontWeight.Bold else FontWeight.Medium,
-                        modifier = Modifier
-                            .clickable { activeTab = 1 }
-                            .padding(horizontal = 6.dp)
-                    )
-
-                    Text(
-                        text = "|",
-                        color = Color.White.copy(alpha = 0.25f),
-                        fontSize = 13.sp
-                    )
-
-                    Text(
-                        text = "Lyrics",
-                        color = if (activeTab == 2) Color.White else Color.White.copy(alpha = 0.45f),
-                        fontSize = 14.sp,
-                        fontWeight = if (activeTab == 2) FontWeight.Bold else FontWeight.Medium,
-                        modifier = Modifier
-                            .clickable { activeTab = 2 }
-                            .padding(horizontal = 6.dp)
-                    )
-                }
-
-                // Right Icons: T-shirt Theme + 3-Dots
+                // Left: Minimize Chevron & MusicDrop Pill
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { showThemeModal = true }, modifier = Modifier.size(38.dp)) {
+                    IconButton(onClick = onBack, modifier = Modifier.size(38.dp)) {
                         Icon(
-                            imageVector = Icons.Rounded.Checkroom,
-                            contentDescription = "Themes",
+                            imageVector = Icons.Rounded.KeyboardArrowDown,
+                            contentDescription = "Collapse",
                             tint = Color.White,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.width(2.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.Black.copy(alpha = 0.5f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE53935)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlayArrow,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = "MusicDrop",
+                                color = Color.White,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                // Center: Audio / Video Capsule Switcher (🎧 | ▶)
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.Black.copy(alpha = 0.55f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Audio Tab (Headphones)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (activeTab == 0) Color(0xFFF97316) else Color.Transparent)
+                                .clickable { activeTab = 0 }
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Headphones,
+                                contentDescription = "Audio Mode",
+                                tint = if (activeTab == 0) Color.White else Color.White.copy(alpha = 0.65f),
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+
+                        // Video Tab (Play Video)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (activeTab == 1) Color(0xFFF97316) else Color.Transparent)
+                                .clickable { activeTab = 1 }
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.PlayArrow,
+                                contentDescription = "Video Mode",
+                                tint = if (activeTab == 1) Color.White else Color.White.copy(alpha = 0.65f),
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Right Icons: Queue/Playlist (≡+), Cast (📺), 3-Dots (⋮)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showQueueModal = true }, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                            contentDescription = "Queue",
+                            tint = Color.White,
+                            modifier = Modifier.size(21.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
+                            val activity = context as? Activity
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                try {
+                                    val params = PictureInPictureParams.Builder()
+                                        .setAspectRatio(Rational(16, 9))
+                                        .build()
+                                    activity?.enterPictureInPictureMode(params)
+                                } catch (_: Throwable) {
+                                    Toast.makeText(context, "Picture-in-Picture not supported on this device", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Cast,
+                            contentDescription = "Cast / PiP",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
                     Box {
-                        IconButton(onClick = { showOptionsMenu = true }, modifier = Modifier.size(38.dp)) {
+                        IconButton(onClick = { showOptionsMenu = true }, modifier = Modifier.size(36.dp)) {
                             Icon(
                                 imageVector = Icons.Filled.MoreVert,
                                 contentDescription = "More Options",
                                 tint = Color.White,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
 
@@ -855,102 +911,6 @@ fun MusicPlayerScreen(
                                 }
                             }
 
-                            // ── OVERLAY CONTROLS ON VIDEO ──
-                            // Top Right Overlay: Size Switcher Chip, Collapse/Extend, and PiP
-                            Row(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Size Switcher Chip
-                                Surface(
-                                    shape = RoundedCornerShape(16.dp),
-                                    color = Color.Black.copy(alpha = 0.7f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                                    onClick = { videoResizeMode = (videoResizeMode + 1) % 3 }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = when (videoResizeMode) {
-                                                1 -> Icons.Rounded.Fullscreen
-                                                2 -> Icons.Rounded.FitScreen
-                                                else -> Icons.Rounded.AspectRatio
-                                            },
-                                            contentDescription = "Video Size",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(
-                                            text = when (videoResizeMode) {
-                                                1 -> "Fill Zoom"
-                                                2 -> "Wide"
-                                                else -> "16:9 Fit"
-                                            },
-                                            color = Color.White,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
-                                }
-
-                                // Collapse / Extend Controls Toggle (Edge-to-Edge)
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color.Black.copy(alpha = 0.7f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                                    onClick = { isVideoControlsCollapsed = !isVideoControlsCollapsed }
-                                ) {
-                                    Box(
-                                        modifier = Modifier.size(32.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isVideoControlsCollapsed) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                                            contentDescription = if (isVideoControlsCollapsed) "Extend Controls" else "Edge to Edge",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-
-                                // Floating Screen (PiP) Icon Button
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color.Black.copy(alpha = 0.7f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                                    onClick = {
-                                        val activity = context as? Activity
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                            try {
-                                                val params = PictureInPictureParams.Builder()
-                                                    .setAspectRatio(Rational(16, 9))
-                                                    .build()
-                                                activity?.enterPictureInPictureMode(params)
-                                            } catch (_: Throwable) {
-                                                Toast.makeText(context, "Picture-in-Picture not supported on this device", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Box(
-                                        modifier = Modifier.size(32.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.PictureInPictureAlt,
-                                            contentDescription = "Floating Screen (PiP)",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(17.dp)
-                                        )
-                                    }
-                                }
-                            }
 
                             // If controls collapsed (Edge-to-Edge Mode), show sleek floating bottom control pill
                             if (isVideoControlsCollapsed) {
@@ -1073,34 +1033,34 @@ fun MusicPlayerScreen(
                                     Surface(
                                         shape = RoundedCornerShape(14.dp),
                                         color = Color.Black.copy(alpha = 0.65f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
                                         onClick = { isVideoControlsCollapsed = true }
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(Icons.Rounded.Fullscreen, null, tint = Color.White, modifier = Modifier.size(15.dp))
                                             Spacer(Modifier.width(4.dp))
-                                            Text("Edge to Edge", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                            Text("Full Screen", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                                         }
                                     }
 
                                     Surface(
                                         shape = RoundedCornerShape(14.dp),
                                         color = Color.Black.copy(alpha = 0.65f),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
                                         onClick = { videoResizeMode = (videoResizeMode + 1) % 3 }
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(Icons.Rounded.AspectRatio, null, tint = Color.White, modifier = Modifier.size(14.dp))
                                             Spacer(Modifier.width(4.dp))
                                             Text(
                                                 text = when (videoResizeMode) {
-                                                    1 -> "Fill Zoom"
+                                                    1 -> "Fill (Crop)"
                                                     2 -> "Wide"
                                                     else -> "16:9 Fit"
                                                 },
@@ -1468,37 +1428,19 @@ fun MusicPlayerScreen(
                     }
                 }
             } else {
-                // ── STANDARD FULL LAYOUT (FOR VINYL TURNTABLE, MODERN CARD, & OTHER THEMES) ──
-                // ── 3. TRACK TITLE & ARTIST NAME (SINGLE-LINE MARQUEE) ──
-                Column(
+                // ── SCREENSHOT 1 LOOK: DEDICATED STREAMLINED MUSIC CONTROLS ──
+                // Drag handle
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = currentTrack?.name ?: "No Track Playing",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = currentTrack?.artist?.ifBlank { "MusicDrop" } ?: "MusicDrop",
-                        color = Color.White.copy(alpha = 0.65f),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                        .width(38.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Color.White.copy(alpha = 0.35f))
+                )
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(8.dp))
 
-                // ── 4. UTILITY TOOL ROW: 6 ICONS ──
-                // [ 🤍 Like ] [ ⬇ Download ] [ ➕≣ Add to Playlist ] [ 🎚️ ON Equalizer ] [ ⏱️ Sleep Timer ] [ ≣ Queue ]
+                // 1. Status Indicator Row: [ 🟠 NOW PLAYING ∨ ] ... [ HD VIDEO / HQ AUDIO ]
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1506,7 +1448,88 @@ fun MusicPlayerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. Favorite / Like Heart
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFF97316))
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "NOW PLAYING",
+                            color = Color(0xFFF97316),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Rounded.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = Color(0xFFF97316),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF1E1E26),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF97316).copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = if (activeTab == 1) "HD VIDEO" else "HQ AUDIO",
+                            color = Color(0xFFF97316),
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                // 2. Track Title & Artist (with Right Chevron, Heart & Download buttons)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = currentTrack?.name ?: "No Track Playing",
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .basicMarquee(iterations = Int.MAX_VALUE)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = currentTrack?.artist?.ifBlank { "Think Music India" } ?: "MusicDrop",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 13.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    // Heart / Like
                     IconButton(
                         onClick = {
                             val cur = currentTrack
@@ -1516,7 +1539,7 @@ fun MusicPlayerScreen(
                                 Toast.makeText(context, if (newFav) "Added to Favorites" else "Removed from Favorites", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        modifier = Modifier.size(38.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -1526,185 +1549,68 @@ fun MusicPlayerScreen(
                         )
                     }
 
-                    // 2. Direct Download (Audio MP3 / Video MP4)
+                    // Download (Choice Dialog: MP3 Audio or MP4 Video)
                     IconButton(
                         onClick = { showDownloadModal = true },
-                        modifier = Modifier.size(38.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Download,
-                            contentDescription = "Download Track",
-                            tint = Color(0xFFF59E0B),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    // 3. Add to Playlist
-                    IconButton(
-                        onClick = { showAddToPlaylist = true },
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                            contentDescription = "Add to Playlist",
-                            tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    // 4. Equalizer Button with "ON" Badge
-                    val isEqOn = eqState?.isEnabled == true
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { showEqualizerModal = true }
-                            .padding(horizontal = 6.dp, vertical = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Tune,
-                                contentDescription = "Equalizer",
-                                tint = if (isEqOn) Color(0xFF10B981) else Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.size(21.dp)
-                            )
-                            if (isEqOn) {
-                                Spacer(Modifier.width(3.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color(0xFF10B981))
-                                        .padding(horizontal = 3.dp, vertical = 1.dp)
-                                ) {
-                                    Text(
-                                        text = "ON",
-                                        color = Color.Black,
-                                        fontSize = 8.5.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // 5. Sleep Timer Clock Icon
-                    IconButton(
-                        onClick = { showSleepTimerModal = true },
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Schedule,
-                            contentDescription = "Sleep Timer",
-                            tint = if (sleepTimerTargetMs > 0L) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    // 6. Queue / Current Playlist Icon
-                    IconButton(
-                        onClick = { showQueueModal = true },
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                            contentDescription = "Queue",
+                            contentDescription = "Download",
                             tint = Color.White.copy(alpha = 0.85f),
                             modifier = Modifier.size(23.dp)
                         )
                     }
                 }
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(8.dp))
 
-                // ── 5. SEEKBAR ROW: [ ⟲ 10 ] [ ────── ( 1:40 / 2:10 ) ────── ] [ ⟳ 10 ] ──
+                // 3. Orange Scrubber Slider with Start and End Timestamps
                 val effectiveProgress = if (sliderDragging >= 0f) sliderDragging else {
                     if (durationMs > 0L) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
                 }
                 val displayPositionMs = if (sliderDragging >= 0f) (sliderDragging * durationMs).toLong() else positionMs
 
+                Slider(
+                    value = effectiveProgress,
+                    onValueChange = { frac -> sliderDragging = frac },
+                    onValueChangeFinished = {
+                        if (durationMs > 0L && sliderDragging >= 0f) {
+                            connection.seekTo((sliderDragging * durationMs).toLong())
+                        }
+                        sliderDragging = -1f
+                    },
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFF97316),
+                        activeTrackColor = Color(0xFFF97316),
+                        inactiveTrackColor = Color.White.copy(alpha = 0.18f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(24.dp)
+                )
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Rewind 10 Seconds Button
-                    IconButton(
-                        onClick = {
-                            val target = maxOf(0L, positionMs - 10_000L)
-                            connection.seekTo(target)
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Replay10,
-                            contentDescription = "Rewind 10s",
-                            tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    // Scrubber Slider with Centered Floating Pill Badge [ 1:40 / 2:10 ]
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 6.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Slider(
-                            value = effectiveProgress,
-                            onValueChange = { sliderDragging = it },
-                            onValueChangeFinished = {
-                                if (sliderDragging >= 0f && durationMs > 0L) {
-                                    connection.seekTo((sliderDragging * durationMs).toLong())
-                                }
-                                sliderDragging = -1f
-                            },
-                            colors = SliderDefaults.colors(
-                                thumbColor = Color.Transparent,
-                                activeTrackColor = Color.White,
-                                inactiveTrackColor = Color.White.copy(alpha = 0.22f)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        // Floating Centered Pill: "1:40 / 2:10" (Matches Screenshot)
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color.White.copy(alpha = 0.95f),
-                            shadowElevation = 4.dp,
-                            modifier = Modifier.padding(bottom = 2.dp)
-                        ) {
-                            Text(
-                                text = "${formatMs(displayPositionMs)} / ${formatMs(durationMs)}",
-                                color = Color(0xFF14131D),
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-
-                    // Forward 10 Seconds Button
-                    IconButton(
-                        onClick = {
-                            val target = minOf(durationMs, positionMs + 10_000L)
-                            connection.seekTo(target)
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Forward10,
-                            contentDescription = "Forward 10s",
-                            tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                    Text(
+                        text = formatMs(displayPositionMs),
+                        color = Color.White.copy(alpha = 0.55f),
+                        fontSize = 11.5.sp
+                    )
+                    Text(
+                        text = formatMs(durationMs),
+                        color = Color.White.copy(alpha = 0.55f),
+                        fontSize = 11.5.sp
+                    )
                 }
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(10.dp))
 
-                // ── 6. PLAYBACK CONTROLS ROW: [ 🔀 ] [ ⏮ ] [ ▶ ] [ ⏭ ] [ 🔁 ] ──
+                // 4. Playback Controls Row: [ 🔀 ] [ ⏮ ] [ ⏸ (White Circle) ] [ ⏭ ] [ 🔁 ]
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1712,20 +1618,20 @@ fun MusicPlayerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Shuffle Button
+                    // Shuffle
                     IconButton(
                         onClick = { connection.toggleShuffle() },
-                        modifier = Modifier.size(46.dp)
+                        modifier = Modifier.size(44.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Shuffle,
                             contentDescription = "Shuffle",
-                            tint = if (isShuffle) Color(0xFF10B981) else Color.White.copy(alpha = 0.6f),
+                            tint = if (isShuffle) Color(0xFFF97316) else Color.White.copy(alpha = 0.55f),
                             modifier = Modifier.size(23.dp)
                         )
                     }
 
-                    // Previous Button
+                    // Previous
                     IconButton(
                         onClick = { connection.skipPrevious() },
                         modifier = Modifier.size(48.dp)
@@ -1738,26 +1644,25 @@ fun MusicPlayerScreen(
                         )
                     }
 
-                    // Center Large Solid White Circle Play/Pause Button (Matching Screenshot)
+                    // Solid White Circle Play/Pause Button
                     Surface(
                         shape = CircleShape,
                         color = Color.White,
-                        shadowElevation = 8.dp,
-                        modifier = Modifier
-                            .size(66.dp)
-                            .clickable { connection.togglePlayPause() }
+                        shadowElevation = 10.dp,
+                        onClick = { connection.togglePlayPause() },
+                        modifier = Modifier.size(68.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                                 contentDescription = if (isPlaying) "Pause" else "Play",
-                                tint = Color(0xFF14131D),
+                                tint = Color.Black,
                                 modifier = Modifier.size(36.dp)
                             )
                         }
                     }
 
-                    // Next Button
+                    // Next
                     IconButton(
                         onClick = { connection.skipNext() },
                         modifier = Modifier.size(48.dp)
@@ -1770,23 +1675,74 @@ fun MusicPlayerScreen(
                         )
                     }
 
-                    // Repeat Button (With "1" Badge for Repeat One)
+                    // Repeat
                     IconButton(
                         onClick = { connection.toggleRepeat() },
-                        modifier = Modifier.size(46.dp)
+                        modifier = Modifier.size(44.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (isRepeat) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                            contentDescription = "Repeat",
+                            tint = if (isRepeat) Color(0xFFF97316) else Color.White.copy(alpha = 0.55f),
+                            modifier = Modifier.size(23.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // 5. Bottom Row: "Playing from Continuous Radio Mix" ... [ ＋ Save ]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Playing from",
+                            color = Color.White.copy(alpha = 0.45f),
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            text = currentTrack?.album?.ifBlank { "Continuous Radio Mix" } ?: "Continuous Radio Mix",
+                            color = Color.White,
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF22222C),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
+                        onClick = { showAddToPlaylist = true }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
-                                imageVector = if (isRepeat) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                                contentDescription = "Repeat",
-                                tint = if (isRepeat) Color(0xFF10B981) else Color.White.copy(alpha = 0.6f),
-                                modifier = Modifier.size(23.dp)
+                                imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                contentDescription = null,
+                                tint = Color(0xFFF97316),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = "Save",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(14.dp))
             }
         }
     }

@@ -524,7 +524,12 @@ fun SearchDashboardScreen(
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(Color(0xFF181818))
-                                        .clickable { viewModel.playYouTubeVideoWithContext(result, ytResults) }
+                                        .clickable {
+                                            if (searchQuery.isNotBlank()) {
+                                                viewModel.addRecentSearch(searchQuery)
+                                            }
+                                            viewModel.playYouTubeVideoWithContext(result, ytResults)
+                                        }
                                         .padding(10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
