@@ -24,11 +24,42 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import coil.compose.AsyncImage
+
+class VideoStateBridge(private val onStarted: () -> Unit) {
+    @android.webkit.JavascriptInterface
+    fun onVideoStarted() {
+        onStarted()
+    }
+}
 
 /**
  * Embedded High-Definition YouTube Player using hardware-accelerated WebView.
@@ -40,12 +71,21 @@ fun YouTubeIFramePlayer(
     videoId: String,
     title: String? = null,
     channel: String? = null,
+    thumbnailUrl: String? = null,
     resizeMode: Int = 1, // 0: Fit (16:9), 1: Fill (Zoom), 2: Wide
     isPlaying: Boolean = true,
     currentPositionMs: Long = 0L,
     modifier: Modifier = Modifier,
     onClose: (() -> Unit)? = null
 ) {
+    var isVideoStarted by remember(videoId) { mutableStateOf(false) }
+
+    LaunchedEffect(videoId) {
+        isVideoStarted = false
+        kotlinx.coroutines.delay(4500L)
+        isVideoStarted = true
+    }
+
     val cleanVideoId = remember(videoId) {
         val v = videoId.trim()
         when {
@@ -202,12 +242,24 @@ fun YouTubeIFramePlayer(
                                 var interval = setInterval(function() {
                                     enforceQuality();
                                     checks++;
+                                    try {
+                                        if (player && typeof player.getPlayerState === 'function' && player.getPlayerState() === 1) {
+                                            if (window.AndroidApp && typeof window.AndroidApp.onVideoStarted === 'function') {
+                                                window.AndroidApp.onVideoStarted();
+                                            }
+                                        }
+                                    } catch(err) {}
                                     if (checks >= 6) clearInterval(interval);
                                 }, 500);
                             },
                             'onStateChange': function(event) {
                                 if (event.data === 1) { // PLAYING
                                     enforceQuality();
+                                    try {
+                                        if (window.AndroidApp && typeof window.AndroidApp.onVideoStarted === 'function') {
+                                            window.AndroidApp.onVideoStarted();
+                                        }
+                                    } catch(e) {}
                                 }
                             },
                             'onError': function(event) {
@@ -216,7 +268,7 @@ fun YouTubeIFramePlayer(
                                 try {
                                     var p = document.getElementById('player');
                                     if (p) {
-                                        p.innerHTML = '<iframe width="1280" height="720" src="https://www.youtube-nocookie.com/embed/' + '$cleanVideoId' + '?autoplay=1&mute=1&playsinline=1&controls=0&rel=0&enablejsapi=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:1280px;height:720px;border:none;"></iframe>';
+                                        p.innerHTML = '<iframe width="1280" height="720" src="https://www.youtube-nocookie.com/embed/' + '$cleanVideoId' + '?autoplay=1&mute=1&playsinline=1&controls=0&rel=0&enablejsapi=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:1280px;height:720px;border:none;" onload="try{if(window.AndroidApp)window.AndroidApp.onVideoStarted();}catch(e){}"></iframe>';
                                     }
                                 } catch(err) {}
                             }
@@ -331,6 +383,11 @@ fun YouTubeIFramePlayer(
                     }
                     tag = cleanVideoId
                     webViewRef.value = this
+                    addJavascriptInterface(VideoStateBridge {
+                        post {
+                            isVideoStarted = true
+                        }
+                    }, "AndroidApp")
                     loadDataWithBaseURL("https://www.youtube-nocookie.com", htmlData, "text/html", "UTF-8", null)
                 }
             },
@@ -338,6 +395,7 @@ fun YouTubeIFramePlayer(
                 webViewRef.value = webView
                 if (webView.tag != cleanVideoId) {
                     webView.tag = cleanVideoId
+                    isVideoStarted = false
                     webView.evaluateJavascript(
                         "try { if (typeof loadNewVideo === 'function' && loadNewVideo('$cleanVideoId')) {} else { window.location.reload(); } } catch(e) { window.location.reload(); }",
                         null
@@ -351,6 +409,89 @@ fun YouTubeIFramePlayer(
                 }
             }
         )
+
+        // ── MUSICDROP BRANDED ICON LOADING OVERLAY (REPLACES YOUTUBE'S PLAY BUTTON) ──
+        AnimatedVisibility(
+            visible = !isVideoStarted,
+            exit = fadeOut(animationSpec = tween(400)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                // Blurred artwork backdrop if thumbnail is provided
+                if (!thumbnailUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = thumbnailUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(0.32f)
+                            .blur(radius = 24.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f))
+                    )
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // MusicDrop App Icon Image in elevated glowing container
+                    Surface(
+                        shape = CircleShape,
+                        color = androidx.compose.ui.graphics.Color(0xFF161522),
+                        border = BorderStroke(
+                            2.dp,
+                            Brush.linearGradient(
+                                listOf(
+                                    androidx.compose.ui.graphics.Color(0xFFF97316),
+                                    androidx.compose.ui.graphics.Color(0xFFE11D48)
+                                )
+                            )
+                        ),
+                        shadowElevation = 24.dp,
+                        modifier = Modifier.size(76.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Image(
+                                painter = painterResource(id = com.musicdrop.app.R.mipmap.ic_launcher),
+                                contentDescription = "MusicDrop",
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(CircleShape)
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(14.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = androidx.compose.ui.graphics.Color(0xFFF97316)
+                        )
+                        Text(
+                            text = "Loading HD Video...",
+                            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f),
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
 
         if (onClose != null) {
             IconButton(

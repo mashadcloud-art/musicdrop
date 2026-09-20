@@ -2,6 +2,7 @@ package com.musicdrop.app.ui.screens
 
 import android.app.Activity
 import android.app.PictureInPictureParams
+import androidx.activity.compose.BackHandler
 import android.os.Build
 import android.util.Rational
 import android.widget.Toast
@@ -228,6 +229,9 @@ fun MusicPlayerScreen(
             } else if (effectiveVideoId != null) {
                 YouTubeIFramePlayer(
                     videoId = effectiveVideoId,
+                    title = currentTrack?.name,
+                    channel = currentTrack?.artist,
+                    thumbnailUrl = currentTrack?.albumArtUri?.toString(),
                     resizeMode = videoResizeMode,
                     isPlaying = isPlaying,
                     currentPositionMs = positionMs,
@@ -298,9 +302,11 @@ fun MusicPlayerScreen(
         playerTheme.getBackgroundBrush(fallbackAccent = activeAccent)
     }
 
-    // Dynamic docked bottom card surface (Frosted glass transparent if skin is FROSTED_GLASS)
-    val bottomCardSurface = remember(appColors, playerTheme, playerSkinLayout) {
-        if (playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS) {
+    // Dynamic docked bottom card surface (Frosted glass transparent if skin is FROSTED_GLASS or in VIDEO mode)
+    val isTransparentCard = playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS || activeTab == 1
+
+    val bottomCardSurface = remember(appColors, playerTheme, playerSkinLayout, activeTab) {
+        if (isTransparentCard) {
             Color.White.copy(alpha = 0.08f)
         } else when {
             playerTheme == PlayerThemeId.MIDNIGHT_OLED || playerTheme == PlayerThemeId.VINYL_MIDNIGHT -> Color(0xFF070708)
@@ -316,8 +322,8 @@ fun MusicPlayerScreen(
         }
     }
 
-    val bottomCardBorder = remember(playerSkinLayout) {
-        if (playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS) {
+    val bottomCardBorder = remember(isTransparentCard) {
+        if (isTransparentCard) {
             androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
         } else {
             androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
@@ -336,8 +342,8 @@ fun MusicPlayerScreen(
                 }
             }
     ) {
-        // Blurred Album Artwork Background for Frosted Glass Skin (Audio Mode)
-        if (playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS && activeTab != 1) {
+        // Blurred Album Artwork Background for Frosted Glass Skin & Video Songs
+        if (playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS || activeTab == 1) {
             val artUri = currentTrack?.albumArtUri
             if (artUri != null) {
                 AsyncImage(
@@ -750,6 +756,9 @@ fun MusicPlayerScreen(
                             } else if (effectiveVideoId != null && effectiveVideoId.isNotBlank()) {
                                 YouTubeIFramePlayer(
                                     videoId = effectiveVideoId,
+                                    title = currentTrack?.name,
+                                    channel = currentTrack?.artist,
+                                    thumbnailUrl = currentTrack?.albumArtUri?.toString(),
                                     resizeMode = videoResizeMode,
                                     isPlaying = isPlaying,
                                     currentPositionMs = positionMs,
@@ -1782,27 +1791,46 @@ fun MusicPlayerScreen(
             )
         }
 
-        // ── UP NEXT HALF-SCREEN BOTTOM SHEET (MATCHING USER REQUIREMENT) ──
+        // ── UP NEXT HALF-SCREEN BOTTOM SHEET (ANCHORED STRICTLY TO BOTTOM OF SCREEN) ──
+        BackHandler(enabled = showHalfQueueSheet || showQueueModal) {
+            showHalfQueueSheet = false
+            showQueueModal = false
+        }
+
+        // Tap-outside Scrim overlay over upper media surface
         if (showHalfQueueSheet || showQueueModal) {
-            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            ModalBottomSheet(
-                onDismissRequest = {
-                    showHalfQueueSheet = false
-                    showQueueModal = false
-                },
-                sheetState = sheetState,
-                containerColor = Color(0xFF13121C),
-                dragHandle = {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 10.dp, bottom = 6.dp)
-                            .width(42.dp)
-                            .height(4.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.35f))
-                    )
-                },
-                modifier = Modifier.fillMaxHeight(0.55f)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable {
+                        showHalfQueueSheet = false
+                        showQueueModal = false
+                    }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showHalfQueueSheet || showQueueModal,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(200)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(180)),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .fillMaxHeight(0.60f)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                color = Color(0xFF13121C),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                shadowElevation = 32.dp,
+                modifier = Modifier.fillMaxSize()
             ) {
                 Column(
                     modifier = Modifier
@@ -1810,6 +1838,16 @@ fun MusicPlayerScreen(
                         .navigationBarsPadding()
                         .padding(horizontal = 18.dp)
                 ) {
+                    // Drag Handle pill at top
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(top = 10.dp, bottom = 6.dp)
+                            .width(42.dp)
+                            .height(4.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.35f))
+                    )
                     // Header
                     Row(
                         modifier = Modifier
