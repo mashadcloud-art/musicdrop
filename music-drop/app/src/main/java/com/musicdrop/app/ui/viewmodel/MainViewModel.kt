@@ -3321,6 +3321,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setAppTheme(mode: com.musicdrop.app.ui.theme.AppThemeMode) {
         _appTheme.value = mode
         prefs.edit().putString("app_theme", mode.name).apply()
+
+        // Sync player theme and skin with main app theme
+        val matchedPlayerTheme = when (mode) {
+            com.musicdrop.app.ui.theme.AppThemeMode.YOUTUBE_MUSIC -> com.musicdrop.app.ui.theme.PlayerThemeId.MIDNIGHT_OLED
+            com.musicdrop.app.ui.theme.AppThemeMode.MUSIC_PULSE -> com.musicdrop.app.ui.theme.PlayerThemeId.CYBERPUNK_NEON
+            com.musicdrop.app.ui.theme.AppThemeMode.MUSIC_ORBIT -> com.musicdrop.app.ui.theme.PlayerThemeId.OCEAN_BLUE
+            com.musicdrop.app.ui.theme.AppThemeMode.MUSIC_GREENROOM -> com.musicdrop.app.ui.theme.PlayerThemeId.EMERALD_FOREST
+            com.musicdrop.app.ui.theme.AppThemeMode.CYBER_DARK -> com.musicdrop.app.ui.theme.PlayerThemeId.CARBON_SLATE
+            com.musicdrop.app.ui.theme.AppThemeMode.CLEAN_LIGHT -> com.musicdrop.app.ui.theme.PlayerThemeId.PURE_FROST
+            com.musicdrop.app.ui.theme.AppThemeMode.OLED_BLACK -> com.musicdrop.app.ui.theme.PlayerThemeId.VINYL_MIDNIGHT
+            com.musicdrop.app.ui.theme.AppThemeMode.SUNSET_NEBULA -> com.musicdrop.app.ui.theme.PlayerThemeId.RADIAL_SUNSET
+            com.musicdrop.app.ui.theme.AppThemeMode.IOS_LIGHT -> com.musicdrop.app.ui.theme.PlayerThemeId.PURE_FROST
+            com.musicdrop.app.ui.theme.AppThemeMode.NEARBY_SHARE -> com.musicdrop.app.ui.theme.PlayerThemeId.DYNAMIC_BLUR
+            com.musicdrop.app.ui.theme.AppThemeMode.TURBO_CONNECT -> com.musicdrop.app.ui.theme.PlayerThemeId.SUNSET_AMBER
+            com.musicdrop.app.ui.theme.AppThemeMode.RETRO -> com.musicdrop.app.ui.theme.PlayerThemeId.VINYL_GOLD
+            com.musicdrop.app.ui.theme.AppThemeMode.GLASSMORPHISM -> com.musicdrop.app.ui.theme.PlayerThemeId.PURE_FROST
+        }
+        setPlayerTheme(matchedPlayerTheme)
     }
 
     fun cycleNextTheme(): com.musicdrop.app.ui.theme.AppThemeMode {

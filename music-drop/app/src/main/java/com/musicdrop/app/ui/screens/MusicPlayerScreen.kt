@@ -64,8 +64,7 @@ import com.musicdrop.app.data.model.UnifiedTrack
 import com.musicdrop.app.ui.components.AddToPlaylistDialog
 import com.musicdrop.app.ui.components.EqualizerDialog
 import com.musicdrop.app.ui.components.PlayerThemeDialog
-import com.musicdrop.app.ui.theme.LocalAppColors
-import com.musicdrop.app.ui.theme.PlayerThemeId
+import com.musicdrop.app.ui.theme.*
 import com.musicdrop.app.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -95,6 +94,7 @@ fun MusicPlayerScreen(
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val appColors = LocalAppColors.current
+    val appTheme by viewModel.appTheme.collectAsState()
 
     val playerSkinLayout by viewModel.playerSkinLayout.collectAsState()
 
@@ -106,6 +106,8 @@ fun MusicPlayerScreen(
     // Dialog toggles
     var showEqualizerModal by remember { mutableStateOf(false) }
     var showThemeModal by remember { mutableStateOf(false) }
+    var showSkinChooserModal by remember { mutableStateOf(false) }
+    var showAppThemeModal by remember { mutableStateOf(false) }
     var showAddToPlaylist by remember { mutableStateOf(false) }
     var showQueueModal by remember { mutableStateOf(false) }
     var showSleepTimerModal by remember { mutableStateOf(false) }
@@ -280,9 +282,34 @@ fun MusicPlayerScreen(
         }
     }
 
+    // Active accent color syncing with app theme and player theme
+    val activeAccent = remember(playerTheme, appColors) {
+        if (playerTheme == PlayerThemeId.MIDNIGHT_OLED || playerTheme == PlayerThemeId.DYNAMIC_BLUR) {
+            appColors.accentPrimary
+        } else {
+            playerTheme.accentColor
+        }
+    }
+
     // Background dynamic ambient gradient (Pure aesthetic theme colors, no blown-up cover art)
-    val dynamicGradient = remember(playerTheme) {
-        playerTheme.getBackgroundBrush(fallbackAccent = Color(0xFF1E3A5F))
+    val dynamicGradient = remember(playerTheme, activeAccent) {
+        playerTheme.getBackgroundBrush(fallbackAccent = activeAccent)
+    }
+
+    // Dynamic docked bottom card surface
+    val bottomCardSurface = remember(appColors, playerTheme) {
+        when {
+            playerTheme == PlayerThemeId.MIDNIGHT_OLED || playerTheme == PlayerThemeId.VINYL_MIDNIGHT -> Color(0xFF070708)
+            playerTheme == PlayerThemeId.CARBON_SLATE -> Color(0xFF101216)
+            playerTheme == PlayerThemeId.PURE_FROST -> Color(0xFF181F28)
+            appColors.isDark -> Color(
+                red = (appColors.surfaceElevated.red * 0.45f).coerceIn(0.04f, 0.12f),
+                green = (appColors.surfaceElevated.green * 0.45f).coerceIn(0.05f, 0.13f),
+                blue = (appColors.surfaceElevated.blue * 0.45f).coerceIn(0.07f, 0.18f),
+                alpha = 1.0f
+            )
+            else -> Color(0xFF0F172A)
+        }
     }
 
     Box(
@@ -301,239 +328,7 @@ fun MusicPlayerScreen(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── 1. TOP BAR (MATCHING SCREENSHOT 1) ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Left: Minimize Chevron & MusicDrop Pill
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack, modifier = Modifier.size(38.dp)) {
-                        Icon(
-                            imageVector = Icons.Rounded.KeyboardArrowDown,
-                            contentDescription = "Collapse",
-                            tint = Color.White,
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-
-                    Spacer(Modifier.width(2.dp))
-
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.Black.copy(alpha = 0.5f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFE53935)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.PlayArrow,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(11.dp)
-                                )
-                            }
-                            Spacer(Modifier.width(5.dp))
-                            Text(
-                                text = "MusicDrop",
-                                color = Color.White,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                }
-
-                // Center: Audio / Video Capsule Switcher (🎧 | ▶)
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.Black.copy(alpha = 0.55f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Audio Tab (Headphones)
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(if (activeTab == 0) Color(0xFFF97316) else Color.Transparent)
-                                .clickable { activeTab = 0 }
-                                .padding(horizontal = 10.dp, vertical = 5.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Headphones,
-                                contentDescription = "Audio Mode",
-                                tint = if (activeTab == 0) Color.White else Color.White.copy(alpha = 0.65f),
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
-
-                        // Video Tab (Play Video)
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(if (activeTab == 1) Color(0xFFF97316) else Color.Transparent)
-                                .clickable { activeTab = 1 }
-                                .padding(horizontal = 10.dp, vertical = 5.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = "Video Mode",
-                                tint = if (activeTab == 1) Color.White else Color.White.copy(alpha = 0.65f),
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Right Icons: Queue/Playlist (≡+), Cast (📺), 3-Dots (⋮)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { showQueueModal = true }, modifier = Modifier.size(36.dp)) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                            contentDescription = "Queue",
-                            tint = Color.White,
-                            modifier = Modifier.size(21.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            val activity = context as? Activity
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                try {
-                                    val params = PictureInPictureParams.Builder()
-                                        .setAspectRatio(Rational(16, 9))
-                                        .build()
-                                    activity?.enterPictureInPictureMode(params)
-                                } catch (_: Throwable) {
-                                    Toast.makeText(context, "Picture-in-Picture not supported on this device", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Cast,
-                            contentDescription = "Cast / PiP",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Box {
-                        IconButton(onClick = { showOptionsMenu = true }, modifier = Modifier.size(36.dp)) {
-                            Icon(
-                                imageVector = Icons.Filled.MoreVert,
-                                contentDescription = "More Options",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = showOptionsMenu,
-                            onDismissRequest = { showOptionsMenu = false },
-                            modifier = Modifier.background(Color(0xFF1E1B2E))
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Download (Audio / Video)", color = Color.White) },
-                                leadingIcon = { Icon(Icons.Rounded.Download, null, tint = Color(0xFFF59E0B)) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    showDownloadModal = true
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Watch Official Video", color = Color.White) },
-                                leadingIcon = { Icon(Icons.Rounded.PlayCircle, null, tint = Color(0xFFE11D48)) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    activeTab = 1
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Equalizer", color = Color.White) },
-                                leadingIcon = { Icon(Icons.Rounded.Tune, null, tint = Color(0xFF10B981)) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    showEqualizerModal = true
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Sleep Timer", color = Color.White) },
-                                leadingIcon = { Icon(Icons.Rounded.Schedule, null, tint = Color(0xFF38BDF8)) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    showSleepTimerModal = true
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Add to Playlist", color = Color.White) },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null, tint = Color.White) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    showAddToPlaylist = true
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Queue / Up Next", color = Color.White) },
-                                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null, tint = Color.White) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    showQueueModal = true
-                                }
-                            )
-                            if (activeTab == 1) {
-                                DropdownMenuItem(
-                                    text = {
-                                        val modeName = when (videoResizeMode) {
-                                            1 -> "Video Fit: Fill (Zoom)"
-                                            2 -> "Video Fit: Stretch (Wide)"
-                                            else -> "Video Fit: Standard (16:9)"
-                                        }
-                                        Text(modeName, color = Color.White)
-                                    },
-                                    leadingIcon = { Icon(Icons.Rounded.AspectRatio, null, tint = Color(0xFF38BDF8)) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        videoResizeMode = (videoResizeMode + 1) % 3
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(if (isVideoControlsCollapsed) "Expand Music Controls" else "Edge-to-Edge (Collapse Controls)", color = Color.White) },
-                                    leadingIcon = { Icon(if (isVideoControlsCollapsed) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.Fullscreen, null, tint = Color(0xFFE11D48)) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        isVideoControlsCollapsed = !isVideoControlsCollapsed
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // ── 2. CENTER CONTENT (SONG COVER, VIDEO, OR LYRICS VIEW) ──
+            // ── 1. UPPER MEDIA SURFACE (SPANS FROM y=0 TO TOP OF DOCKED SHEET) ──
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -542,6 +337,14 @@ fun MusicPlayerScreen(
             ) {
                 when (activeTab) {
                     0 -> {
+                        // ── SONG VIEW: SUPPORTS ALL PLAYER SKINS ──
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
+                                .padding(top = 52.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
                         // ── SONG VIEW: SUPPORTS ALL 4 PLAYER SKINS ──
                         val effectiveProgress = if (sliderDragging >= 0f) sliderDragging else {
                             if (durationMs > 0L) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
@@ -815,6 +618,7 @@ fun MusicPlayerScreen(
                             }
                         }
                     }
+                }
                     1 -> {
                         // ── VIDEO VIEW: NATIVE HARDWARE-ACCELERATED VIDEO PLAYBACK & FLOATING SCREEN ──
                         val playerResizeMode = when (videoResizeMode) {
@@ -1079,7 +883,8 @@ fun MusicPlayerScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = 8.dp),
+                                .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
+                                .padding(top = 52.dp, start = 8.dp, end = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             when {
@@ -1172,13 +977,282 @@ fun MusicPlayerScreen(
                         }
                     }
                 }
+
+                // ── OVERLAID TOP BAR WITH SOFT GRADIENT SCRIM (TRUE EDGE-TO-EDGE MEDIA SURFACE) ──
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.82f),
+                                    Color.Black.copy(alpha = 0.40f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Left: Minimize Chevron & MusicDrop Pill
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = onBack, modifier = Modifier.size(38.dp)) {
+                                Icon(
+                                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                                    contentDescription = "Collapse",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                            }
+
+                            Spacer(Modifier.width(2.dp))
+
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color.Black.copy(alpha = 0.5f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFE53935)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PlayArrow,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(11.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(
+                                        text = "MusicDrop",
+                                        color = Color.White,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+
+                        // Center: Audio / Video Capsule Switcher (🎧 | ▶)
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color.Black.copy(alpha = 0.55f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Audio Tab (Headphones)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(if (activeTab == 0) activeAccent else Color.Transparent)
+                                        .clickable { activeTab = 0 }
+                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Headphones,
+                                        contentDescription = "Audio Mode",
+                                        tint = if (activeTab == 0) Color.White else Color.White.copy(alpha = 0.65f),
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                }
+
+                                // Video Tab (Play Video)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(if (activeTab == 1) activeAccent else Color.Transparent)
+                                        .clickable { activeTab = 1 }
+                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = "Video Mode",
+                                        tint = if (activeTab == 1) Color.White else Color.White.copy(alpha = 0.65f),
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Right Icons: Queue/Playlist (≡+), Cast (📺), 3-Dots (⋮)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { showQueueModal = true }, modifier = Modifier.size(36.dp)) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                                    contentDescription = "Queue",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(21.dp)
+                                )
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    val activity = context as? Activity
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        try {
+                                            val params = PictureInPictureParams.Builder()
+                                                .setAspectRatio(Rational(16, 9))
+                                                .build()
+                                            activity?.enterPictureInPictureMode(params)
+                                        } catch (_: Throwable) {
+                                            Toast.makeText(context, "Picture-in-Picture not supported on this device", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Cast,
+                                    contentDescription = "Cast / PiP",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Box {
+                                IconButton(onClick = { showOptionsMenu = true }, modifier = Modifier.size(36.dp)) {
+                                    Icon(
+                                        imageVector = Icons.Filled.MoreVert,
+                                        contentDescription = "More Options",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = showOptionsMenu,
+                                    onDismissRequest = { showOptionsMenu = false },
+                                    modifier = Modifier.background(Color(0xFF1E1B2E))
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Player Themes & Skins", color = Color.White, fontWeight = FontWeight.SemiBold) },
+                                        leadingIcon = { Icon(Icons.Rounded.Palette, null, tint = activeAccent) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showThemeModal = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Player Skin: ${playerSkinLayout.title}", color = Color.White) },
+                                        leadingIcon = { Icon(Icons.Rounded.Layers, null, tint = Color(0xFF38BDF8)) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showSkinChooserModal = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("App Theme: ${appTheme.displayName}", color = Color.White) },
+                                        leadingIcon = { Icon(Icons.Rounded.ColorLens, null, tint = Color(0xFFA855F7)) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showAppThemeModal = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Download (Audio / Video)", color = Color.White) },
+                                        leadingIcon = { Icon(Icons.Rounded.Download, null, tint = Color(0xFFF59E0B)) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showDownloadModal = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(if (activeTab == 1) "Listen to Audio Mode" else "Watch Official Video", color = Color.White) },
+                                        leadingIcon = { Icon(Icons.Rounded.PlayCircle, null, tint = Color(0xFFE11D48)) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            activeTab = if (activeTab == 1) 0 else 1
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Equalizer", color = Color.White) },
+                                        leadingIcon = { Icon(Icons.Rounded.Tune, null, tint = Color(0xFF10B981)) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showEqualizerModal = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Sleep Timer", color = Color.White) },
+                                        leadingIcon = { Icon(Icons.Rounded.Schedule, null, tint = Color(0xFF38BDF8)) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showSleepTimerModal = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Add to Playlist", color = Color.White) },
+                                        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null, tint = Color.White) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showAddToPlaylist = true
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Queue / Up Next", color = Color.White) },
+                                        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null, tint = Color.White) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showQueueModal = true
+                                        }
+                                    )
+                                    if (activeTab == 1) {
+                                        DropdownMenuItem(
+                                            text = {
+                                                val modeName = when (videoResizeMode) {
+                                                    1 -> "Video Fit: Fill (Crop)"
+                                                    2 -> "Video Fit: Stretch (Wide)"
+                                                    else -> "Video Fit: Standard (16:9)"
+                                                }
+                                                Text(modeName, color = Color.White)
+                                            },
+                                            leadingIcon = { Icon(Icons.Rounded.AspectRatio, null, tint = Color(0xFF38BDF8)) },
+                                            onClick = {
+                                                showOptionsMenu = false
+                                                videoResizeMode = (videoResizeMode + 1) % 3
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(if (isVideoControlsCollapsed) "Expand Music Controls" else "Full Screen (Collapse Controls)", color = Color.White) },
+                                            leadingIcon = { Icon(if (isVideoControlsCollapsed) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.Fullscreen, null, tint = Color(0xFFE11D48)) },
+                                            onClick = {
+                                                showOptionsMenu = false
+                                                isVideoControlsCollapsed = !isVideoControlsCollapsed
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // ── 3. DOCKED BOTTOM CONTROLS CARD (MATCHING SCREENSHOT 1) ──
             if (!(activeTab == 1 && isVideoControlsCollapsed)) {
                 Surface(
                     shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                    color = Color(0xFF0C131D),
+                    color = bottomCardSurface,
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1214,12 +1288,12 @@ fun MusicPlayerScreen(
                                     modifier = Modifier
                                         .size(7.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFFF97316))
+                                        .background(activeAccent)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
                                     text = "NOW PLAYING",
-                                    color = Color(0xFFF97316),
+                                    color = activeAccent,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.5.sp
@@ -1228,7 +1302,7 @@ fun MusicPlayerScreen(
                                 Icon(
                                     imageVector = Icons.Rounded.KeyboardArrowDown,
                                     contentDescription = null,
-                                    tint = Color(0xFFF97316),
+                                    tint = activeAccent,
                                     modifier = Modifier.size(15.dp)
                                 )
                             }
@@ -1236,11 +1310,11 @@ fun MusicPlayerScreen(
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
                                 color = Color.Transparent,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF97316).copy(alpha = 0.45f))
+                                border = androidx.compose.foundation.BorderStroke(1.dp, activeAccent.copy(alpha = 0.45f))
                             ) {
                                 Text(
                                     text = if (activeTab == 1) "HD VIDEO" else "HQ AUDIO",
-                                    color = Color(0xFFF97316),
+                                    color = activeAccent,
                                     fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
@@ -1342,8 +1416,8 @@ fun MusicPlayerScreen(
                                 sliderDragging = -1f
                             },
                             colors = SliderDefaults.colors(
-                                thumbColor = Color(0xFFF97316),
-                                activeTrackColor = Color(0xFFF97316),
+                                thumbColor = activeAccent,
+                                activeTrackColor = activeAccent,
                                 inactiveTrackColor = Color.White.copy(alpha = 0.18f)
                             ),
                             modifier = Modifier
@@ -1478,7 +1552,7 @@ fun MusicPlayerScreen(
 
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
-                                color = Color(0xFF1E2634),
+                                color = Color.White.copy(alpha = 0.10f),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
                                 onClick = { showAddToPlaylist = true }
                             ) {
@@ -1489,7 +1563,7 @@ fun MusicPlayerScreen(
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
                                         contentDescription = null,
-                                        tint = Color(0xFFF97316),
+                                        tint = activeAccent,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(Modifier.width(5.dp))
@@ -1525,6 +1599,30 @@ fun MusicPlayerScreen(
                     showThemeModal = false
                 },
                 onDismiss = { showThemeModal = false }
+            )
+        }
+
+        if (showSkinChooserModal) {
+            PlayerSkinChooserDialog(
+                currentSkin = playerSkinLayout,
+                onSelectSkin = { selectedSkin ->
+                    viewModel.setPlayerSkinLayout(selectedSkin)
+                    Toast.makeText(context, "Skin applied: ${selectedSkin.title}", Toast.LENGTH_SHORT).show()
+                    showSkinChooserModal = false
+                },
+                onDismiss = { showSkinChooserModal = false }
+            )
+        }
+
+        if (showAppThemeModal) {
+            AppThemeChooserDialog(
+                currentTheme = appTheme,
+                onSelectTheme = { selectedTheme ->
+                    viewModel.setAppTheme(selectedTheme)
+                    Toast.makeText(context, "Theme set to ${selectedTheme.displayName}", Toast.LENGTH_SHORT).show()
+                    showAppThemeModal = false
+                },
+                onDismiss = { showAppThemeModal = false }
             )
         }
 
@@ -2005,6 +2103,229 @@ fun VinylTurntableLayout(
                 radius = 5.5.dp.toPx(),
                 center = stylus
             )
+        }
+    }
+}
+
+private fun swatchForMode(mode: AppThemeMode): AppColors = when (mode) {
+    AppThemeMode.YOUTUBE_MUSIC -> YouTubeMusicAppColors
+    AppThemeMode.MUSIC_PULSE -> MusicPulseAppColors
+    AppThemeMode.MUSIC_ORBIT -> MusicOrbitAppColors
+    AppThemeMode.MUSIC_GREENROOM -> MusicGreenroomAppColors
+    AppThemeMode.CYBER_DARK -> CyberDarkAppColors
+    AppThemeMode.CLEAN_LIGHT -> CleanLightAppColors
+    AppThemeMode.OLED_BLACK -> OledBlackAppColors
+    AppThemeMode.SUNSET_NEBULA -> SunsetNebulaAppColors
+    AppThemeMode.IOS_LIGHT -> IosLightAppColors
+    AppThemeMode.NEARBY_SHARE -> NearbyShareAppColors
+    AppThemeMode.TURBO_CONNECT -> TurboConnectAppColors
+    AppThemeMode.RETRO -> RetroAppColors
+    AppThemeMode.GLASSMORPHISM -> GlassmorphismAppColors
+}
+
+@Composable
+private fun PlayerSkinChooserDialog(
+    currentSkin: PlayerSkinLayout,
+    onSelectSkin: (PlayerSkinLayout) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF14131D),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Player Skin Layout",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Choose audio player layout style",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 12.sp
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Rounded.Close, null, tint = Color.White.copy(alpha = 0.7f))
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(PlayerSkinLayout.values().toList()) { skin ->
+                        val isSelected = skin == currentSkin
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isSelected) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.04f))
+                                .border(
+                                    1.dp,
+                                    if (isSelected) Color(0xFFF97316) else Color.Transparent,
+                                    RoundedCornerShape(14.dp)
+                                )
+                                .clickable { onSelectSkin(skin) }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val skinIcon = when (skin) {
+                                PlayerSkinLayout.VINYL_TURNTABLE -> "💽"
+                                PlayerSkinLayout.RADIAL_DRAWER -> "⭕"
+                                PlayerSkinLayout.ROUNDED_CARD -> "🎴"
+                                PlayerSkinLayout.RADIAL_RING -> "💿"
+                                PlayerSkinLayout.IMMERSIVE_DRAWER -> "🌄"
+                            }
+                            Text(skinIcon, fontSize = 22.sp)
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = skin.title,
+                                    color = if (isSelected) Color(0xFFF97316) else Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = skin.subtitle,
+                                    color = Color.White.copy(alpha = 0.65f),
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFFF97316),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppThemeChooserDialog(
+    currentTheme: AppThemeMode,
+    onSelectTheme: (AppThemeMode) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xFF14131D),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 560.dp)
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "App Theme",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Syncs with Music Player Theme",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 12.sp
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Rounded.Close, null, tint = Color.White.copy(alpha = 0.7f))
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(AppThemeMode.values().toList()) { mode ->
+                        val isSelected = mode == currentTheme
+                        val swatch = swatchForMode(mode)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isSelected) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.04f))
+                                .border(
+                                    1.dp,
+                                    if (isSelected) swatch.accentPrimary else Color.Transparent,
+                                    RoundedCornerShape(14.dp)
+                                )
+                                .clickable { onSelectTheme(mode) }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(swatch.background)
+                                    .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clip(CircleShape)
+                                        .background(swatch.accentPrimary)
+                                )
+                            }
+
+                            Spacer(Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = mode.displayName,
+                                    color = if (isSelected) swatch.accentPrimary else Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = mode.subtitle,
+                                    color = Color.White.copy(alpha = 0.65f),
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = swatch.accentPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

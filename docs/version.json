@@ -1,8 +1,8 @@
 {
-  "versionCode": 151,
-  "versionName": "1.4.1",
-  "title": "MusicDrop v1.4.1 Available",
-  "changelog": "• True Edge-to-Edge Media Player: Video takes full available screen width and height without letterboxed card padding or purple gaps\n• Docked Dark Sheet: Matching Screenshot 1 with drag handle, orange NOW PLAYING indicator, HD VIDEO badge, track title with navigation chevron, heart & download, orange scrubber, prominent white circular play button, and Save pill\n• YouTube Video Fix: Fixed 'Video unavailable' error by applying Mobile Chrome UA and instant loadVideoById video switching for copyrighted music\n• Dedicated Search Page & Search History: Instant navigation and query persistence across YouTube & local tracks",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.1/MusicDrop-v1.4.1.apk",
+  "versionCode": 152,
+  "versionName": "1.4.2",
+  "title": "MusicDrop v1.4.2 Available",
+  "changelog": "• True Edge-to-Edge Top Video Surface: Video runs all the way to the top edge behind the status bar and floating top bar scrim without any purple gap or bar overlap\n• Music Player Themes & Skin Selection: Restored Player Themes (18 distinct visual themes) and Player Skin layouts (Vinyl Turntable, Radial Ring, Ring & Drawer, Modern Card, Scenic Wallpaper) directly accessible from the 3-dots menu\n• Full App & Player Theme Synchronization: Switching app themes (YouTube Music, Pulse, Orbit, Greenroom, Cyber Dark, OLED Black, etc.) automatically syncs player theme, background gradients, bottom docked sheet colors, and scrubber accents",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.2/MusicDrop-v1.4.2.apk",
   "forceUpdate": false
 }
