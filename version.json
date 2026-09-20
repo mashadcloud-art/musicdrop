@@ -1,8 +1,8 @@
 {
-  "versionCode": 148,
-  "versionName": "1.3.8",
-  "title": "MusicDrop v1.3.8 Available",
-  "changelog": "• Native HD Video Playback: Restored direct ExoPlayer PlayerView video streaming with hardware acceleration\n• Instant Video Mode: Seamlessly switches between HQ Audio and HD Video at exact playback position\n• Fixed Video Playback: Eliminated broken iframe player errors and YouTube embed restrictions\n• Floating Screen (PiP): Smooth native Picture-in-Picture mode for video viewing",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.8/MusicDrop-v1.3.8.apk",
+  "versionCode": 149,
+  "versionName": "1.3.9",
+  "title": "MusicDrop v1.3.9 Available",
+  "changelog": "• Edge-to-Edge Video: Full immersive edge-to-edge video mode with expandable bottom controls\n• Video Sizing Options: Switch dynamically between 16:9 Fit, Fill Zoom (Crop), and Wide Stretch\n• Collapsible Music Controls: Collapse player controls while watching video to maximize video screen size\n• Sleek Floating Player Pill: Floating frosted glass bar with mini progress scrubber, quick controls, and one-tap restore\n• Native ExoPlayer Hardware Acceleration & Fixed Video Playback",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.3.9/MusicDrop-v1.3.9.apk",
   "forceUpdate": false
 }

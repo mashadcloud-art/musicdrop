@@ -55,6 +55,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import coil.compose.AsyncImage
 import androidx.compose.foundation.Canvas
+import androidx.compose.material.icons.rounded.*
 import com.musicdrop.app.ui.components.YouTubeIFramePlayer
 import com.musicdrop.app.ui.theme.PlayerSkinLayout
 import com.musicdrop.app.data.model.MediaItem
@@ -111,6 +112,8 @@ fun MusicPlayerScreen(
     var showDownloadModal by remember { mutableStateOf(false) }
     var sleepTimerTargetMs by remember { mutableLongStateOf(0L) }
     var showOptionsMenu by remember { mutableStateOf(false) }
+    var videoResizeMode by remember { mutableIntStateOf(0) } // 0: 16:9 Fit, 1: Fill (Zoom), 2: Wide (Stretch)
+    var isVideoControlsCollapsed by remember { mutableStateOf(false) } // Edge-to-Edge video mode (collapses lower controls)
 
     // Fix mobile header hiding the mobile time: enforce white status bar icons when player is visible
     val view = LocalView.current
@@ -156,6 +159,7 @@ fun MusicPlayerScreen(
     // Automatically return to audio stream when switching away from Video tab
     LaunchedEffect(activeTab) {
         if (activeTab != 1) {
+            isVideoControlsCollapsed = false
             if (isVideoMode || currentTrack?.mediaType == MediaType.VIDEO) {
                 viewModel.setVideoMode(false)
             }
@@ -171,6 +175,11 @@ fun MusicPlayerScreen(
             contentAlignment = Alignment.Center
         ) {
             if (isDirectExoVideo) {
+                val pipResizeMode = when (videoResizeMode) {
+                    1 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    2 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                    else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                }
                 AndroidView(
                     factory = { ctx ->
                         try {
@@ -178,7 +187,7 @@ fun MusicPlayerScreen(
                                 useController = false
                                 useArtwork = false
                                 defaultArtwork = null
-                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                resizeMode = pipResizeMode
                                 connection.bindPlayerView(this)
                             }
                         } catch (_: Throwable) {
@@ -188,7 +197,7 @@ fun MusicPlayerScreen(
                     update = { view ->
                         if (view is androidx.media3.ui.PlayerView) {
                             view.useArtwork = false
-                            view.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            view.resizeMode = pipResizeMode
                             connection.bindPlayerView(view)
                         }
                     },
@@ -202,6 +211,7 @@ fun MusicPlayerScreen(
             } else if (effectiveVideoId != null) {
                 YouTubeIFramePlayer(
                     videoId = effectiveVideoId,
+                    resizeMode = videoResizeMode,
                     isPlaying = isPlaying,
                     currentPositionMs = positionMs,
                     modifier = Modifier.fillMaxSize()
@@ -426,6 +436,31 @@ fun MusicPlayerScreen(
                                     showQueueModal = true
                                 }
                             )
+                            if (activeTab == 1) {
+                                DropdownMenuItem(
+                                    text = {
+                                        val modeName = when (videoResizeMode) {
+                                            1 -> "Video Fit: Fill (Zoom)"
+                                            2 -> "Video Fit: Stretch (Wide)"
+                                            else -> "Video Fit: Standard (16:9)"
+                                        }
+                                        Text(modeName, color = Color.White)
+                                    },
+                                    leadingIcon = { Icon(Icons.Rounded.AspectRatio, null, tint = Color(0xFF38BDF8)) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        videoResizeMode = (videoResizeMode + 1) % 3
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(if (isVideoControlsCollapsed) "Expand Music Controls" else "Edge-to-Edge (Collapse Controls)", color = Color.White) },
+                                    leadingIcon = { Icon(if (isVideoControlsCollapsed) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.Fullscreen, null, tint = Color(0xFFE11D48)) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        isVideoControlsCollapsed = !isVideoControlsCollapsed
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -717,12 +752,24 @@ fun MusicPlayerScreen(
                     }
                     1 -> {
                         // ── VIDEO VIEW: NATIVE HARDWARE-ACCELERATED VIDEO PLAYBACK & FLOATING SCREEN ──
+                        val playerResizeMode = when (videoResizeMode) {
+                            1 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            2 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                            else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        }
+
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(285.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color.Black),
+                            modifier = if (isVideoControlsCollapsed) {
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black)
+                            } else {
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(285.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color.Black)
+                            },
                             contentAlignment = Alignment.Center
                         ) {
                             if (isDirectExoVideo) {
@@ -733,7 +780,7 @@ fun MusicPlayerScreen(
                                                 useController = false
                                                 useArtwork = false
                                                 defaultArtwork = null
-                                                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                                resizeMode = playerResizeMode
                                                 connection.bindPlayerView(this)
                                             }
                                         } catch (_: Throwable) {
@@ -743,7 +790,7 @@ fun MusicPlayerScreen(
                                     update = { view ->
                                         if (view is androidx.media3.ui.PlayerView) {
                                             view.useArtwork = false
-                                            view.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                                            view.resizeMode = playerResizeMode
                                             connection.bindPlayerView(view)
                                         }
                                     },
@@ -775,6 +822,7 @@ fun MusicPlayerScreen(
                             } else if (effectiveVideoId != null && effectiveVideoId.isNotBlank()) {
                                 YouTubeIFramePlayer(
                                     videoId = effectiveVideoId,
+                                    resizeMode = videoResizeMode,
                                     isPlaying = isPlaying,
                                     currentPositionMs = positionMs,
                                     modifier = Modifier.fillMaxSize()
@@ -807,7 +855,8 @@ fun MusicPlayerScreen(
                                 }
                             }
 
-                            // Top Right Overlay: Floating Screen (PiP) Icon Button
+                            // ── OVERLAY CONTROLS ON VIDEO ──
+                            // Top Right Overlay: Size Switcher Chip, Collapse/Extend, and PiP
                             Row(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
@@ -815,7 +864,66 @@ fun MusicPlayerScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                IconButton(
+                                // Size Switcher Chip
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color.Black.copy(alpha = 0.7f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                                    onClick = { videoResizeMode = (videoResizeMode + 1) % 3 }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = when (videoResizeMode) {
+                                                1 -> Icons.Rounded.Fullscreen
+                                                2 -> Icons.Rounded.FitScreen
+                                                else -> Icons.Rounded.AspectRatio
+                                            },
+                                            contentDescription = "Video Size",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            text = when (videoResizeMode) {
+                                                1 -> "Fill Zoom"
+                                                2 -> "Wide"
+                                                else -> "16:9 Fit"
+                                            },
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+
+                                // Collapse / Extend Controls Toggle (Edge-to-Edge)
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color.Black.copy(alpha = 0.7f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                                    onClick = { isVideoControlsCollapsed = !isVideoControlsCollapsed }
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(32.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isVideoControlsCollapsed) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                                            contentDescription = if (isVideoControlsCollapsed) "Extend Controls" else "Edge to Edge",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                // Floating Screen (PiP) Icon Button
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color.Black.copy(alpha = 0.7f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
                                     onClick = {
                                         val activity = context as? Activity
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -828,18 +936,180 @@ fun MusicPlayerScreen(
                                                 Toast.makeText(context, "Picture-in-Picture not supported on this device", Toast.LENGTH_SHORT).show()
                                             }
                                         }
-                                    },
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.Black.copy(alpha = 0.65f))
+                                    }
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.PictureInPictureAlt,
-                                        contentDescription = "Floating Screen (PiP)",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier.size(32.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PictureInPictureAlt,
+                                            contentDescription = "Floating Screen (PiP)",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // If controls collapsed (Edge-to-Edge Mode), show sleek floating bottom control pill
+                            if (isVideoControlsCollapsed) {
+                                Surface(
+                                    shape = RoundedCornerShape(24.dp),
+                                    color = Color.Black.copy(alpha = 0.78f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = currentTrack?.name ?: "Video Playing",
+                                                    color = Color.White,
+                                                    fontSize = 13.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = "${currentTrack?.artist.orEmpty()} • ${formatMs(positionMs)} / ${formatMs(durationMs)}",
+                                                    color = Color.White.copy(alpha = 0.65f),
+                                                    fontSize = 11.sp,
+                                                    maxLines = 1
+                                                )
+                                            }
+
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                IconButton(
+                                                    onClick = { connection.skipPrevious() },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(Icons.Rounded.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                                }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        if (isPlaying) connection.pause() else connection.play()
+                                                    },
+                                                    modifier = Modifier
+                                                        .size(36.dp)
+                                                        .clip(CircleShape)
+                                                        .background(appColors.accentPrimary)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                                        contentDescription = null,
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+
+                                                IconButton(
+                                                    onClick = { connection.skipNext() },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(Icons.Rounded.SkipNext, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                                }
+
+                                                // Expand Controls Button
+                                                Surface(
+                                                    shape = RoundedCornerShape(14.dp),
+                                                    color = Color.White.copy(alpha = 0.16f),
+                                                    onClick = { isVideoControlsCollapsed = false },
+                                                    modifier = Modifier.padding(start = 4.dp)
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(Icons.Rounded.KeyboardArrowUp, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                                        Spacer(Modifier.width(2.dp))
+                                                        Text("Controls", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Mini Scrubber Slider
+                                        val miniProgress = if (durationMs > 0L) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+                                        Slider(
+                                            value = miniProgress,
+                                            onValueChange = { frac ->
+                                                connection.seekTo((frac * durationMs).toLong())
+                                            },
+                                            colors = SliderDefaults.colors(
+                                                thumbColor = appColors.accentPrimary,
+                                                activeTrackColor = appColors.accentPrimary,
+                                                inactiveTrackColor = Color.White.copy(alpha = 0.2f)
+                                            ),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(20.dp)
+                                        )
+                                    }
+                                }
+                            } else {
+                                // Bottom Strip on 285dp card: Quick Edge-to-Edge & Resize Mode buttons
+                                Row(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = Color.Black.copy(alpha = 0.65f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                                        onClick = { isVideoControlsCollapsed = true }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Rounded.Fullscreen, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Edge to Edge", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                        }
+                                    }
+
+                                    Surface(
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = Color.Black.copy(alpha = 0.65f),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                                        onClick = { videoResizeMode = (videoResizeMode + 1) % 3 }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Rounded.AspectRatio, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                text = when (videoResizeMode) {
+                                                    1 -> "Fill Zoom"
+                                                    2 -> "Wide"
+                                                    else -> "16:9 Fit"
+                                                },
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -944,9 +1214,10 @@ fun MusicPlayerScreen(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            if (!(activeTab == 1 && isVideoControlsCollapsed)) {
+                Spacer(Modifier.height(10.dp))
 
-            if (activeTab == 0 && playerSkinLayout == PlayerSkinLayout.RADIAL_DRAWER) {
+                if (activeTab == 0 && playerSkinLayout == PlayerSkinLayout.RADIAL_DRAWER) {
                 // ── RADIAL DRAWER SKIN: DEDICATED CONTROLS (MATCHING SCREENSHOT 2) ──
                 Spacer(Modifier.height(10.dp))
 
@@ -1514,10 +1785,11 @@ fun MusicPlayerScreen(
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
+            }
         }
+    }
 
         // ── DIALOGS ──
         if (showEqualizerModal) {
