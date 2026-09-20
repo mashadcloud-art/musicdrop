@@ -421,6 +421,7 @@ fun YouTubeIFramePlayer(
                     webView.stopLoading()
                     webView.loadUrl("about:blank")
                     webView.onPause()
+                    (webView.parent as? ViewGroup)?.removeView(webView)
                     webView.destroy()
                 } catch (_: Throwable) {}
                 if (webViewRef.value === webView) {
@@ -481,7 +482,7 @@ fun YouTubeIFramePlayer(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Image(
-                                painter = painterResource(id = com.musicdrop.app.R.mipmap.ic_launcher),
+                                painter = painterResource(id = com.musicdrop.app.R.drawable.ic_app_logo),
                                 contentDescription = "MusicDrop",
                                 modifier = Modifier
                                     .size(54.dp)

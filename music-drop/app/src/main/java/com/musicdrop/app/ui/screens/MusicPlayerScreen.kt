@@ -101,9 +101,15 @@ fun MusicPlayerScreen(
     val playerSkinLayout by viewModel.playerSkinLayout.collectAsState()
 
     // 0: Song, 1: Video, 2: Lyrics
-    var activeTab by remember { mutableIntStateOf(0) }
+    var activeTab by remember { mutableIntStateOf(if (currentTrack?.mediaType == MediaType.VIDEO || viewModel.isVideoMode.value) 1 else 0) }
     var sliderDragging by remember { mutableFloatStateOf(-1f) }
     var isLiked by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentTrack?.id, currentTrack?.mediaType) {
+        if (currentTrack?.mediaType == MediaType.VIDEO) {
+            activeTab = 1
+        }
+    }
 
     // Dialog toggles
     var showEqualizerModal by remember { mutableStateOf(false) }

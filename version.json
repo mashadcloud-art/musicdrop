@@ -1,8 +1,8 @@
 {
-  "versionCode": 155,
-  "versionName": "1.4.5",
-  "title": "MusicDrop v1.4.5 Available",
-  "changelog": "• Public Directory Saving for Recent Files: Audio files now save directly to /Music/MusicDrop/ and videos to /Movies/MusicDrop/ with instant MediaStore indexing, making them visible immediately in Android's Recent files tab and file managers\n• Native MP3 & Video File Sharing: Share downloaded MP3 tracks and MP4 videos directly via Android system share sheet (WhatsApp, Telegram, Quick Share, etc.) from player options and Library\n• Video Mode Stability: Fixed video switching app/playback stopping; audio playback continues seamlessly and without interruption while official synced video is displayed",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.5/MusicDrop-v1.4.5.apk",
+  "versionCode": 156,
+  "versionName": "1.4.6",
+  "title": "MusicDrop v1.4.6 Available",
+  "changelog": "• Video Opening Crash Fix: Fixed an issue where opening the video player or switching to Video mode caused the app to crash and close due to an incompatible adaptive-icon resource parser in Jetpack Compose\n• Safe WebView Cleanup: Improved lifecycle handling when opening, dismissing, or re-opening video streams so the app remains perfectly smooth and stable\n• Auto Video Tab Activation: Automatically navigates to the Video tab when opening local or downloaded MP4 videos",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.6/MusicDrop-v1.4.6.apk",
   "forceUpdate": false
 }
