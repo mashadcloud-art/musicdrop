@@ -26,6 +26,10 @@ enum class PlayerSkinLayout(
     IMMERSIVE_DRAWER(
         "Scenic Wallpaper",
         "Full scenic atmospheric wallpaper with integrated playlist drawer"
+    ),
+    FROSTED_GLASS(
+        "Frosted Glass Transparent",
+        "Dynamic blurred artwork backdrop with transparent glass controls"
     )
 }
 
@@ -152,14 +156,14 @@ enum class PlayerThemeId(
         "Frost Glass",
         "Bright modern glassmorphism aesthetic",
         listOf(Color(0xFF3B4856), Color(0xFF232C36), Color(0xFF13181E)),
-        PlayerSkinLayout.ROUNDED_CARD,
+        PlayerSkinLayout.FROSTED_GLASS,
         Color(0xFF60A5FA)
     ),
     DYNAMIC_BLUR(
         "Dynamic Vignette",
         "Adaptive dark gradient vignette with accent glow",
         listOf(Color(0xFF2C3E50), Color(0xFF0F2027), Color(0xFF000000)),
-        PlayerSkinLayout.ROUNDED_CARD,
+        PlayerSkinLayout.FROSTED_GLASS,
         Color(0xFFF97316)
     );
 

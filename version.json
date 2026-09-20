@@ -1,8 +1,8 @@
 {
-  "versionCode": 152,
-  "versionName": "1.4.2",
-  "title": "MusicDrop v1.4.2 Available",
-  "changelog": "• True Edge-to-Edge Top Video Surface: Video runs all the way to the top edge behind the status bar and floating top bar scrim without any purple gap or bar overlap\n• Music Player Themes & Skin Selection: Restored Player Themes (18 distinct visual themes) and Player Skin layouts (Vinyl Turntable, Radial Ring, Ring & Drawer, Modern Card, Scenic Wallpaper) directly accessible from the 3-dots menu\n• Full App & Player Theme Synchronization: Switching app themes (YouTube Music, Pulse, Orbit, Greenroom, Cyber Dark, OLED Black, etc.) automatically syncs player theme, background gradients, bottom docked sheet colors, and scrubber accents",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.2/MusicDrop-v1.4.2.apk",
+  "versionCode": 153,
+  "versionName": "1.4.3",
+  "title": "MusicDrop v1.4.3 Available",
+  "changelog": "• Default Fill (Crop) Video Mode: Video now defaults to full bleed Fill (Crop) scaling on launch, eliminating letterbox gaps and filling the top screen completely\n• Seamless Full-Bleed Top Screen: Softened top status bar scrim to let the vibrant video stream show edge-to-edge all the way to the top bezel\n• Up Next Bottom Half-Screen: Replaced bottom card Save button with 'Up Next' button, opening a half-screen interactive sheet with current track and upcoming queue tracks\n• Frosted Glass Transparent Skin: New audio player skin matching YouTube Music style with dynamic blurred album art backdrop, centered rounded artwork, Song | Lyrics toggle, and transparent frosted glass floating music controls",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.3/MusicDrop-v1.4.3.apk",
   "forceUpdate": false
 }

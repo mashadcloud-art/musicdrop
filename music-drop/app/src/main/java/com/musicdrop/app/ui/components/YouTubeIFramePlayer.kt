@@ -128,9 +128,9 @@ fun YouTubeIFramePlayer(
                     var scaleY = h / 720;
                     var scale;
                     if (scaleMode === 1) {
-                        scale = Math.max(scaleX, scaleY) * 1.05;
+                        scale = Math.max(scaleX, scaleY) * 1.25;
                     } else if (scaleMode === 2) {
-                        scale = Math.max(scaleX, scaleY) * 0.92;
+                        scale = Math.max(scaleX, scaleY) * 0.95;
                     } else {
                         scale = Math.min(scaleX, scaleY);
                     }

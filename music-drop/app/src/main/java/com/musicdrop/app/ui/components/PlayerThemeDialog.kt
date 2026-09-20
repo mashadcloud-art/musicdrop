@@ -230,6 +230,7 @@ private fun ThemeSkinCardContent(theme: PlayerThemeId) {
         PlayerSkinLayout.RADIAL_RING -> RadialRingPreview(theme)
         PlayerSkinLayout.RADIAL_DRAWER -> RadialDrawerPreview(theme)
         PlayerSkinLayout.IMMERSIVE_DRAWER -> ImmersiveDrawerPreview(theme)
+        PlayerSkinLayout.FROSTED_GLASS -> RoundedCardPreview(theme)
     }
 }
 

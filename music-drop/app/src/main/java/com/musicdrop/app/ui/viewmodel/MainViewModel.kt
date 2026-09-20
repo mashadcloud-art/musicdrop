@@ -1805,6 +1805,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         playYouTubeVideo(item)
     }
 
+    fun removeFromQueue(item: YouTubeSearchResult) {
+        val currentList = _upNextQueue.value.toMutableList()
+        currentList.remove(item)
+        _upNextQueue.value = currentList
+    }
+
+    fun clearQueue() {
+        _upNextQueue.value = emptyList()
+    }
+
     fun playNextTrackFromQueue() {
         val localList = _localQueue.value
         val localNext = localList.firstOrNull()

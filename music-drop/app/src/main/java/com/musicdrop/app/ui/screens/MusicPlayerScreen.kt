@@ -32,6 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
@@ -67,7 +68,7 @@ import com.musicdrop.app.ui.components.PlayerThemeDialog
 import com.musicdrop.app.ui.theme.*
 import com.musicdrop.app.ui.viewmodel.MainViewModel
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MusicPlayerScreen(
     viewModel: MainViewModel,
@@ -110,11 +111,12 @@ fun MusicPlayerScreen(
     var showAppThemeModal by remember { mutableStateOf(false) }
     var showAddToPlaylist by remember { mutableStateOf(false) }
     var showQueueModal by remember { mutableStateOf(false) }
+    var showHalfQueueSheet by remember { mutableStateOf(false) }
     var showSleepTimerModal by remember { mutableStateOf(false) }
     var showDownloadModal by remember { mutableStateOf(false) }
     var sleepTimerTargetMs by remember { mutableLongStateOf(0L) }
     var showOptionsMenu by remember { mutableStateOf(false) }
-    var videoResizeMode by remember { mutableIntStateOf(0) } // 0: 16:9 Fit, 1: Fill (Zoom), 2: Wide (Stretch)
+    var videoResizeMode by remember { mutableIntStateOf(1) } // 0: 16:9 Fit, 1: Fill (Zoom), 2: Wide (Stretch)
     var isVideoControlsCollapsed by remember { mutableStateOf(false) } // Edge-to-Edge video mode (collapses lower controls)
 
     // Fix mobile header hiding the mobile time: enforce white status bar icons when player is visible
@@ -296,9 +298,11 @@ fun MusicPlayerScreen(
         playerTheme.getBackgroundBrush(fallbackAccent = activeAccent)
     }
 
-    // Dynamic docked bottom card surface
-    val bottomCardSurface = remember(appColors, playerTheme) {
-        when {
+    // Dynamic docked bottom card surface (Frosted glass transparent if skin is FROSTED_GLASS)
+    val bottomCardSurface = remember(appColors, playerTheme, playerSkinLayout) {
+        if (playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS) {
+            Color.White.copy(alpha = 0.08f)
+        } else when {
             playerTheme == PlayerThemeId.MIDNIGHT_OLED || playerTheme == PlayerThemeId.VINYL_MIDNIGHT -> Color(0xFF070708)
             playerTheme == PlayerThemeId.CARBON_SLATE -> Color(0xFF101216)
             playerTheme == PlayerThemeId.PURE_FROST -> Color(0xFF181F28)
@@ -309,6 +313,14 @@ fun MusicPlayerScreen(
                 alpha = 1.0f
             )
             else -> Color(0xFF0F172A)
+        }
+    }
+
+    val bottomCardBorder = remember(playerSkinLayout) {
+        if (playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS) {
+            androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
+        } else {
+            androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
         }
     }
 
@@ -324,6 +336,25 @@ fun MusicPlayerScreen(
                 }
             }
     ) {
+        // Blurred Album Artwork Background for Frosted Glass Skin (Audio Mode)
+        if (playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS && activeTab != 1) {
+            val artUri = currentTrack?.albumArtUri
+            if (artUri != null) {
+                AsyncImage(
+                    model = artUri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(radius = 45.dp)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.38f))
+                )
+            }
+        }
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -575,6 +606,42 @@ fun MusicPlayerScreen(
                                                             listOf(Color(0xFF2C3E50), Color(0xFF101921))
                                                         )
                                                     )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            PlayerSkinLayout.FROSTED_GLASS -> {
+                                // ── 6. FROSTED GLASS TRANSPARENT SKIN (MATCHING SCREENSHOT 2) ──
+                                Surface(
+                                    shape = RoundedCornerShape(28.dp),
+                                    color = Color(0xFF1B1B22),
+                                    shadowElevation = 24.dp,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
+                                    modifier = Modifier
+                                        .size(245.dp)
+                                        .shadow(32.dp, RoundedCornerShape(28.dp), spotColor = Color.Black.copy(alpha = 0.8f))
+                                ) {
+                                    val artUri = currentTrack?.albumArtUri
+                                    if (artUri != null) {
+                                        AsyncImage(
+                                            model = artUri,
+                                            contentDescription = "Cover Art",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Brush.radialGradient(listOf(Color(0xFF2C3E50), Color(0xFF0F2027)))),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.MusicNote,
+                                                contentDescription = null,
+                                                tint = Color.White.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(72.dp)
                                             )
                                         }
                                     }
@@ -986,8 +1053,8 @@ fun MusicPlayerScreen(
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    Color.Black.copy(alpha = 0.82f),
-                                    Color.Black.copy(alpha = 0.40f),
+                                    Color.Black.copy(alpha = 0.35f),
+                                    Color.Black.copy(alpha = 0.12f),
                                     Color.Transparent
                                 )
                             )
@@ -1048,60 +1115,124 @@ fun MusicPlayerScreen(
                             }
                         }
 
-                        // Center: Audio / Video Capsule Switcher (🎧 | ▶)
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color.Black.copy(alpha = 0.55f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(3.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                        // Center: Audio / Video Capsule Switcher or Song | Lyrics toggle (Matching Screenshot 2)
+                        if (activeTab != 1) {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color.Black.copy(alpha = 0.50f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
                             ) {
-                                // Audio Tab (Headphones)
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(if (activeTab == 0) activeAccent else Color.Transparent)
-                                        .clickable { activeTab = 0 }
-                                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                                    contentAlignment = Alignment.Center
+                                Row(
+                                    modifier = Modifier.padding(3.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Headphones,
-                                        contentDescription = "Audio Mode",
-                                        tint = if (activeTab == 0) Color.White else Color.White.copy(alpha = 0.65f),
-                                        modifier = Modifier.size(17.dp)
-                                    )
-                                }
+                                    // Song Tab
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(if (activeTab == 0) activeAccent else Color.Transparent)
+                                            .clickable { activeTab = 0 }
+                                            .padding(horizontal = 12.dp, vertical = 5.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Song",
+                                            color = if (activeTab == 0) Color.White else Color.White.copy(alpha = 0.7f),
+                                            fontSize = 12.sp,
+                                            fontWeight = if (activeTab == 0) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
 
-                                // Video Tab (Play Video)
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(if (activeTab == 1) activeAccent else Color.Transparent)
-                                        .clickable { activeTab = 1 }
-                                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                                    contentAlignment = Alignment.Center
+                                    // Lyrics Tab
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(if (activeTab == 2) activeAccent else Color.Transparent)
+                                            .clickable { activeTab = 2 }
+                                            .padding(horizontal = 12.dp, vertical = 5.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Lyrics",
+                                            color = if (activeTab == 2) Color.White else Color.White.copy(alpha = 0.7f),
+                                            fontSize = 12.sp,
+                                            fontWeight = if (activeTab == 2) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Video View Center: Audio / Video switcher capsule
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color.Black.copy(alpha = 0.55f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(3.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.PlayArrow,
-                                        contentDescription = "Video Mode",
-                                        tint = if (activeTab == 1) Color.White else Color.White.copy(alpha = 0.65f),
-                                        modifier = Modifier.size(17.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(if (activeTab == 0) activeAccent else Color.Transparent)
+                                            .clickable { activeTab = 0 }
+                                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Headphones,
+                                            contentDescription = "Audio Mode",
+                                            tint = if (activeTab == 0) Color.White else Color.White.copy(alpha = 0.65f),
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(if (activeTab == 1) activeAccent else Color.Transparent)
+                                            .clickable { activeTab = 1 }
+                                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PlayArrow,
+                                            contentDescription = "Video Mode",
+                                            tint = if (activeTab == 1) Color.White else Color.White.copy(alpha = 0.65f),
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
 
-                        // Right Icons: Queue/Playlist (≡+), Cast (📺), 3-Dots (⋮)
+                        // Right Icons: Video toggle (in audio mode), Quick Skin Switcher (Hanger), Cast (📺), 3-Dots (⋮)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { showQueueModal = true }, modifier = Modifier.size(36.dp)) {
+                            if (activeTab != 1) {
+                                IconButton(
+                                    onClick = { activeTab = 1 },
+                                    modifier = Modifier.size(34.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = "Switch to Video",
+                                        tint = Color.White.copy(alpha = 0.85f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            // Quick Skin Chooser Button (T-shirt / Hanger matching Screenshot 2)
+                            IconButton(
+                                onClick = { showSkinChooserModal = true },
+                                modifier = Modifier.size(34.dp)
+                            ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                                    contentDescription = "Queue",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(21.dp)
+                                    imageVector = Icons.Rounded.Checkroom,
+                                    contentDescription = "Change Player Skin",
+                                    tint = Color.White.copy(alpha = 0.9f),
+                                    modifier = Modifier.size(19.dp)
                                 )
                             }
 
@@ -1253,7 +1384,7 @@ fun MusicPlayerScreen(
                 Surface(
                     shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                     color = bottomCardSurface,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                    border = bottomCardBorder,
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
@@ -1552,26 +1683,26 @@ fun MusicPlayerScreen(
 
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
-                                color = Color.White.copy(alpha = 0.10f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
-                                onClick = { showAddToPlaylist = true }
+                                color = Color.White.copy(alpha = 0.12f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
+                                onClick = { showHalfQueueSheet = true }
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                        imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
                                         contentDescription = null,
                                         tint = activeAccent,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(Modifier.width(5.dp))
                                     Text(
-                                        text = "Save",
+                                        text = "Up Next",
                                         color = Color.White,
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
@@ -1651,54 +1782,275 @@ fun MusicPlayerScreen(
             )
         }
 
-        // Queue Dialog
-        if (showQueueModal) {
-            Dialog(onDismissRequest = { showQueueModal = false }) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color(0xFF14131D),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+        // ── UP NEXT HALF-SCREEN BOTTOM SHEET (MATCHING USER REQUIREMENT) ──
+        if (showHalfQueueSheet || showQueueModal) {
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ModalBottomSheet(
+                onDismissRequest = {
+                    showHalfQueueSheet = false
+                    showQueueModal = false
+                },
+                sheetState = sheetState,
+                containerColor = Color(0xFF13121C),
+                dragHandle = {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 10.dp, bottom = 6.dp)
+                            .width(42.dp)
+                            .height(4.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.35f))
+                    )
+                },
+                modifier = Modifier.fillMaxHeight(0.55f)
+            ) {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 500.dp)
-                        .padding(16.dp)
+                        .fillMaxSize()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 18.dp)
                 ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Up Next Queue", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            IconButton(onClick = { showQueueModal = false }) {
-                                Icon(Icons.Rounded.Close, null, tint = Color.White.copy(alpha = 0.7f))
+                    // Header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Up Next",
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = activeAccent.copy(alpha = 0.2f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, activeAccent.copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    text = "${upNextQueue.size + (if (currentTrack != null) 1 else 0)} tracks",
+                                    color = activeAccent,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                )
                             }
                         }
-                        Spacer(Modifier.height(10.dp))
-                        if (upNextQueue.isEmpty()) {
-                            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                                Text("No tracks queued up", color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (upNextQueue.isNotEmpty()) {
+                                TextButton(
+                                    onClick = { viewModel.clearQueue() },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Clear", color = Color(0xFFEF4444), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
                             }
-                        } else {
-                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(upNextQueue) { item ->
+                            IconButton(
+                                onClick = {
+                                    showHalfQueueSheet = false
+                                    showQueueModal = false
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = "Close",
+                                    tint = Color.White.copy(alpha = 0.7f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 24.dp)
+                    ) {
+                        // Currently Playing Item
+                        if (currentTrack != null) {
+                            item {
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = activeAccent.copy(alpha = 0.14f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, activeAccent.copy(alpha = 0.35f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(Color.White.copy(alpha = 0.05f))
-                                            .clickable {
-                                                viewModel.playTrackFromQueue(item)
-                                                showQueueModal = false
-                                            }
-                                            .padding(10.dp),
+                                        modifier = Modifier.padding(10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Rounded.MusicNote, null, tint = Color.White.copy(alpha = 0.6f))
-                                        Spacer(Modifier.width(10.dp))
+                                        // Thumbnail
+                                        val art = currentTrack?.albumArtUri
+                                        Box(
+                                            modifier = Modifier
+                                                .size(44.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color.Black.copy(alpha = 0.5f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (art != null) {
+                                                AsyncImage(
+                                                    model = art,
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else {
+                                                Icon(Icons.Rounded.MusicNote, null, tint = activeAccent, modifier = Modifier.size(22.dp))
+                                            }
+                                        }
+
+                                        Spacer(Modifier.width(12.dp))
+
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(item.title, color = Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text(item.channelTitle, color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = "NOW PLAYING",
+                                                    color = activeAccent,
+                                                    fontSize = 9.5.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    letterSpacing = 0.6.sp
+                                                )
+                                                Spacer(Modifier.width(5.dp))
+                                                Icon(
+                                                    imageVector = Icons.Rounded.VolumeUp,
+                                                    contentDescription = null,
+                                                    tint = activeAccent,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = currentTrack?.name ?: "Current Song",
+                                                color = Color.White,
+                                                fontSize = 13.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = currentTrack?.artist.orEmpty(),
+                                                color = Color.White.copy(alpha = 0.6f),
+                                                fontSize = 11.5.sp,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (upNextQueue.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = 0.3f),
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            text = "No upcoming tracks in queue",
+                                            color = Color.White.copy(alpha = 0.6f),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = "Songs you choose to play next will appear here",
+                                            color = Color.White.copy(alpha = 0.35f),
+                                            fontSize = 11.5.sp
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            itemsIndexed(upNextQueue) { index, item ->
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.White.copy(alpha = 0.05f),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.playTrackFromQueue(item)
+                                            showHalfQueueSheet = false
+                                            showQueueModal = false
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "${index + 1}",
+                                            color = Color.White.copy(alpha = 0.4f),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.width(22.dp)
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color.Black.copy(alpha = 0.4f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (item.thumbnailUrl.isNotBlank()) {
+                                                AsyncImage(
+                                                    model = item.thumbnailUrl,
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else {
+                                                Icon(Icons.Rounded.MusicNote, null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                                            }
+                                        }
+
+                                        Spacer(Modifier.width(10.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = item.title,
+                                                color = Color.White,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = item.channelTitle,
+                                                color = Color.White.copy(alpha = 0.55f),
+                                                fontSize = 11.sp,
+                                                maxLines = 1
+                                            )
+                                        }
+
+                                        IconButton(
+                                            onClick = { viewModel.removeFromQueue(item) },
+                                            modifier = Modifier.size(30.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Close,
+                                                contentDescription = "Remove",
+                                                tint = Color.White.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(16.dp)
+                                            )
                                         }
                                     }
                                 }
@@ -2187,6 +2539,7 @@ private fun PlayerSkinChooserDialog(
                                 PlayerSkinLayout.ROUNDED_CARD -> "🎴"
                                 PlayerSkinLayout.RADIAL_RING -> "💿"
                                 PlayerSkinLayout.IMMERSIVE_DRAWER -> "🌄"
+                                PlayerSkinLayout.FROSTED_GLASS -> "🫧"
                             }
                             Text(skinIcon, fontSize = 22.sp)
                             Spacer(Modifier.width(12.dp))
