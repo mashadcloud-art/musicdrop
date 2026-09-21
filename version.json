@@ -1,8 +1,8 @@
 {
-  "versionCode": 160,
-  "versionName": "1.5.0",
-  "title": "MusicDrop v1.5.0 Available",
-  "changelog": "• Borderless Edge-to-Edge Glass Header: Removed all top borders and hard status bar padding; the theme glass gradient now paints edge-to-edge behind the status bar and camera cutout\n• Seamless Theme Immersion: Status bar icons float directly on top of the glowing theme glass gradient\n• Unlimited Vertical Scroll Shorts: Full-screen vertical swipe feed with infinite scroll\n• Fixed Shorts Connection: Native youtube-nocookie playback with no origin mismatch",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.0/MusicDrop-v1.5.0.apk",
+  "versionCode": 161,
+  "versionName": "1.5.1",
+  "title": "MusicDrop v1.5.1 Available",
+  "changelog": "• Collapsible Brand Header: Scrolling up seamlessly collapses the MusicDrop brand icon & actions bar, moving the navigation tabs right to the top for maximum screen space\n• Quick Reveal: Pulling down or switching tabs immediately reveals the brand logo, search, and settings\n• Edge-to-Edge Glass Immersion: Completely borderless header fluidly glowing behind the status bar and camera cutout\n• Smooth 60fps Physics: Animated with hardware-accelerated fluid transitions",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.1/MusicDrop-v1.5.1.apk",
   "forceUpdate": true
 }

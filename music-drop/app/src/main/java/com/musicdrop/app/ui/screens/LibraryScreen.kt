@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.shrinkVertically
@@ -196,6 +197,9 @@ fun LibraryScreen(
     var selectedArtistForOptions by remember { mutableStateOf<Pair<String, List<MediaItem>>?>(null) }
 
     var isTopBarVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(pagerState.currentPage) {
+        isTopBarVisible = true
+    }
     val nestedScrollConnection = remember {
         object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
             override fun onPreScroll(
@@ -203,9 +207,9 @@ fun LibraryScreen(
                 source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
             ): androidx.compose.ui.geometry.Offset {
                 val delta = available.y
-                if (delta < -14f && isTopBarVisible) {
+                if (delta < -12f && isTopBarVisible) {
                     isTopBarVisible = false
-                } else if (delta > 14f && !isTopBarVisible) {
+                } else if (delta > 12f && !isTopBarVisible) {
                     isTopBarVisible = true
                 }
                 return androidx.compose.ui.geometry.Offset.Zero
@@ -217,6 +221,7 @@ fun LibraryScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0C0C10))
+            .nestedScroll(nestedScrollConnection)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -237,15 +242,26 @@ fun LibraryScreen(
                     )
                     .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
             ) {
-                // ── 1. OFFICIAL MUSICDROP BRAND HEADER ─────────────────────────────────
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp)
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // ── 1. OFFICIAL MUSICDROP BRAND HEADER (Hides on scroll-up, moves tab row up) ──
+                AnimatedVisibility(
+                    visible = isTopBarVisible || isSearchActive,
+                    enter = expandVertically(
+                        animationSpec = tween(220),
+                        expandFrom = Alignment.Top
+                    ) + fadeIn(animationSpec = tween(180)),
+                    exit = shrinkVertically(
+                        animationSpec = tween(220),
+                        shrinkTowards = Alignment.Top
+                    ) + fadeOut(animationSpec = tween(180))
                 ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     // Left: Bird Logo + "Music" + "Drop"
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -330,6 +346,7 @@ fun LibraryScreen(
                         }
                     }
                 }
+            }
 
                 // ── 2. EXPANDABLE SEARCH BAR ──────────────────────────────────────────
                 AnimatedVisibility(
@@ -413,7 +430,9 @@ fun LibraryScreen(
                             )
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = if (isTopBarVisible) 0.dp else 4.dp)
                 ) {
                     tabs.forEachIndexed { index, tab ->
                         val isSelected = pagerState.currentPage == index
