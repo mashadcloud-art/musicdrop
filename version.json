@@ -1,8 +1,8 @@
 {
-  "versionCode": 159,
-  "versionName": "1.4.9",
-  "title": "MusicDrop v1.4.9 Available",
-  "changelog": "• Glassmorphic Theme Header: Frosted glass top header and tabs row dynamically glowing with active theme colors, specular shine line, and neon pill indicators\n• Unlimited Vertical Scroll Shorts: Full-screen vertical swipe feed (TikTok & Shorts style) with seamless infinite scrolling and auto-fetching of trending music clips\n• Fixed Shorts Video Connection: Resolved YouTube embed origin rejection with youtube-nocookie engine and graceful publisher-restricted fallback\n• Active Page Video Isolation: Fast, buttery smooth 60fps scrolling with zero memory leaks",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.9/MusicDrop-v1.4.9.apk",
+  "versionCode": 160,
+  "versionName": "1.5.0",
+  "title": "MusicDrop v1.5.0 Available",
+  "changelog": "• Borderless Edge-to-Edge Glass Header: Removed all top borders and hard status bar padding; the theme glass gradient now paints edge-to-edge behind the status bar and camera cutout\n• Seamless Theme Immersion: Status bar icons float directly on top of the glowing theme glass gradient\n• Unlimited Vertical Scroll Shorts: Full-screen vertical swipe feed with infinite scroll\n• Fixed Shorts Connection: Native youtube-nocookie playback with no origin mismatch",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.0/MusicDrop-v1.5.0.apk",
   "forceUpdate": true
 }

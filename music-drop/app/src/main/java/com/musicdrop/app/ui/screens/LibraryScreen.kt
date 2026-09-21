@@ -219,49 +219,30 @@ fun LibraryScreen(
             .background(Color(0xFF0C0C10))
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
+            modifier = Modifier.fillMaxSize()
         ) {
-            // ── GLASSMORPHIC THEME-ADAPTIVE HEADER & TAB BAR ──────────────────────────
+            // ── GLASSMORPHIC THEME-ADAPTIVE HEADER & TAB BAR (Edge-to-Edge) ───────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
                         Brush.verticalGradient(
                             listOf(
-                                appColors.accentPrimary.copy(alpha = 0.25f),
-                                appColors.surfaceElevated.copy(alpha = 0.82f),
-                                appColors.surface.copy(alpha = 0.88f),
-                                Color(0xFF0C0C10).copy(alpha = 0.95f)
+                                appColors.accentPrimary.copy(alpha = 0.35f),
+                                appColors.surfaceElevated.copy(alpha = 0.85f),
+                                appColors.surface.copy(alpha = 0.90f),
+                                Color(0xFF0C0C10).copy(alpha = 0.98f)
                             )
                         )
                     )
+                    .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
             ) {
-                // Top Specular Glass Highlight Line
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(
-                                    Color.Transparent,
-                                    appColors.accentPrimary.copy(alpha = 0.5f),
-                                    Color.White.copy(alpha = 0.35f),
-                                    appColors.accentPrimary.copy(alpha = 0.5f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-
                 // ── 1. OFFICIAL MUSICDROP BRAND HEADER ─────────────────────────────────
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 4.dp)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
