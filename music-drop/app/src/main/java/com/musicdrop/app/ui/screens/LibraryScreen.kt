@@ -59,6 +59,7 @@ import com.musicdrop.app.data.repository.DownloadedTrack
 import com.musicdrop.app.data.repository.LikedMusicItem
 import com.musicdrop.app.data.repository.UserPlaylistItem
 import com.musicdrop.app.ui.viewmodel.MainViewModel
+import com.musicdrop.app.ui.components.SongOptionsBottomSheet
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -189,6 +190,7 @@ fun LibraryScreen(
 
     val tabs = LibraryTab.values()
     val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
+    var selectedSongForOptions by remember { mutableStateOf<MediaItem?>(null) }
 
     var isTopBarVisible by remember { mutableStateOf(true) }
     val nestedScrollConnection = remember {
@@ -440,7 +442,8 @@ fun LibraryScreen(
 
                     LibraryTab.SONGS -> SongsTabContent(
                         songs = filteredSongs,
-                        onSongClick = { song -> viewModel.playTrack(song, filteredSongs) }
+                        onSongClick = { song -> viewModel.playTrack(song, filteredSongs) },
+                        onMoreClick = { song -> selectedSongForOptions = song }
                     )
 
                     LibraryTab.PLAYLISTS -> PlaylistsTabContent(
@@ -488,12 +491,14 @@ fun LibraryScreen(
                             val item = dl.toMediaItem()
                             val list = downloadedTracks.map { it.toMediaItem() }
                             viewModel.playTrack(item, list)
-                        }
+                        },
+                        onMoreClick = { song -> selectedSongForOptions = song }
                     )
 
                     LibraryTab.DEVICE -> DeviceMusicTabContent(
                         allAudio = allAudio,
                         onSongClick = { song -> viewModel.playTrack(song, allAudio) },
+                        onMoreClick = { song -> selectedSongForOptions = song },
                         onShareClick = { song ->
                             viewModel.shareMediaFile(
                                 context = context,
@@ -592,6 +597,14 @@ fun LibraryScreen(
             containerColor = Color(0xFF1E1E24)
         )
     }
+
+    if (selectedSongForOptions != null) {
+        SongOptionsBottomSheet(
+            song = selectedSongForOptions!!,
+            viewModel = viewModel,
+            onDismiss = { selectedSongForOptions = null }
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -607,7 +620,8 @@ private fun AllTabContent(
     onViewAllArtists: () -> Unit,
     onSongClick: (MediaItem) -> Unit,
     onAlbumClick: (String, List<MediaItem>) -> Unit,
-    onArtistClick: (String, List<MediaItem>) -> Unit
+    onArtistClick: (String, List<MediaItem>) -> Unit,
+    onMoreClick: ((MediaItem) -> Unit)? = null
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -618,7 +632,11 @@ private fun AllTabContent(
             SectionHeader(title = "Songs", onViewAll = onViewAllSongs)
         }
         items(songs.take(5), key = { "all_song_${it.id}" }) { song ->
-            SongItemRow(song = song, onClick = { onSongClick(song) })
+            SongItemRow(
+                song = song,
+                onClick = { onSongClick(song) },
+                onMoreClick = onMoreClick?.let { { it(song) } }
+            )
         }
 
         // Albums Section Header
@@ -662,7 +680,8 @@ private fun AllTabContent(
 @Composable
 private fun SongsTabContent(
     songs: List<MediaItem>,
-    onSongClick: (MediaItem) -> Unit
+    onSongClick: (MediaItem) -> Unit,
+    onMoreClick: ((MediaItem) -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -679,7 +698,11 @@ private fun SongsTabContent(
                 contentPadding = PaddingValues(bottom = 140.dp)
             ) {
                 items(songs, key = { "songs_tab_${it.id}" }) { song ->
-                    SongItemRow(song = song, onClick = { onSongClick(song) })
+                    SongItemRow(
+                        song = song,
+                        onClick = { onSongClick(song) },
+                        onMoreClick = onMoreClick?.let { { it(song) } }
+                    )
                 }
             }
         }
@@ -1034,6 +1057,7 @@ fun LibraryDetailScreen(
     val scope = rememberCoroutineScope()
     var isSearchActive by remember { mutableStateOf(false) }
     var detailSearchQuery by remember { mutableStateOf("") }
+    var selectedDetailOptionsSong by remember { mutableStateOf<MediaItem?>(null) }
 
     val displayedTracks = remember(tracks, detailSearchQuery) {
         if (detailSearchQuery.isBlank()) tracks
@@ -1242,6 +1266,7 @@ fun LibraryDetailScreen(
                     SongItemRow(
                         song = song,
                         onClick = { viewModel.playTrack(song, displayedTracks) },
+                        onMoreClick = { selectedDetailOptionsSong = song },
                         onShareClick = {
                             viewModel.shareMediaFile(
                                 context = context,
@@ -1281,6 +1306,14 @@ fun LibraryDetailScreen(
                 )
             }
         }
+
+        if (selectedDetailOptionsSong != null) {
+            SongOptionsBottomSheet(
+                song = selectedDetailOptionsSong!!,
+                viewModel = viewModel,
+                onDismiss = { selectedDetailOptionsSong = null }
+            )
+        }
     }
 }
 
@@ -1317,6 +1350,7 @@ private fun SectionHeader(title: String, onViewAll: () -> Unit) {
 private fun SongItemRow(
     song: MediaItem,
     onClick: () -> Unit,
+    onMoreClick: (() -> Unit)? = null,
     onShareClick: (() -> Unit)? = null
 ) {
     val dateFormat = remember { SimpleDateFormat("MM-dd", Locale.getDefault()) }
@@ -1407,13 +1441,13 @@ private fun SongItemRow(
 
         // Share or 3-dot Menu Icon
         IconButton(
-            onClick = onShareClick ?: {},
+            onClick = onMoreClick ?: onShareClick ?: {},
             modifier = Modifier.size(28.dp)
         ) {
             Icon(
-                imageVector = if (onShareClick != null) Icons.Rounded.Share else Icons.Rounded.MoreVert,
-                contentDescription = if (onShareClick != null) "Share file" else "Options",
-                tint = if (onShareClick != null) Color(0xFF38BDF8) else Color(0xFF8E8E9B),
+                imageVector = if (onMoreClick != null) Icons.Rounded.MoreVert else (if (onShareClick != null) Icons.Rounded.Share else Icons.Rounded.MoreVert),
+                contentDescription = if (onMoreClick != null) "Song options" else (if (onShareClick != null) "Share file" else "Options"),
+                tint = if (onMoreClick != null) Color(0xFF8E8E9B) else (if (onShareClick != null) Color(0xFF38BDF8) else Color(0xFF8E8E9B)),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -1681,7 +1715,8 @@ private fun AlbumVinylCard(
 fun DownloadsTabContent(
     downloadedTracks: List<DownloadedTrack>,
     viewModel: MainViewModel,
-    onTrackClick: (DownloadedTrack) -> Unit
+    onTrackClick: (DownloadedTrack) -> Unit,
+    onMoreClick: ((MediaItem) -> Unit)? = null
 ) {
     val downloadedMedia = remember(downloadedTracks) {
         downloadedTracks.map { it.toMediaItem() }
@@ -1775,6 +1810,7 @@ fun DownloadsTabContent(
                     SongItemRow(
                         song = mediaItem,
                         onClick = { onTrackClick(track) },
+                        onMoreClick = onMoreClick?.let { { it(mediaItem) } },
                         onShareClick = { viewModel.shareDownloadedFile(context, track) }
                     )
                 }
@@ -1813,6 +1849,7 @@ fun DownloadsTabContent(
 fun DeviceMusicTabContent(
     allAudio: List<MediaItem>,
     onSongClick: (MediaItem) -> Unit,
+    onMoreClick: ((MediaItem) -> Unit)? = null,
     onShareClick: ((MediaItem) -> Unit)? = null
 ) {
     val localAudio = remember(allAudio) {
@@ -1879,6 +1916,7 @@ fun DeviceMusicTabContent(
                     SongItemRow(
                         song = song,
                         onClick = { onSongClick(song) },
+                        onMoreClick = onMoreClick?.let { { it(song) } },
                         onShareClick = onShareClick?.let { { it(song) } }
                     )
                 }

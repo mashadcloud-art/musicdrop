@@ -286,41 +286,7 @@ class PlaybackConnection(private val context: Context) {
             _durationMs.value = track.durationMs
         }
 
-        val mediaItems = currentList.map { item ->
-            val builder = MediaItem.Builder()
-                .setMediaId(item.id.toString())
-                .setUri(item.uri)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(item.name)
-                        .setArtist(item.artist)
-                        .setAlbumTitle(item.album)
-                        .setArtworkUri(item.albumArtUri)
-                        .build()
-                )
-
-            val effectiveMime = when {
-                // Video Mode: keep the real video/* mimeType so ExoPlayer knows to pick
-                // video renderers, instead of falling through to audio-only mappings.
-                item.mediaType == com.musicdrop.app.data.model.MediaType.VIDEO || item.mimeType.startsWith("video/", ignoreCase = true) -> {
-                    if (item.mimeType.startsWith("video/")) item.mimeType else androidx.media3.common.MimeTypes.VIDEO_MP4
-                }
-                item.mimeType.contains("mp4", ignoreCase = true) || item.mimeType.contains("m4a", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_MP4
-                item.mimeType.contains("mpeg", ignoreCase = true) || item.mimeType.contains("mp3", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_MPEG
-                item.mimeType.contains("opus", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_OPUS
-                item.mimeType.contains("ogg", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_OGG
-                item.mimeType.contains("wav", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_WAV
-                item.mimeType.contains("flac", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_FLAC
-                item.mimeType.contains("aac", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_AAC
-                item.mimeType.contains("mpegurl", ignoreCase = true) || item.mimeType.contains("m3u8", ignoreCase = true) -> androidx.media3.common.MimeTypes.APPLICATION_M3U8
-                item.uri.toString().contains("googlevideo.com") -> androidx.media3.common.MimeTypes.AUDIO_MP4
-                else -> null
-            }
-            if (effectiveMime != null) {
-                builder.setMimeType(effectiveMime)
-            }
-            builder.build()
-        }
+        val mediaItems = currentList.map { item -> toExoMediaItem(item) }
 
         val startIndex = currentList.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
 
@@ -330,6 +296,66 @@ class PlaybackConnection(private val context: Context) {
             c.prepare()
             c.play()
             fadeInVolume()
+        }
+    }
+
+    private fun toExoMediaItem(item: AppMediaItem): MediaItem {
+        val builder = MediaItem.Builder()
+            .setMediaId(item.id.toString())
+            .setUri(item.uri)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(item.name)
+                    .setArtist(item.artist)
+                    .setAlbumTitle(item.album)
+                    .setArtworkUri(item.albumArtUri)
+                    .build()
+            )
+
+        val effectiveMime = when {
+            item.mediaType == com.musicdrop.app.data.model.MediaType.VIDEO || item.mimeType.startsWith("video/", ignoreCase = true) -> {
+                if (item.mimeType.startsWith("video/")) item.mimeType else androidx.media3.common.MimeTypes.VIDEO_MP4
+            }
+            item.mimeType.contains("mp4", ignoreCase = true) || item.mimeType.contains("m4a", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_MP4
+            item.mimeType.contains("mpeg", ignoreCase = true) || item.mimeType.contains("mp3", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_MPEG
+            item.mimeType.contains("opus", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_OPUS
+            item.mimeType.contains("ogg", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_OGG
+            item.mimeType.contains("wav", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_WAV
+            item.mimeType.contains("flac", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_FLAC
+            item.mimeType.contains("aac", ignoreCase = true) -> androidx.media3.common.MimeTypes.AUDIO_AAC
+            item.mimeType.contains("mpegurl", ignoreCase = true) || item.mimeType.contains("m3u8", ignoreCase = true) -> androidx.media3.common.MimeTypes.APPLICATION_M3U8
+            item.uri.toString().contains("googlevideo.com") -> androidx.media3.common.MimeTypes.AUDIO_MP4
+            else -> null
+        }
+        if (effectiveMime != null) {
+            builder.setMimeType(effectiveMime)
+        }
+        return builder.build()
+    }
+
+    fun playNext(track: AppMediaItem) {
+        val curList = playlist.toMutableList()
+        val curTrack = _currentTrack.value
+        val insertIndex = if (curTrack != null) {
+            val idx = curList.indexOfFirst { it.id == curTrack.id }
+            if (idx >= 0) idx + 1 else curList.size
+        } else curList.size
+        val safeIndex = insertIndex.coerceIn(0, curList.size)
+        curList.add(safeIndex, track)
+        playlist = curList
+        withController { c ->
+            val exoItem = toExoMediaItem(track)
+            c.addMediaItem(safeIndex.coerceIn(0, c.mediaItemCount), exoItem)
+        }
+    }
+
+    fun addToQueue(track: AppMediaItem) {
+        val curList = playlist.toMutableList()
+        curList.add(track)
+        playlist = curList
+        withController { c ->
+            val exoItem = toExoMediaItem(track)
+            c.addMediaItem(exoItem)
         }
     }
 

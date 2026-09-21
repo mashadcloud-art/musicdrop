@@ -11,6 +11,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.musicdrop.app.data.model.MediaItem
 import com.musicdrop.app.data.model.MediaType
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
@@ -231,6 +232,155 @@ class PWebExtractor(private val context: Context) {
             mainHandler.postDelayed({ wv.destroy() }, 500)
         } catch (e: Exception) {
             android.util.Log.e("PWebExtractor", "Parse error: ${e.message}")
+            if (cont.isActive) cont.resume(null)
+        }
+    }
+
+    suspend fun extractVideo(
+        videoId: String,
+        knownTitle: String = "",
+        knownAuthor: String = "",
+        knownThumb: String = ""
+    ): StreamInfo? = withTimeoutOrNull(25_000L) {
+        suspendCancellableCoroutine { cont ->
+            mainHandler.post {
+                if (pWebJs.isBlank()) {
+                    android.util.Log.e("PWebExtractor", "p_web not loaded")
+                    if (cont.isActive) cont.resume(null)
+                    return@post
+                }
+
+                val wv = buildWebView()
+
+                wv.addJavascriptInterface(object : Any() {
+                    @JavascriptInterface
+                    fun callHandler(handlerName: String, dataJson: String) {
+                        if (handlerName != "socialDownload") return
+                        parseAndResumeVideo(dataJson, videoId, knownTitle, knownAuthor, knownThumb, cont, wv)
+                    }
+
+                    @JavascriptInterface
+                    fun callHandlerWithParam(handlerName: String, paramJson: String) {
+                        if (handlerName != "socialDownload") return
+                        try {
+                            val wrapper = JSONObject(paramJson)
+                            val inner = wrapper.optString("param", paramJson)
+                            parseAndResumeVideo(inner, videoId, knownTitle, knownAuthor, knownThumb, cont, wv)
+                        } catch (e: Exception) {
+                            parseAndResumeVideo(paramJson, videoId, knownTitle, knownAuthor, knownThumb, cont, wv)
+                        }
+                    }
+                }, "NativeBridge")
+
+                wv.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        val bridge = """
+                            window.WebViewJavascriptBridge = {
+                                handlers: {},
+                                callHandler: function(name, data, callback) {
+                                    try {
+                                        var dataStr = (typeof data === 'string') ? data : JSON.stringify(data);
+                                        NativeBridge.callHandler(name, dataStr);
+                                    } catch(e) { console.error('Bridge error: ' + e); }
+                                },
+                                registerHandler: function(name, cb) {
+                                    this.handlers[name] = cb;
+                                },
+                                send: function(name, data) {
+                                    try {
+                                        var dataStr = (typeof data === 'string') ? data : JSON.stringify(data);
+                                        NativeBridge.callHandler(name, dataStr);
+                                    } catch(e) {}
+                                }
+                            };
+                            var evt = document.createEvent("Events");
+                            evt.initEvent("WebViewJavascriptBridgeReady", false, false);
+                            document.dispatchEvent(evt);
+                        """.trimIndent()
+
+                        view?.evaluateJavascript("(function(){ $bridge\n$pWebJs\n})();", null)
+
+                        view?.evaluateJavascript("""
+                            (function() {
+                                if (window.WebViewJavascriptBridge && window.WebViewJavascriptBridge.handlers['bridgeReady']) {
+                                    try {
+                                        window.WebViewJavascriptBridge.handlers['bridgeReady'](JSON.stringify({type: 1, ver: 76, lang: 'en'}));
+                                    } catch(e) {}
+                                }
+                            })();
+                        """.trimIndent(), null)
+                    }
+                }
+
+                val targetUrl = "file:///android_asset/index.html?type=video&method=all&v=$videoId"
+                wv.loadUrl(targetUrl)
+            }
+        }
+    }
+
+    private fun parseAndResumeVideo(
+        dataJson: String,
+        videoId: String,
+        knownTitle: String,
+        knownAuthor: String,
+        knownThumb: String,
+        cont: CancellableContinuation<StreamInfo?>,
+        wv: WebView
+    ) {
+        try {
+            val data = JSONObject(dataJson)
+            val root = if (data.has("param")) {
+                val p = data.opt("param")
+                if (p is JSONObject) p else JSONObject(p.toString())
+            } else data
+
+            val files = root.optJSONArray("files")
+            if (files == null || files.length() == 0) {
+                if (cont.isActive) cont.resume(null)
+                return
+            }
+
+            var bestUrl     = ""
+            var bestMime    = "video/mp4"
+            var bestBitrate = 0L
+
+            for (i in 0 until files.length()) {
+                val f = files.optJSONObject(i) ?: continue
+                val url     = f.optString("url", "")
+                val mime    = f.optString("mimeType", f.optString("mime", ""))
+                val bitrate = f.optLong("averageBitrate", f.optLong("bitrate", 0L))
+                val hasVideo = f.optBoolean("hasVideo", mime.startsWith("video/"))
+
+                if (url.isBlank() || !url.startsWith("http")) continue
+
+                if (hasVideo || mime.startsWith("video/")) {
+                    if (bitrate > bestBitrate || bestUrl.isBlank()) {
+                        bestBitrate = bitrate
+                        bestUrl     = url
+                        bestMime    = mime.ifBlank { "video/mp4" }
+                    }
+                }
+            }
+
+            if (bestUrl.isBlank()) {
+                if (cont.isActive) cont.resume(null)
+                return
+            }
+
+            val title  = root.optString("title", "").ifBlank { knownTitle.ifBlank { "YouTube Video" } }
+            val author = root.optString("author", "").ifBlank { knownAuthor.ifBlank { "YouTube" } }
+            val thumb  = knownThumb.ifBlank { "https://i.ytimg.com/vi/$videoId/hqdefault.jpg" }
+            val durMs  = root.optLong("durationMs", 0L)
+
+            android.util.Log.i("PWebExtractor", "✅ p_web video success: $videoId ($bestMime, bitrate=$bestBitrate)")
+            val info = StreamInfo(
+                bestUrl, bestMime, title, author, thumb, durMs, videoId,
+                expiresAtMs = StreamCacheStore.expiryFromUrl(bestUrl)
+            )
+            if (cont.isActive) cont.resume(info)
+            mainHandler.postDelayed({ wv.destroy() }, 500)
+        } catch (e: Exception) {
+            android.util.Log.e("PWebExtractor", "Parse video error: ${e.message}")
             if (cont.isActive) cont.resume(null)
         }
     }

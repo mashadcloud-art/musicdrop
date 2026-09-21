@@ -94,6 +94,26 @@ object DownloadedTracksStore {
         return if (file.exists()) file.delete() else true
     }
 
+    @Synchronized
+    fun updateTrack(
+        context: Context,
+        key: String,
+        newTitle: String,
+        newArtist: String,
+        newCoverUrl: String? = null
+    ) {
+        val current = getAll(context).map { t ->
+            if (t.key == key || t.filePath == key) {
+                t.copy(
+                    title = newTitle.ifBlank { t.title },
+                    artist = newArtist.ifBlank { t.artist },
+                    coverUrl = newCoverUrl ?: t.coverUrl
+                )
+            } else t
+        }
+        saveAll(context, current)
+    }
+
     private fun saveAll(context: Context, tracks: List<DownloadedTrack>) {
         val array = JSONArray()
         for (t in tracks) {

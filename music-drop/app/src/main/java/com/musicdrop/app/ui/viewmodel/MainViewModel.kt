@@ -1,6 +1,8 @@
 package com.musicdrop.app.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.musicdrop.app.data.model.InstalledAppInfo
@@ -12,6 +14,7 @@ import com.musicdrop.app.data.repository.ContactsRepository
 import com.musicdrop.app.data.repository.InstalledAppsRepository
 import com.musicdrop.app.data.repository.MediaStoreRepository
 import com.musicdrop.app.data.repository.RecentPlaysStore
+import com.musicdrop.app.data.repository.DownloadedTracksStore
 import com.musicdrop.app.data.repository.SentFilesLog
 import com.musicdrop.app.data.repository.SentRecord
 import com.musicdrop.app.data.repository.StorageRepository
@@ -985,20 +988,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Download YouTube video (MP4) for offline video playback. */
     fun downloadYouTubeVideo(result: YouTubeSearchResult, onDone: (success: Boolean, path: String) -> Unit) {
         viewModelScope.launch {
+            val trackKey = "yt:${result.videoId}"
             try {
-                val video = try {
-                    NewPipeYouTubeExtractor.getInstance(getApplication()).extractVideo(result.videoId)
-                } catch (e: Exception) {
-                    null
+                _downloadStatusMap.value = _downloadStatusMap.value + (trackKey to "Resolving video stream...")
+
+                // Triple-redundant video stream extraction
+                val newPipeDeferred = async(Dispatchers.IO) {
+                    try {
+                        NewPipeYouTubeExtractor.getInstance(getApplication()).extractVideo(result.videoId)?.url
+                    } catch (_: Exception) { null }
+                }
+                val pWebDeferred = async(Dispatchers.IO) {
+                    try {
+                        com.musicdrop.app.data.youtube.PWebExtractor.getInstance(getApplication())
+                            .extractVideo(result.videoId, result.title, result.channelTitle, result.thumbnailUrl)?.url
+                    } catch (_: Exception) { null }
+                }
+                val yteDeferred = async(Dispatchers.IO) {
+                    try {
+                        YouTubeStreamExtractor.getInstance(getApplication())
+                            .extractVideo(result.videoId, result.title, result.channelTitle, result.thumbnailUrl)?.url
+                    } catch (_: Exception) { null }
                 }
 
-                if (video == null || video.url.isBlank()) {
+                val videoUrl = newPipeDeferred.await()?.takeIf { it.isNotBlank() }
+                    ?: pWebDeferred.await()?.takeIf { it.isNotBlank() }
+                    ?: yteDeferred.await()?.takeIf { it.isNotBlank() }
+
+                if (videoUrl == null) {
+                    _downloadStatusMap.value = _downloadStatusMap.value - trackKey
                     android.widget.Toast.makeText(getApplication(), "Could not extract video stream for download", android.widget.Toast.LENGTH_SHORT).show()
                     onDone(false, "")
                     return@launch
                 }
 
-                val trackKey = "yt:${result.videoId}"
                 _downloadStatusMap.value = _downloadStatusMap.value + (trackKey to "Starting video download...")
 
                 val cleanTitle = result.title.replace(Regex("[^a-zA-Z0-9 _-]"), "").trim().take(80).ifBlank { "YouTube_Video" }
@@ -1006,13 +1029,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val safeDir = getPublicMoviesDir()
                 var outFile = java.io.File(safeDir, fileName)
 
-                val ok = streamDownloadToFile(video.url, outFile) { progress, current, total ->
+                var ok = streamDownloadToFile(videoUrl, outFile) { progress, current, total ->
                     _downloadProgressMap.value = _downloadProgressMap.value + (trackKey to progress)
                     val mbCurrent = current / (1024f * 1024f)
                     val mbTotal = total / (1024f * 1024f)
                     _downloadStatusMap.value = _downloadStatusMap.value + (trackKey to String.format("%.1f / %.1f MB (%.0f%%)", mbCurrent, mbTotal, progress * 100))
                 }
+
+                if (!ok) {
+                    // Fallback to internal Movies dir if public directory blocked
+                    val fallbackDir = java.io.File(getApplication<Application>().filesDir, "Movies").apply { if (!exists()) mkdirs() }
+                    outFile = java.io.File(fallbackDir, fileName)
+                    ok = streamDownloadToFile(videoUrl, outFile)
+                }
+
                 if (!ok || !outFile.exists() || outFile.length() == 0L) {
+                    _downloadProgressMap.value = _downloadProgressMap.value - trackKey
+                    _downloadStatusMap.value = _downloadStatusMap.value - trackKey
                     onDone(false, "")
                     return@launch
                 }
@@ -1033,12 +1066,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 android.media.MediaScannerConnection.scanFile(
                     getApplication(), arrayOf(outFile.absolutePath), arrayOf("video/mp4"), null
                 )
-                _downloadProgressMap.value = _downloadProgressMap.value - "yt:${result.videoId}"
-                _downloadStatusMap.value = _downloadStatusMap.value - "yt:${result.videoId}"
+                _downloadProgressMap.value = _downloadProgressMap.value - trackKey
+                _downloadStatusMap.value = _downloadStatusMap.value - trackKey
                 onDone(true, outFile.absolutePath)
             } catch (e: Exception) {
-                _downloadProgressMap.value = _downloadProgressMap.value - "yt:${result.videoId}"
-                _downloadStatusMap.value = _downloadStatusMap.value - "yt:${result.videoId}"
+                _downloadProgressMap.value = _downloadProgressMap.value - trackKey
+                _downloadStatusMap.value = _downloadStatusMap.value - trackKey
                 android.util.Log.e("MainViewModel", "Video download failed: ${e.message}", e)
                 onDone(false, "")
             }
@@ -2943,12 +2976,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Download official video (MP4 HD) for the currently playing track. */
     fun downloadCurrentVideo(onDone: (Boolean, String) -> Unit) {
         val current = playbackConnection.currentTrack.value ?: return onDone(false, "")
-        val vidId = current.filePath?.takeIf { it.length == 11 && !it.contains("/") && !it.contains(".") }
-            ?: current.albumArtUri?.toString()?.let { uriStr ->
-                if (uriStr.contains("/vi/")) uriStr.substringAfter("/vi/").substringBefore("/")
-                else null
-            }
-            ?: _ytCurrentVideo.value?.takeIf { it.title.equals(current.name, ignoreCase = true) }?.videoId
+        val path = current.filePath.orEmpty()
+        val art = current.albumArtUri?.toString().orEmpty()
+        val uriStr = current.uri.toString()
+
+        val vidId = when {
+            path.startsWith("yt:") -> path.removePrefix("yt:")
+            path.length == 11 && !path.contains("/") && !path.contains(".") && !path.contains(":") -> path
+            art.contains("/vi_webp/") -> art.substringAfter("/vi_webp/").substringBefore("/").substringBefore("?")
+            art.contains("/vi/") -> art.substringAfter("/vi/").substringBefore("/").substringBefore("?")
+            uriStr.contains("v=") -> uriStr.substringAfter("v=").substringBefore("&").substringBefore("?")
+            uriStr.contains("youtu.be/") -> uriStr.substringAfter("youtu.be/").substringBefore("?").substringBefore("&")
+            _ytCurrentVideo.value?.videoId?.isNotBlank() == true -> _ytCurrentVideo.value?.videoId
+            else -> null
+        }
 
         val target = if (vidId != null) {
             YouTubeSearchResult(
@@ -3001,6 +3042,155 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val key = if (path.isNotBlank()) path else current.id.toString()
         val formattedKey = if (!key.contains(":")) "yt:$key" else key
         return _downloadedTracks.value.any { it.key == formattedKey || it.title.equals(current.name, ignoreCase = true) }
+    }
+
+    // ── Song Details & Library Options Actions ──
+
+    fun editSongDetails(
+        track: MediaItem,
+        newTitle: String,
+        newArtist: String,
+        newAlbum: String,
+        newCoverUri: String? = null
+    ) {
+        val updatedTitle = newTitle.trim().ifBlank { track.name }
+        val updatedArtist = newArtist.trim().ifBlank { track.artist }
+        val updatedAlbum = newAlbum.trim().ifBlank { track.album }
+        val updatedCover = newCoverUri?.takeIf { it.isNotBlank() } ?: track.albumArtUri?.toString()
+
+        // 1. Update in DownloadedTracksStore
+        val key = track.filePath.orEmpty().ifBlank { "yt:${track.id}" }
+        DownloadedTracksStore.updateTrack(
+            context = getApplication(),
+            key = key,
+            newTitle = updatedTitle,
+            newArtist = updatedArtist,
+            newCoverUrl = updatedCover
+        )
+        _downloadedTracks.value = DownloadedTracksStore.getAll(getApplication())
+
+        // 2. Update in-memory collections for instant UI update
+        _songs.value = _songs.value.map { item ->
+            if (item.id == track.id || item.filePath == track.filePath) {
+                item.copy(
+                    name = updatedTitle,
+                    artist = updatedArtist,
+                    album = updatedAlbum,
+                    albumArtUri = updatedCover?.let { android.net.Uri.parse(it) } ?: item.albumArtUri
+                )
+            } else item
+        }
+        _allAudio.value = _allAudio.value.map { item ->
+            if (item.id == track.id || item.filePath == track.filePath) {
+                item.copy(
+                    name = updatedTitle,
+                    artist = updatedArtist,
+                    album = updatedAlbum,
+                    albumArtUri = updatedCover?.let { android.net.Uri.parse(it) } ?: item.albumArtUri
+                )
+            } else item
+        }
+
+        // 3. If currently playing, update notification and full player
+        if (playbackConnection.currentTrack.value?.id == track.id) {
+            val updatedItem = track.copy(
+                name = updatedTitle,
+                artist = updatedArtist,
+                album = updatedAlbum,
+                albumArtUri = updatedCover?.let { android.net.Uri.parse(it) } ?: track.albumArtUri
+            )
+            playbackConnection.setCurrentTrackMetadata(updatedItem)
+        }
+
+        android.widget.Toast.makeText(getApplication(), "Details updated successfully", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    fun deleteSong(track: MediaItem, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            var deleted = false
+            try {
+                val key = track.filePath.orEmpty().ifBlank { "yt:${track.id}" }
+                DownloadedTracksStore.remove(getApplication(), key)
+                _downloadedTracks.value = DownloadedTracksStore.getAll(getApplication())
+
+                val path = track.filePath.orEmpty()
+                if (path.isNotBlank()) {
+                    val file = java.io.File(path)
+                    if (file.exists()) {
+                        deleted = file.delete()
+                        android.media.MediaScannerConnection.scanFile(
+                            getApplication(), arrayOf(file.absolutePath), null, null
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MainViewModel", "Failed to delete song: ${e.message}", e)
+            }
+
+            _songs.value = _songs.value.filter { it.id != track.id && it.filePath != track.filePath }
+            _allAudio.value = _allAudio.value.filter { it.id != track.id && it.filePath != track.filePath }
+
+            withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(getApplication(), "Song removed from device", android.widget.Toast.LENGTH_SHORT).show()
+                onDone(deleted)
+            }
+        }
+    }
+
+    fun hideSong(track: MediaItem) {
+        val key = track.filePath.orEmpty().ifBlank { track.id.toString() }
+        com.musicdrop.app.data.repository.HiddenTracksStore.hideTrack(getApplication(), key)
+        _songs.value = _songs.value.filter { it.id != track.id && it.filePath != track.filePath }
+        _allAudio.value = _allAudio.value.filter { it.id != track.id && it.filePath != track.filePath }
+        android.widget.Toast.makeText(getApplication(), "Song hidden from library", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    fun changeSongCover(track: MediaItem, newCoverUri: String) {
+        editSongDetails(track, track.name, track.artist, track.album, newCoverUri)
+    }
+
+    fun setSongAsRingtone(context: Context, track: MediaItem) {
+        try {
+            val path = track.filePath.orEmpty()
+            val file = java.io.File(path)
+            if (!file.exists()) {
+                android.widget.Toast.makeText(context, "Please download the track first to set as ringtone", android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (!android.provider.Settings.System.canWrite(context)) {
+                    android.widget.Toast.makeText(context, "Please allow 'Modify system settings' permission to set ringtone", android.widget.Toast.LENGTH_LONG).show()
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                        data = android.net.Uri.parse("package:" + context.packageName)
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                    return
+                }
+            }
+
+            val uri = android.net.Uri.fromFile(file)
+            android.media.RingtoneManager.setActualDefaultRingtoneUri(
+                context,
+                android.media.RingtoneManager.TYPE_RINGTONE,
+                uri
+            )
+            android.widget.Toast.makeText(context, "Ringtone updated: ${track.name}", android.widget.Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            android.util.Log.e("MainViewModel", "Failed to set ringtone: ${e.message}", e)
+            android.widget.Toast.makeText(context, "Could not set ringtone: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun playNext(track: MediaItem) {
+        playbackConnection.playNext(track)
+        android.widget.Toast.makeText(getApplication(), "Will play next: ${track.name}", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    fun addToQueue(track: MediaItem) {
+        playbackConnection.addToQueue(track)
+        android.widget.Toast.makeText(getApplication(), "Added to queue: ${track.name}", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     /**

@@ -7,6 +7,7 @@ import com.musicdrop.app.data.model.MediaItem
 import com.musicdrop.app.data.model.MediaType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -281,6 +282,151 @@ class YouTubeStreamExtractor(private val context: Context) {
             )
         } catch (e: Exception) {
             android.util.Log.e("YTExtractor", "[${profile.clientName}] ${e.message}")
+            null
+        }
+    }
+
+    suspend fun extractVideo(
+        videoId: String,
+        knownTitle: String = "",
+        knownAuthor: String = "",
+        knownThumb: String = "",
+        poToken: PoTokenManager.PoToken? = null
+    ): StreamResult? {
+        for (profile in clients) {
+            val result = tryClientVideo(profile, videoId, knownTitle, knownAuthor, knownThumb, poToken)
+            if (result != null) return result
+        }
+        android.util.Log.e("YTExtractor", "❌ All clients failed for video $videoId")
+        return null
+    }
+
+    private suspend fun tryClientVideo(
+        profile: ClientProfile,
+        videoId: String,
+        knownTitle: String,
+        knownAuthor: String,
+        knownThumb: String,
+        poToken: PoTokenManager.PoToken?
+    ): StreamResult? = withContext(Dispatchers.IO) {
+        try {
+            val visitorData = poToken?.visitorData?.takeIf { it.isNotBlank() } ?: randomVisitorData()
+
+            val clientObj = JSONObject().apply {
+                put("hl", "en")
+                put("gl", "US")
+                put("clientName", profile.clientName)
+                put("clientVersion", profile.clientVersion)
+                put("visitorData", visitorData)
+                profile.androidSdkVersion?.let { put("androidSdkVersion", it.toString()) }
+            }
+
+            val contextObj = JSONObject().apply {
+                put("client", clientObj)
+                put("user", JSONObject())
+                put("request", JSONObject().apply {
+                    put("useSsl", true)
+                    put("internalExperimentFlags", JSONArray())
+                })
+            }
+
+            val body = JSONObject().apply {
+                put("context", contextObj)
+                put("videoId", videoId)
+                put("racyCheckOk", true)
+                put("contentCheckOk", true)
+                put("playbackContext", JSONObject().apply {
+                    put("contentPlaybackContext", JSONObject().apply {
+                        put("html5Preference", "HTML5_PREF_WANTS")
+                        put("signatureTimestamp", 19999)
+                    })
+                })
+                poToken?.token?.takeIf { it.isNotBlank() }?.let { pot ->
+                    put("serviceIntegrityDimensions", JSONObject().apply {
+                        put("poToken", pot)
+                    })
+                }
+            }
+
+            val endpoint = "https://www.youtube.com/youtubei/v1/player?key=${profile.apiKey}&prettyPrint=false"
+            val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 10_000
+                readTimeout   = 12_000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+                setRequestProperty("User-Agent", profile.userAgent)
+                setRequestProperty("X-Youtube-Client-Name", ytClientId(profile.clientName).toString())
+                setRequestProperty("X-Youtube-Client-Version", profile.clientVersion)
+            }
+
+            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+
+            val potTag = if (poToken != null) "pot=yes" else "pot=no"
+
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                conn.disconnect()
+                return@withContext null
+            }
+
+            val respJson = conn.inputStream.bufferedReader().use { it.readText() }
+            conn.disconnect()
+            val obj = JSONObject(respJson)
+
+            val status = obj.optJSONObject("playabilityStatus")?.optString("status") ?: "UNKNOWN"
+            if (status != "OK") {
+                return@withContext null
+            }
+
+            val streamingData = obj.optJSONObject("streamingData") ?: return@withContext null
+
+            val candidates = mutableListOf<JSONObject>()
+            // Progressive muxed streams in "formats" (itag 18 = 360p, itag 22 = 720p)
+            streamingData.optJSONArray("formats")?.let { arr ->
+                for (i in 0 until arr.length()) arr.optJSONObject(i)?.let { candidates.add(it) }
+            }
+            streamingData.optJSONArray("adaptiveFormats")?.let { arr ->
+                for (i in 0 until arr.length()) arr.optJSONObject(i)?.let { candidates.add(it) }
+            }
+
+            val videoFormats = candidates.filter { fmt ->
+                val mime = fmt.optString("mimeType", "")
+                val url  = fmt.optString("url", "")
+                !fmt.has("signatureCipher") && !fmt.has("cipher") &&
+                    url.startsWith("http") && (mime.startsWith("video/") || mime.contains("mp4"))
+            }.sortedByDescending { it.optLong("bitrate", 0L) }
+
+            val best = videoFormats.firstOrNull { it.optString("mimeType").contains("mp4") }
+                ?: videoFormats.firstOrNull() ?: return@withContext null
+
+            val directUrlRaw = best.getString("url")
+            val directUrl = poToken?.token?.takeIf { it.isNotBlank() }?.let { pot ->
+                directUrlRaw + (if (directUrlRaw.contains('?')) "&" else "?") +
+                    "pot=" + android.net.Uri.encode(pot)
+            } ?: directUrlRaw
+            val mime = best.optString("mimeType", "video/mp4")
+            val durationMs = best.optString("approxDurationMs", "").toLongOrNull()
+                ?: (obj.optJSONObject("videoDetails")?.optString("lengthSeconds")?.toLongOrNull()?.times(1000L) ?: 0L)
+
+            val details = obj.optJSONObject("videoDetails")
+            val title   = details?.optString("title")?.takeIf { it.isNotBlank() }  ?: knownTitle.ifBlank  { "YouTube Video" }
+            val author  = details?.optString("author")?.takeIf { it.isNotBlank() } ?: knownAuthor.ifBlank { "YouTube" }
+            val thumb   = knownThumb.ifBlank { "https://i.ytimg.com/vi/$videoId/hqdefault.jpg" }
+
+            android.util.Log.i("YTExtractor", "✅ [${profile.clientName}] ($potTag) Video itag=${best.optInt("itag")} mime=$mime")
+            StreamResult(
+                url          = directUrl,
+                mimeType     = mime,
+                title        = title,
+                author       = author,
+                durationMs   = durationMs,
+                thumbnailUrl = thumb,
+                videoId      = videoId
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("YTExtractor", "[${profile.clientName}] Video error: ${e.message}")
             null
         }
     }

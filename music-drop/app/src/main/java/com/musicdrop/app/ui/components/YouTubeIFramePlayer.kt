@@ -98,6 +98,8 @@ fun YouTubeIFramePlayer(
         }.trim()
     }
 
+    val initialStartSec = remember(cleanVideoId) { (currentPositionMs / 1000).toInt() }
+
     val htmlData = remember(cleanVideoId) {
         """
         <!DOCTYPE html>
@@ -201,11 +203,12 @@ fun YouTubeIFramePlayer(
                     } catch(e) {}
                 }
 
-                function loadNewVideo(newVid) {
+                function loadNewVideo(newVid, startSec) {
                     if (player && typeof player.loadVideoById === 'function') {
                         try {
                             player.loadVideoById({
                                 videoId: newVid,
+                                startSeconds: startSec || 0,
                                 suggestedQuality: 'hd1080'
                             });
                             player.mute();
@@ -230,13 +233,23 @@ fun YouTubeIFramePlayer(
                             'modestbranding': 1,
                             'enablejsapi': 1,
                             'fs': 0,
-                            'iv_load_policy': 3
+                            'iv_load_policy': 3,
+                            'start': $initialStartSec
                         },
                         events: {
                             'onReady': function(event) {
                                 try {
                                     enforceQuality();
-                                    event.target.playVideo();
+                                    event.target.mute();
+                                    var initSec = $initialStartSec;
+                                    if (initSec > 0.5) {
+                                        event.target.seekTo(initSec, true);
+                                    }
+                                    if ($isPlaying) {
+                                        event.target.playVideo();
+                                    } else {
+                                        event.target.pauseVideo();
+                                    }
                                 } catch(e) {}
                                 var checks = 0;
                                 var interval = setInterval(function() {
@@ -256,6 +269,7 @@ fun YouTubeIFramePlayer(
                                 if (event.data === 1) { // PLAYING
                                     enforceQuality();
                                     try {
+                                        if (player) player.mute();
                                         if (window.AndroidApp && typeof window.AndroidApp.onVideoStarted === 'function') {
                                             window.AndroidApp.onVideoStarted();
                                         }
@@ -268,7 +282,7 @@ fun YouTubeIFramePlayer(
                                 try {
                                     var p = document.getElementById('player');
                                     if (p) {
-                                        p.innerHTML = '<iframe width="1280" height="720" src="https://www.youtube-nocookie.com/embed/' + '$cleanVideoId' + '?autoplay=1&mute=1&playsinline=1&controls=0&rel=0&enablejsapi=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:1280px;height:720px;border:none;" onload="try{if(window.AndroidApp)window.AndroidApp.onVideoStarted();}catch(e){}"></iframe>';
+                                        p.innerHTML = '<iframe width="1280" height="720" src="https://www.youtube-nocookie.com/embed/' + '$cleanVideoId' + '?autoplay=1&mute=1&playsinline=1&controls=0&rel=0&enablejsapi=1&start=' + $initialStartSec + '" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:1280px;height:720px;border:none;" onload="try{if(window.AndroidApp)window.AndroidApp.onVideoStarted();}catch(e){}"></iframe>';
                                     }
                                 } catch(err) {}
                             }
@@ -280,7 +294,7 @@ fun YouTubeIFramePlayer(
                     if (!document.hidden && player) {
                         try {
                             player.mute();
-                            player.playVideo();
+                            if ($isPlaying) player.playVideo();
                         } catch(e) {}
                     }
                 });
@@ -288,6 +302,47 @@ fun YouTubeIFramePlayer(
                 function setResize(mode) {
                     scaleMode = mode;
                     applyStageScale();
+                }
+
+                // Tight audio-video synchronization engine
+                function syncAudioVideo(targetSec, playing) {
+                    if (!player || typeof player.getCurrentTime !== 'function') return;
+                    try {
+                        if (!playing) {
+                            if (typeof player.getPlayerState === 'function' && player.getPlayerState() === 1) {
+                                player.pauseVideo();
+                            }
+                            return;
+                        }
+                        if (typeof player.getPlayerState === 'function' && player.getPlayerState() !== 1 && player.getPlayerState() !== 3) {
+                            player.mute();
+                            player.playVideo();
+                        }
+                        var curSec = player.getCurrentTime() || 0;
+                        var diff = targetSec - curSec;
+                        // If drift is large (> 1.2s), hard seek to snap instantly
+                        if (Math.abs(diff) > 1.2) {
+                            player.seekTo(targetSec, true);
+                            if (typeof player.setPlaybackRate === 'function') player.setPlaybackRate(1.0);
+                        } else if (Math.abs(diff) > 0.12) {
+                            // Dynamic micro-rate steering: eliminates buffering stalls while aligning lipsync
+                            if (typeof player.setPlaybackRate === 'function') {
+                                if (diff > 0.4) {
+                                    player.setPlaybackRate(1.15);
+                                } else if (diff > 0.12) {
+                                    player.setPlaybackRate(1.06);
+                                } else if (diff < -0.4) {
+                                    player.setPlaybackRate(0.85);
+                                } else if (diff < -0.12) {
+                                    player.setPlaybackRate(0.94);
+                                }
+                            }
+                        } else {
+                            if (typeof player.setPlaybackRate === 'function') {
+                                player.setPlaybackRate(1.0);
+                            }
+                        }
+                    } catch(e) {}
                 }
 
                 function syncPlay(playing) {
@@ -314,6 +369,16 @@ fun YouTubeIFramePlayer(
 
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val webViewRef = remember { mutableStateOf<WebView?>(null) }
+
+    // Synchronize audio position continuously to keep video locked
+    LaunchedEffect(currentPositionMs, isPlaying) {
+        val wv = webViewRef.value ?: return@LaunchedEffect
+        val curSec = currentPositionMs / 1000f
+        wv.evaluateJavascript(
+            "try { syncAudioVideo($curSec, $isPlaying); } catch(e) {}",
+            null
+        )
+    }
 
     androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -399,17 +464,17 @@ fun YouTubeIFramePlayer(
                 val webView = view as? WebView ?: return@AndroidView
                 webViewRef.value = webView
                 try {
+                    val curSec = currentPositionMs / 1000f
                     if (webView.tag != cleanVideoId) {
                         webView.tag = cleanVideoId
                         isVideoStarted = false
                         webView.evaluateJavascript(
-                            "try { if (typeof loadNewVideo === 'function' && loadNewVideo('$cleanVideoId')) {} else { window.location.reload(); } } catch(e) { window.location.reload(); }",
+                            "try { if (typeof loadNewVideo === 'function' && loadNewVideo('$cleanVideoId', ${(currentPositionMs / 1000).toInt()})) {} else { window.location.reload(); } } catch(e) { window.location.reload(); }",
                             null
                         )
                     } else {
-                        val curSec = (currentPositionMs / 1000).toInt()
                         webView.evaluateJavascript(
-                            "try { setResize($resizeMode); syncPlay($isPlaying); if (player && Math.abs((player.getCurrentTime() || 0) - $curSec) > 2.5) { syncSeek($curSec); } } catch(e) {}",
+                            "try { setResize($resizeMode); syncAudioVideo($curSec, $isPlaying); } catch(e) {}",
                             null
                         )
                     }

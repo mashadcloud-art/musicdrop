@@ -85,13 +85,18 @@ class NewPipeYouTubeExtractor private constructor() {
 
             val progressive: List<VideoStream> = info.videoStreams ?: emptyList()
             val usable = progressive.filter { it.isUrl && it.content.isNotBlank() }
-            if (usable.isEmpty()) {
-                android.util.Log.w("NewPipeYT", "No progressive (muxed) video streams for $videoId")
+            val candidateStreams = if (usable.isNotEmpty()) {
+                usable
+            } else {
+                (info.videoOnlyStreams ?: emptyList()).filter { it.isUrl && it.content.isNotBlank() }
+            }
+            if (candidateStreams.isEmpty()) {
+                android.util.Log.w("NewPipeYT", "No video streams found for $videoId")
                 return@withContext null
             }
 
             // Prefer mp4 at the highest resolution available (best ExoPlayer compatibility).
-            val sorted = usable.sortedByDescending { it.resolution?.replace("p", "")?.toIntOrNull() ?: 0 }
+            val sorted = candidateStreams.sortedByDescending { it.resolution?.replace("p", "")?.toIntOrNull() ?: 0 }
             val best = sorted.firstOrNull { it.format?.mimeType?.contains("mp4") == true } ?: sorted.first()
 
             android.util.Log.i(
