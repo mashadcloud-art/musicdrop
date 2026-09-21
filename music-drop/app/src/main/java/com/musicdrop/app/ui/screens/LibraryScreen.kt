@@ -223,87 +223,120 @@ fun LibraryScreen(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
         ) {
-            // ── 1. OFFICIAL MUSICDROP BRAND HEADER (Matching Image 4) ─────────────────
-            Row(
+            // ── GLASSMORPHIC THEME-ADAPTIVE HEADER & TAB BAR ──────────────────────────
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                appColors.accentPrimary.copy(alpha = 0.25f),
+                                appColors.surfaceElevated.copy(alpha = 0.82f),
+                                appColors.surface.copy(alpha = 0.88f),
+                                Color(0xFF0C0C10).copy(alpha = 0.95f)
+                            )
+                        )
+                    )
             ) {
-                // Left: Bird Logo + "Music" + "Drop"
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                // Top Specular Glass Highlight Line
+                Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable {
-                            val nextTheme = viewModel.cycleNextTheme()
-                            Toast.makeText(
-                                context,
-                                "Theme: ${nextTheme.name.replace('_', ' ').lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                ) {
-                    androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(com.musicdrop.app.R.drawable.ic_bird_logo),
-                        contentDescription = "MusicDrop",
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "Music",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.5).sp
-                    )
-                    Text(
-                        "Drop",
-                        color = appColors.accentPrimary,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = (-0.5).sp
-                    )
-                }
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    appColors.accentPrimary.copy(alpha = 0.5f),
+                                    Color.White.copy(alpha = 0.35f),
+                                    appColors.accentPrimary.copy(alpha = 0.5f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
 
-                // Right: Refresh, Search & Themed Profile/Settings Avatar
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = {
-                            viewModel.refreshAllDashboardCategories(force = true)
-                            Toast.makeText(context, "Refreshing live categories...", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.size(38.dp)
+                // ── 1. OFFICIAL MUSICDROP BRAND HEADER ─────────────────────────────────
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Left: Bird Logo + "Music" + "Drop"
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                val nextTheme = viewModel.cycleNextTheme()
+                                Toast.makeText(
+                                    context,
+                                    "Theme: ${nextTheme.name.replace('_', ' ').lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Sync,
-                            contentDescription = "Refresh",
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(com.musicdrop.app.R.drawable.ic_bird_logo),
+                            contentDescription = "MusicDrop",
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Music",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.5).sp
+                        )
+                        Text(
+                            "Drop",
+                            color = appColors.accentPrimary,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.5).sp
                         )
                     }
-                    Spacer(Modifier.width(6.dp))
-                    IconButton(
-                        onClick = { onOpenSearch("") },
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = "Search",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
+
+                    // Right: Refresh, Search & Themed Profile/Settings Avatar
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = {
+                                viewModel.refreshAllDashboardCategories(force = true)
+                                Toast.makeText(context, "Refreshing live categories...", Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Sync,
+                                contentDescription = "Refresh",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        IconButton(
+                            onClick = { onOpenSearch("") },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = "Search",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
                         // Themed Avatar / Settings Button matching active theme
                         Box(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(CircleShape)
-                                .background(appColors.accentPrimary.copy(alpha = 0.18f))
-                                .border(1.2.dp, appColors.accentPrimary.copy(alpha = 0.6f), CircleShape)
+                                .background(appColors.accentPrimary.copy(alpha = 0.22f))
+                                .border(1.2.dp, appColors.accentPrimary.copy(alpha = 0.65f), CircleShape)
                                 .clickable { onOpenSettings() },
                             contentAlignment = Alignment.Center
                         ) {
@@ -317,115 +350,151 @@ fun LibraryScreen(
                     }
                 }
 
-            // ── 2. EXPANDABLE SEARCH BAR (Only shown when search icon tapped) ─────────
-            AnimatedVisibility(
-                visible = isSearchActive,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(21.dp))
-                        .background(Color(0xFF1B1B22))
-                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(21.dp))
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart
+                // ── 2. EXPANDABLE SEARCH BAR ──────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = isSearchActive,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(21.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .border(1.dp, appColors.accentPrimary.copy(alpha = 0.45f), RoundedCornerShape(21.dp))
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.CenterStart
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = null,
-                            tint = Color(0xFF8E8E9B),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        androidx.compose.foundation.text.BasicTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            singleLine = true,
-                            textStyle = androidx.compose.ui.text.TextStyle(
-                                color = Color.White,
-                                fontSize = 14.sp
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(
-                                onClick = { searchQuery = "" },
-                                modifier = Modifier.size(20.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                tint = Color(0xFF8E8E9B),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            androidx.compose.foundation.text.BasicTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                singleLine = true,
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    color = Color.White,
+                                    fontSize = 14.sp
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = "Clear",
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── 3. STICKY ICON TAB BAR (Glass styled with glowing indicator) ───────
+                ScrollableTabRow(
+                    selectedTabIndex = pagerState.currentPage,
+                    containerColor = Color.Transparent,
+                    contentColor = Color.White,
+                    edgePadding = 16.dp,
+                    divider = {},
+                    indicator = { tabPositions ->
+                        if (pagerState.currentPage < tabPositions.size) {
+                            val tab = tabPositions[pagerState.currentPage]
+                            Box(
+                                modifier = Modifier
+                                    .tabIndicatorOffset(tab)
+                                    .height(3.5.dp)
+                                    .padding(horizontal = 8.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(
+                                                appColors.accentPrimary,
+                                                appColors.accentSecondary
+                                            )
+                                        )
+                                    )
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        val isSelected = pagerState.currentPage == index
+                        Tab(
+                            selected = isSelected,
+                            onClick = {
+                                scope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
+                            },
+                            selectedContentColor = Color.White,
+                            unselectedContentColor = Color(0xFF888899),
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            val tabContentModifier = if (isSelected) {
+                                Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(appColors.accentPrimary.copy(alpha = 0.16f))
+                                    .border(1.dp, appColors.accentPrimary.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            } else {
+                                Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = tabContentModifier
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Close,
-                                    contentDescription = "Clear",
-                                    tint = Color.Gray,
-                                    modifier = Modifier.size(16.dp)
+                                    imageVector = tab.icon,
+                                    contentDescription = tab.label,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (isSelected) Color.White else Color(0xFF888899)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = tab.label,
+                                    color = if (isSelected) Color.White else Color(0xFF888899),
+                                    fontSize = 14.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
                             }
                         }
                     }
                 }
-            }
 
-            // ── 3. STICKY ICON TAB BAR (Home, Songs, Playlists... with Icons) ────────
-            ScrollableTabRow(
-                selectedTabIndex = pagerState.currentPage,
-                containerColor = Color(0xFF0C0C10),
-                contentColor = Color.White,
-                edgePadding = 16.dp,
-                divider = {},
-                indicator = { tabPositions ->
-                    if (pagerState.currentPage < tabPositions.size) {
-                        val tab = tabPositions[pagerState.currentPage]
-                        Box(
-                            modifier = Modifier
-                                .tabIndicatorOffset(tab)
-                                .height(3.dp)
-                                .padding(horizontal = 8.dp)
-                                .background(Color.White, RoundedCornerShape(2.dp))
+                // Bottom subtle glass divider
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    appColors.accentPrimary.copy(alpha = 0.35f),
+                                    Color.White.copy(alpha = 0.12f),
+                                    appColors.accentPrimary.copy(alpha = 0.35f),
+                                    Color.Transparent
+                                )
+                            )
                         )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                tabs.forEachIndexed { index, tab ->
-                    val isSelected = pagerState.currentPage == index
-                    Tab(
-                        selected = isSelected,
-                        onClick = {
-                            scope.launch {
-                                pagerState.animateScrollToPage(index)
-                            }
-                        },
-                        selectedContentColor = Color.White,
-                        unselectedContentColor = Color(0xFF888899),
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                        ) {
-                            Icon(
-                                imageVector = tab.icon,
-                                contentDescription = tab.label,
-                                modifier = Modifier.size(16.dp),
-                                tint = if (isSelected) Color.White else Color(0xFF888899)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = tab.label,
-                                color = if (isSelected) Color.White else Color(0xFF888899),
-                                fontSize = 14.5.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
-                    }
-                }
+                )
             }
 
             // ── HORIZONTAL SWIPEABLE PAGER ───────────────────────────────────────────

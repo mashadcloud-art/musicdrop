@@ -1859,8 +1859,14 @@ fun DiscoverScreen(
             ShortsFullScreenPlayer(
                 shortsList = activeShortsList,
                 initialIndex = idx,
+                viewModel = viewModel,
                 onClose = { selectedShortIndex = null },
-                onPlayFullSong = { /* Play directly on screen, no transfer to audio player */ }
+                onPlayFullSong = { shortItem ->
+                    viewModel.playUnified(
+                        UnifiedTrack.Youtube(shortItem),
+                        activeShortsList.map { UnifiedTrack.Youtube(it) }
+                    )
+                }
             )
         }
 
