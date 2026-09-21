@@ -60,6 +60,8 @@ import com.musicdrop.app.data.repository.LikedMusicItem
 import com.musicdrop.app.data.repository.UserPlaylistItem
 import com.musicdrop.app.ui.viewmodel.MainViewModel
 import com.musicdrop.app.ui.components.SongOptionsBottomSheet
+import com.musicdrop.app.ui.components.ArtistOptionsBottomSheet
+import com.musicdrop.app.data.repository.ArtistCoverRepository
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -191,6 +193,7 @@ fun LibraryScreen(
     val tabs = LibraryTab.values()
     val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
     var selectedSongForOptions by remember { mutableStateOf<MediaItem?>(null) }
+    var selectedArtistForOptions by remember { mutableStateOf<Pair<String, List<MediaItem>>?>(null) }
 
     var isTopBarVisible by remember { mutableStateOf(true) }
     val nestedScrollConnection = remember {
@@ -258,14 +261,14 @@ fun LibraryScreen(
                     )
                     Text(
                         "Drop",
-                        color = com.musicdrop.app.ui.theme.VibrantCoral,
+                        color = appColors.accentPrimary,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = (-0.5).sp
                     )
                 }
 
-                // Right: Refresh, Search & Profile Avatar (Image 4)
+                // Right: Refresh, Search & Themed Profile/Settings Avatar
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
                         onClick = {
@@ -294,20 +297,21 @@ fun LibraryScreen(
                         )
                     }
                     Spacer(Modifier.width(8.dp))
-                        // Pink avatar with white "O" (per Image 4)
+                        // Themed Avatar / Settings Button matching active theme
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(34.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFD81B60))
+                                .background(appColors.accentPrimary.copy(alpha = 0.18f))
+                                .border(1.2.dp, appColors.accentPrimary.copy(alpha = 0.6f), CircleShape)
                                 .clickable { onOpenSettings() },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                "O",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
+                            Icon(
+                                imageVector = Icons.Rounded.Settings,
+                                contentDescription = "Settings",
+                                tint = appColors.accentPrimary,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
@@ -528,6 +532,9 @@ fun LibraryScreen(
                             detailCoverUri = trackList.firstOrNull()?.albumArtUri
                             detailIsArtist = true
                             detailTracks = trackList
+                        },
+                        onMoreClick = { name, trackList ->
+                            selectedArtistForOptions = name to trackList
                         }
                     )
 
@@ -605,6 +612,16 @@ fun LibraryScreen(
             onDismiss = { selectedSongForOptions = null }
         )
     }
+
+    if (selectedArtistForOptions != null) {
+        val (artistName, artistTracks) = selectedArtistForOptions!!
+        ArtistOptionsBottomSheet(
+            artistName = artistName,
+            tracks = artistTracks,
+            viewModel = viewModel,
+            onDismiss = { selectedArtistForOptions = null }
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -667,6 +684,8 @@ private fun AllTabContent(
                     name = artistName,
                     albumCount = artistSongs.map { it.album }.distinct().size,
                     songCount = artistSongs.size,
+                    sampleTrack = artistSongs.firstOrNull(),
+                    onMoreClick = { onArtistClick(artistName, artistSongs) },
                     onClick = { onArtistClick(artistName, artistSongs) }
                 )
             }
@@ -1016,7 +1035,8 @@ private fun AlbumsTabContent(
 @Composable
 private fun ArtistsTabContent(
     artists: List<Pair<String, List<MediaItem>>>,
-    onArtistClick: (String, List<MediaItem>) -> Unit
+    onArtistClick: (String, List<MediaItem>) -> Unit,
+    onMoreClick: ((String, List<MediaItem>) -> Unit)? = null
 ) {
     if (artists.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1032,6 +1052,8 @@ private fun ArtistsTabContent(
                     name = artistName,
                     albumCount = trackList.map { it.album }.distinct().size,
                     songCount = trackList.size,
+                    sampleTrack = trackList.firstOrNull(),
+                    onMoreClick = { onMoreClick?.invoke(artistName, trackList) },
                     onClick = { onArtistClick(artistName, trackList) }
                 )
             }
@@ -1058,6 +1080,16 @@ fun LibraryDetailScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     var detailSearchQuery by remember { mutableStateOf("") }
     var selectedDetailOptionsSong by remember { mutableStateOf<MediaItem?>(null) }
+    var showArtistOptions by remember { mutableStateOf(false) }
+    var artistCoverUrl by remember(title, isArtist) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(title, isArtist) {
+        if (isArtist) {
+            artistCoverUrl = com.musicdrop.app.data.repository.ArtistCoverRepository.getArtistCover(
+                context, title, tracks.firstOrNull()
+            )
+        }
+    }
 
     val displayedTracks = remember(tracks, detailSearchQuery) {
         if (detailSearchQuery.isBlank()) tracks
@@ -1115,6 +1147,15 @@ fun LibraryDetailScreen(
                         tint = Color.White
                     )
                 }
+                if (isArtist) {
+                    IconButton(onClick = { showArtistOptions = true }, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = Icons.Rounded.MoreVert,
+                            contentDescription = "Artist Options",
+                            tint = Color.White
+                        )
+                    }
+                }
             }
 
             LazyColumn(
@@ -1139,9 +1180,10 @@ fun LibraryDetailScreen(
                                 .background(Color(0xFF22222E)),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (coverUri != null) {
+                            val effectiveCover = if (isArtist && !artistCoverUrl.isNullOrBlank()) artistCoverUrl else coverUri
+                            if (effectiveCover != null) {
                                 AsyncImage(
-                                    model = coverUri,
+                                    model = effectiveCover,
                                     contentDescription = title,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
@@ -1150,7 +1192,7 @@ fun LibraryDetailScreen(
                                 Icon(
                                     imageVector = if (isArtist) Icons.Rounded.Person else Icons.Rounded.Album,
                                     contentDescription = null,
-                                    tint = Color(0xFFFB8D00),
+                                    tint = com.musicdrop.app.ui.theme.LocalAppColors.current.accentPrimary,
                                     modifier = Modifier.size(64.dp)
                                 )
                             }
@@ -1312,6 +1354,15 @@ fun LibraryDetailScreen(
                 song = selectedDetailOptionsSong!!,
                 viewModel = viewModel,
                 onDismiss = { selectedDetailOptionsSong = null }
+            )
+        }
+
+        if (showArtistOptions && isArtist) {
+            ArtistOptionsBottomSheet(
+                artistName = title,
+                tracks = tracks,
+                viewModel = viewModel,
+                onDismiss = { showArtistOptions = false }
             )
         }
     }
@@ -1497,8 +1548,17 @@ private fun ArtistListRow(
     name: String,
     albumCount: Int,
     songCount: Int,
+    sampleTrack: MediaItem? = null,
+    onMoreClick: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var coverUrl by remember(name) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(name, sampleTrack) {
+        coverUrl = com.musicdrop.app.data.repository.ArtistCoverRepository.getArtistCover(context, name, sampleTrack)
+    }
+
     val colors = listOf(
         Color(0xFF7E57C2), Color(0xFFD81B60), Color(0xFF1E88E5),
         Color(0xFFFB8C00), Color(0xFF43A047), Color(0xFF8E24AA)
@@ -1513,16 +1573,37 @@ private fun ArtistListRow(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Colored Initial Avatar (Image 7)
+        // Artist Cover Photo or Initial Avatar
         Box(
             modifier = Modifier
-                .size(46.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(avatarBg.copy(alpha = 0.25f))
-                .border(1.dp, avatarBg.copy(alpha = 0.6f), RoundedCornerShape(10.dp)),
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF1E1E24)),
             contentAlignment = Alignment.Center
         ) {
-            Text(initial, color = avatarBg, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            if (!coverUrl.isNullOrBlank()) {
+                coil.compose.AsyncImage(
+                    model = coil.request.ImageRequest.Builder(context)
+                        .data(coverUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(avatarBg.copy(alpha = 0.25f))
+                        .border(1.dp, avatarBg.copy(alpha = 0.6f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(initial, color = avatarBg, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -1530,7 +1611,17 @@ private fun ArtistListRow(
             Spacer(modifier = Modifier.height(2.dp))
             Text("$albumCount album | $songCount songs", color = Color(0xFF8E8E9B), fontSize = 12.sp)
         }
-        Icon(Icons.Rounded.MoreVert, contentDescription = null, tint = Color(0xFF8E8E9B), modifier = Modifier.size(18.dp))
+        IconButton(
+            onClick = { onMoreClick?.invoke() },
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                Icons.Rounded.MoreVert,
+                contentDescription = "Options",
+                tint = Color(0xFF8E8E9B),
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 

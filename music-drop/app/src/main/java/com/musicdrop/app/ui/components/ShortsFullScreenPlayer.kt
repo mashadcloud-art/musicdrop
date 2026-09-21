@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -53,7 +54,13 @@ fun ShortsFullScreenPlayer(
     var currentIndex by remember { mutableIntStateOf(initialIndex.coerceIn(0, shortsList.size - 1)) }
     val currentShort = shortsList[currentIndex]
     var isLiked by remember(currentIndex) { mutableStateOf(false) }
+    var isVideoPlaying by remember(currentIndex) { mutableStateOf(true) }
+    var activeWebView by remember { mutableStateOf<WebView?>(null) }
     val context = LocalContext.current
+
+    fun togglePlayPause() {
+        activeWebView?.evaluateJavascript("postYt('togglePlay');", null)
+    }
 
     val view = androidx.compose.ui.platform.LocalView.current
     DisposableEffect(view) {
@@ -106,6 +113,13 @@ fun ShortsFullScreenPlayer(
                             webChromeClient = WebChromeClient()
                             webViewClient = object : WebViewClient() {}
                             tag = currentShort.videoId
+                            activeWebView = this
+                            addJavascriptInterface(object {
+                                @android.webkit.JavascriptInterface
+                                fun onPlayerState(playing: Boolean) {
+                                    isVideoPlaying = playing
+                                }
+                            }, "AndroidBridge")
 
                             val embedHtml = """
                                 <!DOCTYPE html>
@@ -120,11 +134,11 @@ fun ShortsFullScreenPlayer(
                                     </style>
                                 </head>
                                 <body>
-                                    <div id="player-wrapper" onclick="startPlay()">
+                                    <div id="player-wrapper" onclick="togglePlay()">
                                         <iframe 
                                             id="ytplayer"
                                             type="text/html"
-                                            src="https://www.youtube.com/embed/${currentShort.videoId}?autoplay=1&mute=0&playsinline=1&controls=0&loop=1&playlist=${currentShort.videoId}&enablejsapi=1&rel=0&modestbranding=1&iv_load_policy=3&vq=hd1080&hd=1&suggestedQuality=hd1080&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com"
+                                            src="https://www.youtube.com/embed/${currentShort.videoId}?autoplay=1&mute=1&playsinline=1&controls=0&loop=1&playlist=${currentShort.videoId}&enablejsapi=1&rel=0&modestbranding=1&iv_load_policy=3&vq=hd1080&hd=1&suggestedQuality=hd1080&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com"
                                             frameborder="0"
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                             allowfullscreen>
@@ -142,31 +156,49 @@ fun ShortsFullScreenPlayer(
                                                 events: {
                                                     'onReady': function(event) {
                                                         try {
-                                                            event.target.unMute();
-                                                            event.target.setVolume(100);
-                                                            event.target.setPlaybackQuality('hd1080');
                                                             event.target.playVideo();
+                                                            setTimeout(function() {
+                                                                try {
+                                                                    event.target.unMute();
+                                                                    event.target.setVolume(100);
+                                                                } catch(e) {}
+                                                            }, 350);
                                                         } catch(e) {}
                                                     },
                                                     'onStateChange': function(event) {
                                                         try {
                                                             if (event.data === 1) {
-                                                                event.target.unMute();
-                                                                event.target.setVolume(100);
-                                                                event.target.setPlaybackQuality('hd1080');
+                                                                if (window.AndroidBridge) window.AndroidBridge.onPlayerState(true);
+                                                                setTimeout(function() {
+                                                                    try {
+                                                                        event.target.unMute();
+                                                                        event.target.setVolume(100);
+                                                                    } catch(e) {}
+                                                                }, 200);
+                                                            } else if (event.data === 2) {
+                                                                if (window.AndroidBridge) window.AndroidBridge.onPlayerState(false);
                                                             }
                                                         } catch(e) {}
                                                     }
                                                 }
                                             });
                                         }
-                                        function startPlay() {
+                                        function togglePlay() {
                                             if (!player) return;
                                             try {
-                                                player.unMute();
-                                                player.setVolume(100);
+                                                var state = player.getPlayerState();
+                                                if (state === 1) {
+                                                    player.pauseVideo();
+                                                    if (window.AndroidBridge) window.AndroidBridge.onPlayerState(false);
+                                                } else {
+                                                    player.unMute();
+                                                    player.setVolume(100);
+                                                    player.playVideo();
+                                                    if (window.AndroidBridge) window.AndroidBridge.onPlayerState(true);
+                                                }
+                                            } catch(e) {
                                                 player.playVideo();
-                                            } catch(e) {}
+                                            }
                                         }
                                         function postYt(func) {
                                             if (!player) return;
@@ -175,8 +207,12 @@ fun ShortsFullScreenPlayer(
                                                     player.unMute();
                                                     player.setVolume(100);
                                                     player.playVideo();
+                                                    if (window.AndroidBridge) window.AndroidBridge.onPlayerState(true);
                                                 } else if (func === 'pauseVideo') {
                                                     player.pauseVideo();
+                                                    if (window.AndroidBridge) window.AndroidBridge.onPlayerState(false);
+                                                } else if (func === 'togglePlay') {
+                                                    togglePlay();
                                                 }
                                             } catch(e) {}
                                         }
@@ -188,6 +224,7 @@ fun ShortsFullScreenPlayer(
                         }
                     },
                     update = { webView ->
+                        activeWebView = webView
                         if (webView.tag != currentShort.videoId) {
                             webView.tag = currentShort.videoId
                             val embedHtml = """
@@ -203,11 +240,11 @@ fun ShortsFullScreenPlayer(
                                     </style>
                                 </head>
                                 <body>
-                                    <div id="player-wrapper" onclick="startPlay()">
+                                    <div id="player-wrapper" onclick="togglePlay()">
                                         <iframe 
                                             id="ytplayer"
                                             type="text/html"
-                                            src="https://www.youtube.com/embed/${currentShort.videoId}?autoplay=1&mute=0&playsinline=1&controls=0&loop=1&playlist=${currentShort.videoId}&enablejsapi=1&rel=0&modestbranding=1&iv_load_policy=3&vq=hd1080&hd=1&suggestedQuality=hd1080&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com"
+                                            src="https://www.youtube.com/embed/${currentShort.videoId}?autoplay=1&mute=1&playsinline=1&controls=0&loop=1&playlist=${currentShort.videoId}&enablejsapi=1&rel=0&modestbranding=1&iv_load_policy=3&vq=hd1080&hd=1&suggestedQuality=hd1080&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com"
                                             frameborder="0"
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                             allowfullscreen>
@@ -225,31 +262,49 @@ fun ShortsFullScreenPlayer(
                                                 events: {
                                                     'onReady': function(event) {
                                                         try {
-                                                            event.target.unMute();
-                                                            event.target.setVolume(100);
-                                                            event.target.setPlaybackQuality('hd1080');
                                                             event.target.playVideo();
+                                                            setTimeout(function() {
+                                                                try {
+                                                                    event.target.unMute();
+                                                                    event.target.setVolume(100);
+                                                                } catch(e) {}
+                                                            }, 350);
                                                         } catch(e) {}
                                                     },
                                                     'onStateChange': function(event) {
                                                         try {
                                                             if (event.data === 1) {
-                                                                event.target.unMute();
-                                                                event.target.setVolume(100);
-                                                                event.target.setPlaybackQuality('hd1080');
+                                                                if (window.AndroidBridge) window.AndroidBridge.onPlayerState(true);
+                                                                setTimeout(function() {
+                                                                    try {
+                                                                        event.target.unMute();
+                                                                        event.target.setVolume(100);
+                                                                    } catch(e) {}
+                                                                }, 200);
+                                                            } else if (event.data === 2) {
+                                                                if (window.AndroidBridge) window.AndroidBridge.onPlayerState(false);
                                                             }
                                                         } catch(e) {}
                                                     }
                                                 }
                                             });
                                         }
-                                        function startPlay() {
+                                        function togglePlay() {
                                             if (!player) return;
                                             try {
-                                                player.unMute();
-                                                player.setVolume(100);
+                                                var state = player.getPlayerState();
+                                                if (state === 1) {
+                                                    player.pauseVideo();
+                                                    if (window.AndroidBridge) window.AndroidBridge.onPlayerState(false);
+                                                } else {
+                                                    player.unMute();
+                                                    player.setVolume(100);
+                                                    player.playVideo();
+                                                    if (window.AndroidBridge) window.AndroidBridge.onPlayerState(true);
+                                                }
+                                            } catch(e) {
                                                 player.playVideo();
-                                            } catch(e) {}
+                                            }
                                         }
                                         function postYt(func) {
                                             if (!player) return;
@@ -258,8 +313,12 @@ fun ShortsFullScreenPlayer(
                                                     player.unMute();
                                                     player.setVolume(100);
                                                     player.playVideo();
+                                                    if (window.AndroidBridge) window.AndroidBridge.onPlayerState(true);
                                                 } else if (func === 'pauseVideo') {
                                                     player.pauseVideo();
+                                                    if (window.AndroidBridge) window.AndroidBridge.onPlayerState(false);
+                                                } else if (func === 'togglePlay') {
+                                                    togglePlay();
                                                 }
                                             } catch(e) {}
                                         }
@@ -374,6 +433,31 @@ fun ShortsFullScreenPlayer(
                             tint = Color.White
                         )
                     }
+                }
+
+                // Play / Pause toggle button
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = { togglePlayPause() },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isVideoPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isVideoPlaying) "Pause" else "Play",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Text(
+                        if (isVideoPlaying) "Pause" else "Play",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 // Like button

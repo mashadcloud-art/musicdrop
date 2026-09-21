@@ -1,8 +1,8 @@
 {
-  "versionCode": 157,
-  "versionName": "1.4.7",
-  "title": "MusicDrop v1.4.7 Available",
-  "changelog": "• Audio-Video Lip-Sync Sync: Micro rate-steering synchronization automatically locks audio and video in sync without stutter or lag\n• Redundant Video Download Engine: 3-tier fallback (NewPipe, P-Web, InnerTube direct) ensuring high-resolution MP4 video downloads never fail\n• Song Options Bottom Sheet: Xiaomi-style quick action sheet with Set as ringtone, Change cover art, Hide song, Delete, and queue actions\n• Song Details & Tag Editor: View full audio metadata (format, bitrate, file path) and edit song title, artist, album, and cover art",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.7/MusicDrop-v1.4.7.apk",
+  "versionCode": 158,
+  "versionName": "1.4.8",
+  "title": "MusicDrop v1.4.8 Available",
+  "changelog": "• Artist Options Bottom Sheet: Clean, theme-matching action sheet with Play, Play next, Add to queue, Add to playlist, and Edit tags / rename\n• Real Artist Cover Art: Integrated Deezer & iTunes artist photo repositories displaying genuine high-res covers and logos (e.g. T-Series, Sony, regional artists)\n• Themed Brand Header & Profile: Dynamic accent-primary branding and settings button replacing hardcoded static colors\n• Shorts Player Autoplay & Controls: Instant muted autoplay with smooth audio unmute, plus dedicated Play/Pause toggle and touch controls",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.4.8/MusicDrop-v1.4.8.apk",
   "forceUpdate": true
 }
