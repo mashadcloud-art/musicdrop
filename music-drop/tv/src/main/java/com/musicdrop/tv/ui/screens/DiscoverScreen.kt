@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -567,44 +568,31 @@ fun DiscoverScreen(
     }
 
         CompositionLocalProvider(LocalOnDeleteTrack provides handleHideTrack) {
-            PullToRefreshBox(
-                isRefreshing = isDiscoverRefreshing,
-                onRefresh = {
-                    isDiscoverRefreshing = true
-                    viewModel.refreshDiscover()
-                    coroutineScope.launch {
-                        delay(1200)
-                        isDiscoverRefreshing = false
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 2.dp, bottom = 90.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 2.dp, bottom = 90.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
-                ) {
-                    // ── TOP SEARCH QUICK-LAUNCH PILL (Navigates to dedicated Search screen) ──
-                    item(key = "home_search_bar") {
-                        var isSearchFocused by remember { mutableStateOf(false) }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp)
-                                .height(46.dp)
-                                .onFocusChanged { isSearchFocused = it.isFocused }
-                                .focusable()
-                                .clip(RoundedCornerShape(23.dp))
-                                .background(if (isSearchFocused) Color.White.copy(alpha = 0.22f) else if (appColors.isDark) Color(0xFF1E1E26) else appColors.surfaceElevated)
-                                .border(
-                                    width = if (isSearchFocused) 3.dp else 1.dp,
-                                    color = if (isSearchFocused) Color.White else if (appColors.isDark) Color.White.copy(alpha = 0.12f) else appColors.surfaceBorder,
-                                    shape = RoundedCornerShape(23.dp)
-                                )
-                                .clickable { onOpenSearchWithQuery("") }
-                                .padding(horizontal = 14.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
+                // ── TOP SEARCH QUICK-LAUNCH PILL (Navigates to dedicated Search screen) ──
+                item(key = "home_search_bar") {
+                    var isSearchFocused by remember { mutableStateOf(false) }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .height(46.dp)
+                            .onFocusChanged { isSearchFocused = it.isFocused }
+                            .clip(RoundedCornerShape(23.dp))
+                            .background(if (isSearchFocused) Color.White.copy(alpha = 0.22f) else if (appColors.isDark) Color(0xFF1E1E26) else appColors.surfaceElevated)
+                            .border(
+                                width = if (isSearchFocused) 3.5.dp else 1.dp,
+                                color = if (isSearchFocused) Color.White else if (appColors.isDark) Color.White.copy(alpha = 0.12f) else appColors.surfaceBorder,
+                                shape = RoundedCornerShape(23.dp)
+                            )
+                            .clickable { onOpenSearchWithQuery("") }
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth()
@@ -1878,7 +1866,6 @@ fun DiscoverScreen(
                                     }
                                 }
                             }
-                        }
                     }
                 }
             }
@@ -2818,13 +2805,24 @@ fun UnifiedMusicCard(
     var showMenu by remember { mutableStateOf(false) }
     var isFocused by remember { mutableStateOf(false) }
     val effectiveOnDelete = onDelete ?: LocalOnDeleteTrack.current?.let { handler -> { handler(track) } }
+    val focusScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isFocused) 1.08f else 1.0f,
+        label = "cardFocusScale"
+    )
 
-    Column(modifier = Modifier.width(cardWidth).padding(vertical = 4.dp)) {
+    Column(
+        modifier = Modifier
+            .width(cardWidth)
+            .padding(vertical = 4.dp)
+            .graphicsLayer {
+                scaleX = focusScale
+                scaleY = focusScale
+            }
+    ) {
         Box(
             modifier = Modifier
                 .size(cardWidth)
                 .onFocusChanged { isFocused = it.isFocused }
-                .focusable()
                 .clip(RoundedCornerShape(12.dp))
                 .background(if (isFocused) Color.White.copy(alpha = 0.28f) else appColors.surfaceElevated)
                 .border(
@@ -3330,12 +3328,26 @@ fun RegionalSquareCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+    val focusScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isFocused) 1.06f else 1.0f,
+        label = "regionalFocusScale"
+    )
     Box(
         modifier = modifier
             .aspectRatio(1f)
+            .graphicsLayer {
+                scaleX = focusScale
+                scaleY = focusScale
+            }
+            .onFocusChanged { isFocused = it.isFocused }
             .clip(RoundedCornerShape(20.dp))
-            .background(Brush.linearGradient(category.gradient))
-            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp))
+            .background(Brush.linearGradient(if (isFocused) listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.25f)) else category.gradient))
+            .border(
+                width = if (isFocused) 3.5.dp else 1.dp,
+                color = if (isFocused) Color.White else Color(0x33FFFFFF),
+                shape = RoundedCornerShape(20.dp)
+            )
             .clickable { onClick() }
     ) {
         // High-contrast semi-transparent album cover backdrop

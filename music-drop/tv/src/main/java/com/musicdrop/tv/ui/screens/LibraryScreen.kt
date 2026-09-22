@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -238,7 +239,7 @@ fun LibraryScreen(
         )
     }
     var showMoreTabsDropdown by remember { mutableStateOf(false) }
-    val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
+    var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
     var selectedSongForOptions by remember { mutableStateOf<MediaItem?>(null) }
     var selectedArtistForOptions by remember { mutableStateOf<Pair<String, List<MediaItem>>?>(null) }
 
@@ -440,11 +441,11 @@ fun LibraryScreen(
                 }
 
                 // ── 3. STICKY ICON TAB BAR (Glass styled with glowing indicator & More ▾ dropdown) ───────
-                val isExtendedTabActive = pagerState.currentPage >= primaryTabs.size
-                val currentExtendedTab = if (isExtendedTabActive) tabs[pagerState.currentPage] else null
+                val isExtendedTabActive = selectedTabIndex >= primaryTabs.size
+                val currentExtendedTab = if (isExtendedTabActive) tabs[selectedTabIndex] else null
                 val moreButtonLabel = currentExtendedTab?.label ?: "More"
                 val moreButtonIcon = currentExtendedTab?.icon ?: Icons.Rounded.MoreHoriz
-                val activeTabIndicatorIndex = if (isExtendedTabActive) primaryTabs.size else pagerState.currentPage
+                val activeTabIndicatorIndex = if (isExtendedTabActive) primaryTabs.size else selectedTabIndex
 
                 ScrollableTabRow(
                     selectedTabIndex = activeTabIndicatorIndex,
@@ -478,21 +479,18 @@ fun LibraryScreen(
                 ) {
                     // 1. Five Primary Tabs: Home, Songs, Playlists, Download, Device
                     primaryTabs.forEachIndexed { index, tab ->
-                        val isSelected = pagerState.currentPage == index
+                        val isSelected = selectedTabIndex == index
                         var isTabFocused by remember { mutableStateOf(false) }
                         Tab(
                             selected = isSelected,
                             onClick = {
-                                scope.launch {
-                                    pagerState.scrollToPage(index)
-                                }
+                                selectedTabIndex = index
                             },
                             selectedContentColor = appColors.textPrimary,
                             unselectedContentColor = appColors.textSecondary,
                             modifier = Modifier
                                 .padding(vertical = 4.dp)
                                 .onFocusChanged { isTabFocused = it.isFocused }
-                                .focusable()
                         ) {
                             val tabContentModifier = if (isTabFocused) {
                                 Modifier
@@ -577,7 +575,7 @@ fun LibraryScreen(
                         ) {
                             moreTabs.forEach { moreTab ->
                                 val moreTabIndex = tabs.indexOf(moreTab)
-                                val isThisSelected = pagerState.currentPage == moreTabIndex
+                                val isThisSelected = selectedTabIndex == moreTabIndex
                                 DropdownMenuItem(
                                     text = {
                                         Text(
@@ -605,9 +603,7 @@ fun LibraryScreen(
                                     } else null,
                                     onClick = {
                                         showMoreTabsDropdown = false
-                                        scope.launch {
-                                            pagerState.scrollToPage(moreTabIndex)
-                                        }
+                                        selectedTabIndex = moreTabIndex
                                     }
                                 )
                             }
@@ -634,13 +630,13 @@ fun LibraryScreen(
                 )
             }
 
-            // ── HORIZONTAL PAGER (Tap navigation only — prevents swiping from hijacking carousels) ───────────
-            HorizontalPager(
-                state = pagerState,
-                userScrollEnabled = false,
-                modifier = Modifier.fillMaxSize()
-            ) { page ->
-                when (tabs[page]) {
+            // ── DIRECT TAB VIEW (Eliminates HorizontalPager focus blocker on TV) ───────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                when (tabs[selectedTabIndex]) {
                     LibraryTab.HOME -> DiscoverScreen(
                         viewModel = viewModel,
                         onOpenSearchWithQuery = { query -> onOpenSearch(query) },
@@ -1645,7 +1641,6 @@ private fun SongItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .onFocusChanged { isRowFocused = it.isFocused }
-            .focusable()
             .clip(RoundedCornerShape(12.dp))
             .background(if (isRowFocused) Color.White.copy(alpha = 0.22f) else Color.Transparent)
             .border(

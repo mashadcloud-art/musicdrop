@@ -596,10 +596,9 @@ fun MainAppContent(viewModel: MainViewModel) {
                                         .fillMaxHeight()
                                         .padding(vertical = 4.dp, horizontal = 6.dp)
                                         .onFocusChanged { isFocused = it.isFocused }
-                                        .focusable()
                                         .clip(RoundedCornerShape(10.dp))
                                         .border(
-                                            width = if (isFocused) 2.dp else if (isSelected) 1.dp else 0.dp,
+                                            width = if (isFocused) 2.5.dp else if (isSelected) 1.dp else 0.dp,
                                             color = if (isFocused) Color.White else if (isSelected) appColors.accentPrimary.copy(alpha = 0.5f) else Color.Transparent,
                                             shape = RoundedCornerShape(10.dp)
                                         )
