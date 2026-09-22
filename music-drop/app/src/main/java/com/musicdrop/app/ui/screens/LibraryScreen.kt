@@ -100,6 +100,7 @@ fun LibraryScreen(
     // State collections
     val songs by viewModel.songs.collectAsState()
     val allAudio by viewModel.allAudio.collectAsState()
+    val videos by viewModel.videos.collectAsState()
     val downloadedTracks by viewModel.downloadedTracks.collectAsState()
     val likedMusic by viewModel.likedMusic.collectAsState()
     val userPlaylists by viewModel.userPlaylists.collectAsState()
@@ -583,13 +584,19 @@ fun LibraryScreen(
 
                     LibraryTab.DEVICE -> DeviceMusicTabContent(
                         allAudio = allAudio,
-                        onSongClick = { song -> viewModel.playTrack(song, allAudio) },
+                        downloadedTracks = downloadedTracks,
+                        videos = videos,
+                        onSongClick = { song -> viewModel.playTrack(song) },
+                        onRescan = {
+                            viewModel.loadData()
+                            viewModel.syncLocalDownloadedFiles()
+                        },
                         onMoreClick = { song -> selectedSongForOptions = song },
                         onShareClick = { song ->
                             viewModel.shareMediaFile(
                                 context = context,
                                 filePath = song.filePath.orEmpty(),
-                                mimeType = "audio/*",
+                                mimeType = song.mimeType.ifBlank { if (song.mediaType == com.musicdrop.app.data.model.MediaType.VIDEO) "video/*" else "audio/*" },
                                 title = song.name
                             )
                         }
@@ -2037,80 +2044,708 @@ fun DownloadsTabContent(
     }
 }
 
+enum class DeviceMediaCategory(val label: String, val icon: ImageVector) {
+    ALL("All", Icons.Rounded.Folder),
+    SONGS("Songs", Icons.Rounded.MusicNote),
+    DOWNLOADS("Downloads", Icons.Rounded.DownloadDone),
+    VIDEOS("Videos", Icons.Rounded.Videocam)
+}
+
 @Composable
 fun DeviceMusicTabContent(
     allAudio: List<MediaItem>,
+    downloadedTracks: List<DownloadedTrack>,
+    videos: List<MediaItem>,
     onSongClick: (MediaItem) -> Unit,
+    onRescan: () -> Unit,
     onMoreClick: ((MediaItem) -> Unit)? = null,
     onShareClick: ((MediaItem) -> Unit)? = null
 ) {
-    val localAudio = remember(allAudio) {
-        allAudio.filter { it.isSong || it.durationMs > 15_000L }
-    }
+    val context = LocalContext.current
+    val appColors = LocalAppColors.current
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    var selectedCategory by remember { mutableStateOf(DeviceMediaCategory.ALL) }
+    var tabSearchQuery by remember { mutableStateOf("") }
+    var isScanning by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (localAudio.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Rounded.FolderOpen,
-                        contentDescription = null,
-                        tint = Color(0xFF6B7280),
-                        modifier = Modifier.size(56.dp)
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    Text(
-                        text = "No Local Audio Files Found",
-                        color = Color.White,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = "Place audio files in your Music or Download directory to play them here.",
-                        color = Color(0xFF8E8E9B),
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center
-                    )
+    // Required permissions depending on Android version
+    val requiredPermissions = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(
+                Manifest.permission.READ_MEDIA_AUDIO,
+                Manifest.permission.READ_MEDIA_VIDEO
+            )
+        } else {
+            arrayOf(
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            )
+        }
+    }
+
+    var hasPermission by remember {
+        mutableStateOf(
+            requiredPermissions.all { perm ->
+                ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
+            }
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val anyGranted = permissions.values.any { it }
+        hasPermission = anyGranted || requiredPermissions.all { perm ->
+            ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
+        }
+        if (hasPermission) {
+            isScanning = true
+            onRescan()
+            scope.launch {
+                kotlinx.coroutines.delay(1200)
+                isScanning = false
+            }
+        }
+    }
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                val granted = requiredPermissions.all { perm ->
+                    ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
+                }
+                if (granted != hasPermission) {
+                    hasPermission = granted
+                    if (granted) {
+                        onRescan()
+                    }
                 }
             }
-        } else {
-            LazyColumn(
-                state = listState,
-                contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                item {
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Convert downloaded tracks to MediaItem
+    val downloadedItems = remember(downloadedTracks) {
+        downloadedTracks.map { it.toMediaItem() }
+    }
+
+    // Merge and deduplicate all device media (downloaded tracks, device audio, device videos)
+    val allDeviceMedia = remember(allAudio, downloadedItems, videos) {
+        val seenPaths = mutableSetOf<String>()
+        val seenIds = mutableSetOf<Long>()
+        val result = mutableListOf<MediaItem>()
+
+        // 1. Downloaded tracks & videos first
+        for (item in downloadedItems) {
+            val path = item.filePath?.lowercase()?.trim()
+            if (!path.isNullOrBlank()) {
+                if (seenPaths.add(path)) {
+                    seenIds.add(item.id)
+                    result.add(item)
+                }
+            } else if (seenIds.add(item.id)) {
+                result.add(item)
+            }
+        }
+
+        // 2. Audio tracks from MediaStore
+        for (item in allAudio) {
+            val path = item.filePath?.lowercase()?.trim()
+            if (!path.isNullOrBlank()) {
+                if (seenPaths.add(path)) {
+                    seenIds.add(item.id)
+                    result.add(item)
+                }
+            } else if (seenIds.add(item.id)) {
+                result.add(item)
+            }
+        }
+
+        // 3. Videos from MediaStore
+        for (item in videos) {
+            val path = item.filePath?.lowercase()?.trim()
+            if (!path.isNullOrBlank()) {
+                if (seenPaths.add(path)) {
+                    seenIds.add(item.id)
+                    result.add(item)
+                }
+            } else if (seenIds.add(item.id)) {
+                result.add(item)
+            }
+        }
+
+        result.sortedByDescending { it.dateAdded }
+    }
+
+    // Counts
+    val songsCount = remember(allDeviceMedia) {
+        allDeviceMedia.count { it.mediaType == com.musicdrop.app.data.model.MediaType.AUDIO }
+    }
+    val downloadsCount = remember(downloadedItems) {
+        downloadedItems.size
+    }
+    val videosCount = remember(allDeviceMedia) {
+        allDeviceMedia.count { it.mediaType == com.musicdrop.app.data.model.MediaType.VIDEO }
+    }
+
+    // Filtered by selected category and search query
+    val filteredList = remember(allDeviceMedia, selectedCategory, tabSearchQuery) {
+        var list = when (selectedCategory) {
+            DeviceMediaCategory.ALL -> allDeviceMedia
+            DeviceMediaCategory.SONGS -> allDeviceMedia.filter { it.mediaType == com.musicdrop.app.data.model.MediaType.AUDIO }
+            DeviceMediaCategory.DOWNLOADS -> allDeviceMedia.filter { item ->
+                downloadedItems.any { it.id == item.id || (!it.filePath.isNullOrBlank() && it.filePath.equals(item.filePath, ignoreCase = true)) }
+            }
+            DeviceMediaCategory.VIDEOS -> allDeviceMedia.filter { it.mediaType == com.musicdrop.app.data.model.MediaType.VIDEO }
+        }
+        if (tabSearchQuery.isNotBlank()) {
+            val q = tabSearchQuery.trim()
+            list = list.filter {
+                it.name.contains(q, ignoreCase = true) ||
+                it.artist.contains(q, ignoreCase = true) ||
+                it.album.contains(q, ignoreCase = true) ||
+                it.folderName.contains(q, ignoreCase = true) ||
+                (it.filePath?.contains(q, ignoreCase = true) == true)
+            }
+        }
+        list
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Permission request banner if not granted
+            if (!hasPermission) {
+                item(key = "permission_banner") {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF1E1B4B).copy(alpha = 0.65f),
+                        border = BorderStroke(1.dp, Color(0xFF6366F1).copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            Brush.linearGradient(
+                                                listOf(Color(0xFF6366F1), Color(0xFFEC4899))
+                                            )
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PermMedia,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Device Storage & Media Access",
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = "Allow access to scan, list, and play all music, downloaded tracks, and videos on this device.",
+                                        color = Color(0xFFD1D5DB),
+                                        fontSize = 12.sp,
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(14.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { permissionLauncher.launch(requiredPermissions) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF6366F1),
+                                        contentColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = "Allow Access",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val intent = android.content.Intent(
+                                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                android.net.Uri.fromParts("package", context.packageName, null)
+                                            )
+                                            context.startActivity(intent)
+                                        } catch (_: Exception) {}
+                                    },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color(0xFFCBD5E1)
+                                    ),
+                                    border = BorderStroke(1.dp, Color(0xFF475569)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Settings", fontSize = 12.5.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Search Bar & Rescan Row
+            item(key = "search_and_rescan_bar") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (appColors.isDark) Color(0xFF1F1F2C) else Color(0xFFF1F5F9),
+                        border = BorderStroke(1.dp, if (appColors.isDark) Color(0xFF333344) else Color(0xFFE2E8F0)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                tint = appColors.textSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            androidx.compose.foundation.text.BasicTextField(
+                                value = tabSearchQuery,
+                                onValueChange = { tabSearchQuery = it },
+                                singleLine = true,
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    color = appColors.textPrimary,
+                                    fontSize = 13.5.sp
+                                ),
+                                modifier = Modifier.weight(1f),
+                                decorationBox = { innerTextField ->
+                                    if (tabSearchQuery.isEmpty()) {
+                                        Text(
+                                            text = "Search device media & downloads...",
+                                            color = appColors.textSecondary.copy(alpha = 0.7f),
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            )
+                            if (tabSearchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { tabSearchQuery = "" },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = "Clear",
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = appColors.accentPrimary.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, appColors.accentPrimary.copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable(enabled = !isScanning) {
+                                isScanning = true
+                                onRescan()
+                                scope.launch {
+                                    kotlinx.coroutines.delay(1200)
+                                    isScanning = false
+                                }
+                            }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = "Rescan",
+                                tint = appColors.accentPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = if (isScanning) "Scanning" else "Rescan",
+                                color = appColors.accentPrimary,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Category Filter Pills
+            item(key = "category_pills") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DeviceMediaCategory.values().forEach { category ->
+                        val isSelected = category == selectedCategory
+                        val count = when (category) {
+                            DeviceMediaCategory.ALL -> allDeviceMedia.size
+                            DeviceMediaCategory.SONGS -> songsCount
+                            DeviceMediaCategory.DOWNLOADS -> downloadsCount
+                            DeviceMediaCategory.VIDEOS -> videosCount
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = if (isSelected) {
+                                appColors.accentPrimary.copy(alpha = 0.2f)
+                            } else {
+                                if (appColors.isDark) Color(0xFF1E1E2A) else Color(0xFFF1F5F9)
+                            },
+                            border = BorderStroke(
+                                1.dp,
+                                if (isSelected) appColors.accentPrimary else (if (appColors.isDark) Color(0xFF2E2E3E) else Color(0xFFE2E8F0))
+                            ),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .clickable { selectedCategory = category }
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = category.icon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) appColors.accentPrimary else appColors.textSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "${category.label} ($count)",
+                                    color = if (isSelected) appColors.textPrimary else appColors.textSecondary,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Count header
+            item(key = "count_header") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "${filteredList.size} ${selectedCategory.label} Found",
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (isScanning) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                color = appColors.accentPrimary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("Scanning device...", color = appColors.textSecondary, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
+            // Empty state if list is empty
+            if (filteredList.isEmpty()) {
+                item(key = "empty_state") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 48.dp, bottom = 48.dp, start = 32.dp, end = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = if (!hasPermission) Icons.Rounded.FolderOff else (if (tabSearchQuery.isNotBlank()) Icons.Rounded.SearchOff else Icons.Rounded.FolderOpen),
+                                contentDescription = null,
+                                tint = Color(0xFF6B7280),
+                                modifier = Modifier.size(56.dp)
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Text(
+                                text = if (!hasPermission) {
+                                    "Storage Permission Required"
+                                } else if (tabSearchQuery.isNotBlank()) {
+                                    "No Matching Media Found"
+                                } else {
+                                    "No ${selectedCategory.label} Found on Device"
+                                },
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = if (!hasPermission) {
+                                    "Grant storage permission to let MusicDrop scan and display your audio and video files."
+                                } else if (tabSearchQuery.isNotBlank()) {
+                                    "No items matching \"$tabSearchQuery\". Try searching by another title or folder."
+                                } else {
+                                    "Download songs or videos in MusicDrop or copy files into your Music/Movies/Download folders to play them here."
+                                },
+                                color = Color(0xFF8E8E9B),
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            if (!hasPermission) {
+                                Button(
+                                    onClick = { permissionLauncher.launch(requiredPermissions) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Text("Grant Permission", fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = {
+                                        isScanning = true
+                                        onRescan()
+                                        scope.launch {
+                                            kotlinx.coroutines.delay(1200)
+                                            isScanning = false
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, Color(0xFF6366F1))
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Refresh,
+                                        contentDescription = null,
+                                        tint = Color(0xFF818CF8),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Scan Device Now", color = Color(0xFF818CF8))
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                items(filteredList, key = { it.id.toString() + "_" + (it.filePath ?: it.name) }) { mediaItem ->
+                    val isDownloaded = remember(mediaItem) {
+                        downloadedItems.any { it.id == mediaItem.id || (!it.filePath.isNullOrBlank() && it.filePath.equals(mediaItem.filePath, ignoreCase = true)) }
+                    }
+                    val isVideo = mediaItem.mediaType == com.musicdrop.app.data.model.MediaType.VIDEO
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .clickable { onSongClick(mediaItem) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "${localAudio.size} Tracks on Device",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                        // Thumbnail Box
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isVideo) Color(0xFF1E1B4B) else Color(0xFF22222E)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (mediaItem.albumArtUri != null) {
+                                AsyncImage(
+                                    model = mediaItem.albumArtUri,
+                                    contentDescription = mediaItem.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else if (isVideo) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Videocam,
+                                    contentDescription = null,
+                                    tint = Color(0xFF818CF8),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.MusicNote,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFB8D00),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
 
-                items(localAudio, key = { it.id }) { song ->
-                    SongItemRow(
-                        song = song,
-                        onClick = { onSongClick(song) },
-                        onMoreClick = onMoreClick?.let { { it(song) } },
-                        onShareClick = onShareClick?.let { { it(song) } }
-                    )
+                            // Small Video Play indicator overlay on video items
+                            if (isVideo) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .size(22.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Black.copy(alpha = 0.6f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        // Title & Info
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = mediaItem.name,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = if (isVideo) mediaItem.folderName else "${mediaItem.artist} - ${mediaItem.folderName}",
+                                    color = Color(0xFF8E8E9B),
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+
+                                // Media Type Tag
+                                if (isVideo) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFF6366F1).copy(alpha = 0.2f))
+                                            .border(0.8.dp, Color(0xFF818CF8), RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    ) {
+                                        Text("VIDEO", color = Color(0xFFA5B4FC), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                } else if (isDownloaded) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFF10B981).copy(alpha = 0.18f))
+                                            .border(0.8.dp, Color(0xFF34D399), RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    ) {
+                                        Text("DOWNLOADED", color = Color(0xFF6EE7B7), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .border(0.8.dp, Color(0xFF555566), RoundedCornerShape(3.dp))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    ) {
+                                        Text("AUDIO", color = Color(0xFFAAAAAA), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+
+                                if (mediaItem.formattedDuration.isNotBlank()) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = mediaItem.formattedDuration,
+                                        color = Color(0xFF9CA3AF),
+                                        fontSize = 11.sp
+                                    )
+                                }
+
+                                if (mediaItem.formattedSize.isNotBlank() && mediaItem.formattedSize != "0 B") {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "• ${mediaItem.formattedSize}",
+                                        color = Color(0xFF6B7280),
+                                        fontSize = 10.5.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Share or 3-dot Menu Icon
+                        IconButton(
+                            onClick = onMoreClick?.let { { it(mediaItem) } } ?: onShareClick?.let { { it(mediaItem) } } ?: {},
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (onMoreClick != null) Icons.Rounded.MoreVert else Icons.Rounded.Share,
+                                contentDescription = "Options",
+                                tint = Color(0xFF8E8E9B),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

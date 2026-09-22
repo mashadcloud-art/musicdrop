@@ -1,8 +1,8 @@
 {
-  "versionCode": 164,
-  "versionName": "1.5.4",
-  "title": "MusicDrop v1.5.4 Available",
-  "changelog": "• Fixed Mobile Layout & Spacing Bug: Resolved text-wrapping bug on narrow screen mobiles where the trending artists swipe badge wrapped vertically, eliminating the large empty space\n• Silky Smooth Song Fade & Merge: Replaced the disruptive DJ overlap jump with a gentle, elegant volume fade-out over the final 2 seconds and a seamless fade-in for the next track\n• Zero-Gap Playback: Next track starts smoothly with zero audible gap or abrupt song cut-offs\n• Settings UI Update: Renamed transition setting to 'Seamless Merge & Crossfade (Zero-Gap)'",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.4/MusicDrop-v1.5.4.apk",
+  "versionCode": 165,
+  "versionName": "1.5.5",
+  "title": "MusicDrop v1.5.5 Available",
+  "changelog": "• Direct Device Media & Downloads Scan: Downloaded songs, downloaded videos, and all device media now seamlessly show in the Device tab with automatic scanning\n• Interactive Storage Approval Flow: Clear, instant in-app storage & media permission prompt with one-tap approval so files appear immediately\n• Unified Device Media Filtering: Filter pills for All Files, Songs, Downloads, and Videos with real-time media counts\n• In-Tab Search & Rescan Button: Search device files instantly by name, artist, or folder, and refresh storage anytime\n• Direct Video & Audio Playback: Play both local device music and local videos directly from the Device tab with video surface support",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.5/MusicDrop-v1.5.5.apk",
   "forceUpdate": true
 }

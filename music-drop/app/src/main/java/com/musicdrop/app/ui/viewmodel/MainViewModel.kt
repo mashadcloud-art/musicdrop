@@ -3775,7 +3775,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             launch {
-                val v = mediaRepository.getVideos(limit = 150)
+                val v = mediaRepository.getVideos(limit = 1000)
                 _videos.value = v
             }
 
@@ -3813,6 +3813,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun playTrack(track: MediaItem, customList: List<MediaItem>? = null) {
+        val isVideo = track.mediaType == MediaType.VIDEO ||
+                track.mimeType.startsWith("video") ||
+                track.filePath?.endsWith(".mp4", ignoreCase = true) == true ||
+                track.filePath?.endsWith(".mkv", ignoreCase = true) == true ||
+                track.filePath?.endsWith(".webm", ignoreCase = true) == true
+        _isVideoMode.value = isVideo
+
         val currentAudioList = customList ?: when (_audioFilter.value) {
             AudioFilter.ALL -> _allAudio.value
             AudioFilter.SONGS -> _songs.value
@@ -3896,33 +3903,75 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val existingPaths = known.map { it.filePath }.toSet()
 
-                val dirs = listOfNotNull(
-                    try { android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC) } catch (_: Throwable) { null },
-                    try { app.getExternalFilesDir(android.os.Environment.DIRECTORY_MUSIC) } catch (_: Throwable) { null },
-                    try { java.io.File(app.filesDir, "Music") } catch (_: Throwable) { null }
-                )
+                val dirs = mutableListOf<java.io.File>()
+                try {
+                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC)?.let {
+                        dirs.add(it)
+                        dirs.add(java.io.File(it, "MusicDrop"))
+                    }
+                } catch (_: Throwable) {}
+                try {
+                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MOVIES)?.let {
+                        dirs.add(it)
+                        dirs.add(java.io.File(it, "MusicDrop"))
+                    }
+                } catch (_: Throwable) {}
+                try {
+                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)?.let {
+                        dirs.add(it)
+                        dirs.add(java.io.File(it, "MusicDrop"))
+                        dirs.add(java.io.File(it, "FileDrop"))
+                    }
+                } catch (_: Throwable) {}
+                try { app.getExternalFilesDir(android.os.Environment.DIRECTORY_MUSIC)?.let { dirs.add(it) } } catch (_: Throwable) {}
+                try { app.getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES)?.let { dirs.add(it) } } catch (_: Throwable) {}
+                try { app.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS)?.let { dirs.add(it) } } catch (_: Throwable) {}
+                try { dirs.add(java.io.File(app.filesDir, "Music")) } catch (_: Throwable) {}
+                try { dirs.add(java.io.File(app.filesDir, "Movies")) } catch (_: Throwable) {}
+
+                val audioExts = setOf("mp3", "m4a", "opus", "wav", "flac", "aac", "ogg", "wma")
+                val videoExts = setOf("mp4", "mkv", "webm", "3gp", "mov", "avi")
 
                 for (dir in dirs) {
                     try {
                         if (dir.exists() && dir.isDirectory) {
                             val files = dir.listFiles { f ->
-                                f.isFile && (f.name.endsWith(".mp3", true) || f.name.endsWith(".m4a", true) || f.name.endsWith(".opus", true))
+                                if (!f.isFile || f.name.startsWith(".")) return@listFiles false
+                                val ext = f.extension.lowercase()
+                                ext in audioExts || ext in videoExts
                             } ?: emptyArray()
 
                             for (file in files) {
-                                if (file.absolutePath !in existingPaths) {
+                                if (file.absolutePath !in existingPaths && file.length() > 0) {
                                     val cleanName = file.nameWithoutExtension
+                                    val ext = file.extension.lowercase()
+                                    val isVideo = ext in videoExts
+                                    val mimeType = when (ext) {
+                                        "mp4" -> "video/mp4"
+                                        "mkv" -> "video/x-matroska"
+                                        "webm" -> "video/webm"
+                                        "mp3" -> "audio/mpeg"
+                                        "m4a", "aac" -> "audio/mp4"
+                                        "opus" -> "audio/opus"
+                                        "wav" -> "audio/wav"
+                                        "flac" -> "audio/flac"
+                                        else -> if (isVideo) "video/*" else "audio/*"
+                                    }
                                     val track = com.musicdrop.app.data.repository.DownloadedTrack(
-                                        key = "file:${file.absolutePath.hashCode()}",
+                                        key = if (isVideo) "video:${file.absolutePath.hashCode()}" else "file:${file.absolutePath.hashCode()}",
                                         title = cleanName,
-                                        artist = "Downloaded Track",
+                                        artist = if (isVideo) "Device Video" else "Downloaded Track",
                                         duration = "",
                                         coverUrl = "",
                                         filePath = file.absolutePath,
-                                        mimeType = if (file.name.endsWith(".mp3", true)) "audio/mpeg" else "audio/mp4",
+                                        mimeType = mimeType,
                                         downloadedAtMs = file.lastModified()
                                     )
                                     com.musicdrop.app.data.repository.DownloadedTracksStore.add(app, track)
+                                    // Trigger MediaScanner so MediaStore indices it immediately
+                                    try {
+                                        android.media.MediaScannerConnection.scanFile(app, arrayOf(file.absolutePath), arrayOf(mimeType), null)
+                                    } catch (_: Throwable) {}
                                 }
                             }
                         }
