@@ -1,8 +1,8 @@
 {
-  "versionCode": 167,
-  "versionName": "1.5.7",
-  "title": "MusicDrop v1.5.7 Available",
-  "changelog": "• Glassmorphic Player for Audio: Full translucent frosted glass panels, glowing glass borders, and iridescent gradient fallback when playing audio songs\n• Voice Notes & Non-Music Separation: Voice recordings (e.g. WhatsApp notes, call recordings, timestamped audio clips) are now cleanly segregated into a dedicated Recordings category, keeping Songs and Downloads pure music\n• Streamlined Library Tabs with 'More ▾' Popup: Replaced crowded 9-tab row with primary tabs + smart 'More ▾' dropdown (Albums, Artists, Genres, Folders), completely eliminating text truncation ('Gen...')\n• Mini Player Glassmorphism: Translucent frosted glass mini-player bar with dynamic card opacity\n• Fully responsive button spacing and layout polish across all devices",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.7/MusicDrop-v1.5.7.apk",
+  "versionCode": 168,
+  "versionName": "1.5.8",
+  "title": "MusicDrop v1.5.8 Available",
+  "changelog": "• Fixed Video Mode Switching: Eliminated unrelated hardcoded video fallback (Kesariya) and prevented stale video IDs from persisting when switching tracks\n• Strict Song-to-Video Match Verification: Switching from Audio to Video now verifies title/artist alignment; if no matching video stream exists, it displays an ambient audio cover screen rather than an unrelated video\n• Stale Video Cache Clearance: Audio playback immediately clears past video sessions so switching to video mode never bleeds from an older session\n• Seamless Video Tab Transition: Clean loading spinner and graceful audio fallback indicator",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.8/MusicDrop-v1.5.8.apk",
   "forceUpdate": true
 }

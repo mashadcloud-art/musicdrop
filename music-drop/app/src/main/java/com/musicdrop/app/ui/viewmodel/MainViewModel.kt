@@ -2066,6 +2066,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         currentPlaybackRetry = { playSaavnTrack(item) }
         recordRecentPlay(UnifiedTrack.Saavn(item))
         _isVideoMode.value = false
+        _ytCurrentVideo.value = null
         playbackConnection.playTrack(item, listOf(item))
         openFullPlayer()
     }
@@ -2319,20 +2320,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resolveVideoForCurrentTrack() {
         val cur = playbackConnection.currentTrack.value ?: return
+        if (!cur.isSong) {
+            _ytCurrentVideo.value = null
+            return
+        }
         viewModelScope.launch {
             var vidId = extractValidVideoId(cur.filePath)
                 ?: extractValidVideoId(cur.albumArtUri?.toString())
                 ?: extractValidVideoId(cur.uri.toString())
 
-            if (vidId == null && cur.name.isNotBlank()) {
-                try {
-                    val detailed = YouTubeSearchRepository.searchDetailed("${cur.name} ${cur.artist} official video")
-                    val matched = detailed.songs.firstOrNull()
-                    if (matched != null) {
-                        _ytCurrentVideo.value = matched
-                        vidId = matched.videoId
+            if (vidId == null) {
+                // Clear stale video from previous track so it doesn't leak into this song
+                if (_ytCurrentVideo.value != null) {
+                    val prevTitle = _ytCurrentVideo.value?.title.orEmpty().lowercase()
+                    val curTitle = cur.name.lowercase()
+                    if (!prevTitle.contains(curTitle) && !curTitle.contains(prevTitle)) {
+                        _ytCurrentVideo.value = null
                     }
-                } catch (_: Exception) {}
+                }
+
+                val cleanName = cur.name
+                    .replace(Regex("\\.(mp3|m4a|aac|flac|wav|ogg|opus)$", RegexOption.IGNORE_CASE), "")
+                    .replace(Regex("[^a-zA-Z0-9 ]"), " ")
+                    .trim()
+
+                if (cleanName.isNotBlank() && cleanName.length > 2) {
+                    try {
+                        _videoModeLoading.value = true
+                        val detailed = YouTubeSearchRepository.searchDetailed("$cleanName ${cur.artist} official video")
+                        val targetWords = cleanName.lowercase().split(Regex("\\s+")).filter { it.length > 2 && it !in setOf("audio", "song", "track", "unknown") }
+                        val matched = detailed.songs.firstOrNull { candidate ->
+                            val cTitle = candidate.title.lowercase()
+                            val cChannel = candidate.channelTitle.lowercase()
+                            val artist = cur.artist.lowercase().trim()
+                            (artist.isNotBlank() && artist != "<unknown>" && artist != "unknown artist" && cChannel.contains(artist)) ||
+                            cTitle.contains(cleanName.lowercase()) ||
+                            (targetWords.isNotEmpty() && targetWords.any { cTitle.contains(it) })
+                        }
+                        if (matched != null) {
+                            _ytCurrentVideo.value = matched
+                            vidId = matched.videoId
+                        }
+                    } catch (_: Exception) {
+                    } finally {
+                        _videoModeLoading.value = false
+                    }
+                }
             }
             if (vidId != null && _ytCurrentVideo.value?.videoId != vidId) {
                 _ytCurrentVideo.value = YouTubeSearchResult(
@@ -2996,7 +3029,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             art.contains("/vi/") -> art.substringAfter("/vi/").substringBefore("/").substringBefore("?")
             uriStr.contains("v=") -> uriStr.substringAfter("v=").substringBefore("&").substringBefore("?")
             uriStr.contains("youtu.be/") -> uriStr.substringAfter("youtu.be/").substringBefore("?").substringBefore("&")
-            _ytCurrentVideo.value?.videoId?.isNotBlank() == true -> _ytCurrentVideo.value?.videoId
+            _ytCurrentVideo.value?.takeIf { it.title.equals(current.name, ignoreCase = true) || current.filePath.orEmpty().contains(it.videoId) }?.videoId != null -> _ytCurrentVideo.value?.videoId
             else -> null
         }
 
@@ -3828,6 +3861,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 track.filePath?.endsWith(".mkv", ignoreCase = true) == true ||
                 track.filePath?.endsWith(".webm", ignoreCase = true) == true
         _isVideoMode.value = isVideo
+        if (!isVideo) {
+            _ytCurrentVideo.value = null
+        }
 
         val currentAudioList = customList ?: when (_audioFilter.value) {
             AudioFilter.ALL -> _allAudio.value
@@ -3871,6 +3907,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _upNextQueue.value = emptyList()
         val isVideo = track.mimeType.startsWith("video") || track.filePath.endsWith(".mp4", ignoreCase = true) || track.key.startsWith("yt_video:")
         _isVideoMode.value = isVideo
+        if (!isVideo) {
+            _ytCurrentVideo.value = null
+        }
 
         val mediaItem = track.toMediaItem()
         currentPlaybackRetry = { playDownloadedTrack(track, contextList) }

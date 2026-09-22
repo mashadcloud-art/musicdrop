@@ -93,9 +93,45 @@ fun YouTubeIFramePlayer(
             v.contains("v=") -> v.substringAfter("v=").substringBefore("&").substringBefore("?")
             v.contains("shorts/") -> v.substringAfter("shorts/").substringBefore("?").substringBefore("&")
             v.contains("embed/") -> v.substringAfter("embed/").substringBefore("?").substringBefore("&")
-            v.length in 8..15 -> v
-            else -> "BddP6PYo2gs"
+            v.length in 8..15 && !v.contains("/") && !v.contains(".") && !v.contains(":") && !v.contains(" ") -> v
+            else -> ""
         }.trim()
+    }
+
+    if (cleanVideoId.isBlank()) {
+        Box(
+            modifier = modifier.background(androidx.compose.ui.graphics.Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(24.dp)
+            ) {
+                if (!thumbnailUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = thumbnailUrl,
+                        contentDescription = title,
+                        modifier = Modifier
+                            .size(160.dp)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                Text(
+                    text = title ?: "Audio Track",
+                    color = androidx.compose.ui.graphics.Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "No matching video stream found for this track",
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.65f),
+                    fontSize = 12.5.sp
+                )
+            }
+        }
+        return
     }
 
     val initialStartSec = remember(cleanVideoId) { (currentPositionMs / 1000).toInt() }

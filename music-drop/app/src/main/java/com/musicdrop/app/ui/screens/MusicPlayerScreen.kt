@@ -159,12 +159,12 @@ fun MusicPlayerScreen(
         val uriStr = track.uri.toString()
         when {
             path.startsWith("yt:") -> path.removePrefix("yt:")
-            path.length == 11 && !path.contains("/") && !path.contains(".") && !path.contains(":") -> path
+            path.length == 11 && !path.contains("/") && !path.contains(".") && !path.contains(":") && !path.contains(" ") -> path
             art.contains("/vi_webp/") -> art.substringAfter("/vi_webp/").substringBefore("/").substringBefore("?")
             art.contains("/vi/") -> art.substringAfter("/vi/").substringBefore("/").substringBefore("?")
             uriStr.contains("v=") -> uriStr.substringAfter("v=").substringBefore("&").substringBefore("?")
             uriStr.contains("youtu.be/") -> uriStr.substringAfter("youtu.be/").substringBefore("?").substringBefore("&")
-            ytCurrentVideo?.videoId?.isNotBlank() == true -> ytCurrentVideo?.videoId
+            ytCurrentVideo?.videoId?.isNotBlank() == true && isYtMatchingTrack(ytCurrentVideo, track) -> ytCurrentVideo?.videoId
             else -> null
         }
     }
@@ -2950,5 +2950,29 @@ private fun AppThemeChooserDialog(
             }
         }
     }
+}
+
+private fun isYtMatchingTrack(yt: com.musicdrop.app.data.youtube.YouTubeSearchResult?, track: MediaItem?): Boolean {
+    if (yt == null || track == null) return false
+    val vid = yt.videoId.trim()
+    if (vid.isBlank()) return false
+    val trackPath = track.filePath.orEmpty()
+    if (trackPath == vid || trackPath == "yt:$vid") return true
+    if (track.uri.toString().contains(vid)) return true
+    if (track.id == vid.hashCode().toLong()) return true
+
+    val tName = track.name.lowercase().replace(Regex("[^a-z0-9 ]"), " ").trim()
+    val yTitle = yt.title.lowercase().replace(Regex("[^a-z0-9 ]"), " ").trim()
+    if (tName.isBlank() || yTitle.isBlank()) return false
+    if (yTitle.contains(tName) || tName.contains(yTitle)) return true
+
+    val tWords = tName.split(Regex("\\s+")).filter { it.length > 2 && it !in setOf("the", "and", "audio", "song", "official", "video") }
+    if (tWords.isNotEmpty()) {
+        val matchedWords = tWords.count { yTitle.contains(it) }
+        if (matchedWords >= 2 || (tWords.size == 1 && matchedWords == 1)) {
+            return true
+        }
+    }
+    return false
 }
 
