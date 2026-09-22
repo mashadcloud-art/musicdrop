@@ -181,16 +181,44 @@ fun TvPlayerOverlay(
                     modifier = Modifier.fillMaxSize()
                 )
             } else if (effectiveVideoId != null) {
-                YouTubeIFramePlayer(
-                    videoId = effectiveVideoId,
-                    title = currentTrack?.name,
-                    channel = currentTrack?.artist,
-                    thumbnailUrl = currentTrack?.albumArtUri?.toString(),
-                    resizeMode = 0,
-                    isPlaying = isPlaying,
-                    currentPositionMs = positionMs,
-                    modifier = Modifier.fillMaxSize()
-                )
+                LaunchedEffect(effectiveVideoId) {
+                    viewModel.switchCurrentTrackToVideo(effectiveVideoId)
+                }
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = currentTrack?.albumArtUri,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(32.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.65f))
+                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFFFF0033),
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(42.dp)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = "Loading Video Stream...",
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
         } else {
             // Vinyl Audio Mode: Blurred artwork background

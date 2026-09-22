@@ -1596,7 +1596,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshAllDashboardCategories(force = true)
     }
 
-    fun playYouTubeVideoWithContext(result: YouTubeSearchResult, contextList: List<YouTubeSearchResult>) {
+    fun playYouTubeVideoWithContext(
+        result: YouTubeSearchResult,
+        contextList: List<YouTubeSearchResult>,
+        preferVideo: Boolean = false
+    ) {
         _localQueue.value = emptyList()
         val idx = contextList.indexOfFirst { it.videoId == result.videoId }
         val upNext = if (idx != -1 && idx < contextList.size - 1) {
@@ -1608,7 +1612,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (upNext.size < 6) {
             fetchUpNextRadio(result.videoId, result.channelTitle.ifBlank { result.title }, forceAppend = true, title = result.title)
         }
-        playYouTubeVideo(result)
+        playYouTubeVideo(result, preferVideo = preferVideo)
     }
 
     /**
@@ -2142,10 +2146,57 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    suspend fun extractDirectVideoStreamUrl(
+        videoId: String,
+        title: String? = null,
+        channelTitle: String? = null,
+        thumbnailUrl: String? = null
+    ): String? = withContext(Dispatchers.IO) {
+        val newPipeDeferred = async {
+            try {
+                NewPipeYouTubeExtractor.getInstance(getApplication()).extractVideo(videoId)?.url
+            } catch (_: Exception) { null }
+        }
+        val pWebDeferred = async {
+            try {
+                com.musicdrop.app.data.youtube.PWebExtractor.getInstance(getApplication())
+                    .extractVideo(videoId, title.orEmpty(), channelTitle.orEmpty(), thumbnailUrl.orEmpty())?.url
+            } catch (_: Exception) { null }
+        }
+        val yteDeferred = async {
+            try {
+                YouTubeStreamExtractor.getInstance(getApplication())
+                    .extractVideo(videoId, title.orEmpty(), channelTitle.orEmpty(), thumbnailUrl.orEmpty())?.url
+            } catch (_: Exception) { null }
+        }
+        newPipeDeferred.await()?.takeIf { it.isNotBlank() }
+            ?: pWebDeferred.await()?.takeIf { it.isNotBlank() }
+            ?: yteDeferred.await()?.takeIf { it.isNotBlank() }
+    }
+
+    fun switchCurrentTrackToVideo(videoId: String, targetPositionMs: Long? = null) {
+        viewModelScope.launch {
+            _videoModeLoading.value = true
+            val cur = playbackConnection.currentTrack.value ?: return@launch
+            val pos = targetPositionMs ?: playbackConnection.currentPositionMs.value
+            val directUrl = extractDirectVideoStreamUrl(videoId, cur.name, cur.artist, cur.albumArtUri?.toString())
+            _videoModeLoading.value = false
+            if (!directUrl.isNullOrBlank()) {
+                val videoTrack = cur.copy(
+                    uri = Uri.parse(directUrl),
+                    mimeType = "video/mp4",
+                    mediaType = MediaType.VIDEO
+                )
+                playbackConnection.playTrack(videoTrack, listOf(videoTrack), pos)
+            }
+        }
+    }
+
     fun playYouTubeVideo(
         result: YouTubeSearchResult,
         onExtractionFailed: (() -> Unit)? = null,
-        startPositionMs: Long = 0L
+        startPositionMs: Long = 0L,
+        preferVideo: Boolean = false
     ) {
         // If this exact stream turns out to be stale/expired/IP-locked mid-playback,
         // PlaybackConnection asks for a fresh one via this retry — drop the cached
@@ -2153,7 +2204,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         currentPlaybackRetry = {
             streamCache.remove(result.videoId)
             com.musicdrop.app.data.youtube.StreamCacheStore.save(getApplication(), streamCache)
-            playYouTubeVideo(result)
+            playYouTubeVideo(result, preferVideo = preferVideo)
         }
         // Tapping a card and having nothing visibly happen for a second or two (while
         // the real stream URL resolves) reads as broken — this flags the exact card as
@@ -2162,21 +2213,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         recordRecentPlay(UnifiedTrack.Youtube(result))
         fetchUpNextRadio(result.videoId, result.channelTitle.ifBlank { result.title }, title = result.title)
         // Video Mode: If user has toggled video mode on, persist it across song changes and autoplays!
-        _isVideoMode.value = _userWantsVideoMode.value
+        _isVideoMode.value = preferVideo || _userWantsVideoMode.value
         _ytCurrentVideo.value = result
         _ytIsPlaying.value = true
         val placeholderUri = Uri.parse("https://www.youtube.com/watch?v=${result.videoId}")
         val appMediaItem = MediaItem(
             id = result.videoId.hashCode().toLong(),
             uri = placeholderUri,
-            name = result.title.ifBlank { "YouTube Audio" },
+            name = result.title.ifBlank { if (preferVideo) "YouTube Video" else "YouTube Audio" },
             size = 0L,
             dateAdded = System.currentTimeMillis() / 1000,
-            mimeType = "audio/mp4",
-            mediaType = MediaType.AUDIO,
+            mimeType = if (preferVideo) "video/mp4" else "audio/mp4",
+            mediaType = if (preferVideo) MediaType.VIDEO else MediaType.AUDIO,
             durationMs = 0L,
             artist = result.channelTitle,
-            album = "YouTube Music",
+            album = if (preferVideo) "YouTube Video" else "YouTube Music",
             isSong = true,
             filePath = result.videoId,
             bucketName = "YouTube Stream",
@@ -2185,17 +2236,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         // Immediately update player UI metadata and open the full screen MusicPlayerScreen
         playbackConnection.setCurrentTrackMetadata(appMediaItem)
-        openFullPlayer()
+        if (!preferVideo) {
+            openFullPlayer()
+        }
 
-        // Extract direct audio stream in background and hand directly to ExoPlayer
+        // Extract direct stream in background and hand directly to ExoPlayer
         viewModelScope.launch {
             var streamMediaItem: com.musicdrop.app.data.model.MediaItem? = null
 
+            if (preferVideo) {
+                try {
+                    val directVideoUrl = extractDirectVideoStreamUrl(
+                        result.videoId,
+                        result.title,
+                        result.channelTitle,
+                        result.thumbnailUrl
+                    )
+                    if (!directVideoUrl.isNullOrBlank()) {
+                        streamMediaItem = MediaItem(
+                            id = result.videoId.hashCode().toLong(),
+                            uri = Uri.parse(directVideoUrl),
+                            name = result.title.ifBlank { "YouTube Video" },
+                            size = 0L,
+                            dateAdded = System.currentTimeMillis() / 1000,
+                            mimeType = "video/mp4",
+                            mediaType = MediaType.VIDEO,
+                            durationMs = 0L,
+                            artist = result.channelTitle,
+                            album = "YouTube Video",
+                            isSong = true,
+                            filePath = result.videoId,
+                            bucketName = "YouTube Stream",
+                            albumArtUri = Uri.parse(result.thumbnailUrl)
+                        )
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("MainViewModel", "Video stream extraction failed, falling back to audio", e)
+                }
+            }
+
             // 0. Try the cache (in-memory, seeded from disk on launch) for instant playback —
             // skip a stale entry rather than handing ExoPlayer a URL YouTube would reject.
-            val cached = streamCache[result.videoId]?.takeIf { it.isFresh() }
-            if (cached != null) {
-                streamMediaItem = cached.toMediaItem()
+            if (streamMediaItem == null) {
+                val cached = streamCache[result.videoId]?.takeIf { it.isFresh() }
+                if (cached != null) {
+                    streamMediaItem = cached.toMediaItem()
+                }
             }
 
             // 1. Race p_web and NewPipeExtractor in parallel for fastest resolution

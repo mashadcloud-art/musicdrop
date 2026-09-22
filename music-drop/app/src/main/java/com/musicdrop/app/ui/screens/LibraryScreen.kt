@@ -241,31 +241,11 @@ fun LibraryScreen(
     var selectedArtistForOptions by remember { mutableStateOf<Pair<String, List<MediaItem>>?>(null) }
 
     var isTopBarVisible by remember { mutableStateOf(true) }
-    LaunchedEffect(pagerState.currentPage) {
-        isTopBarVisible = true
-    }
-    val nestedScrollConnection = remember {
-        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-            override fun onPreScroll(
-                available: androidx.compose.ui.geometry.Offset,
-                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
-            ): androidx.compose.ui.geometry.Offset {
-                val delta = available.y
-                if (delta < -12f && isTopBarVisible) {
-                    isTopBarVisible = false
-                } else if (delta > 12f && !isTopBarVisible) {
-                    isTopBarVisible = true
-                }
-                return androidx.compose.ui.geometry.Offset.Zero
-            }
-        }
-    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(appColors.background)
-            .nestedScroll(nestedScrollConnection)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -377,27 +357,6 @@ fun LibraryScreen(
                                 contentDescription = "Skin Theme",
                                 tint = appColors.accentPrimary,
                                 modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        // Quick TV Mode Switch Button
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(appColors.accentPrimary.copy(alpha = 0.22f))
-                                .border(1.2.dp, appColors.accentPrimary.copy(alpha = 0.65f), CircleShape)
-                                .clickable {
-                                    val intent = android.content.Intent(context, com.musicdrop.app.TvModeActivity::class.java)
-                                        .putExtra("force_chooser", true)
-                                    context.startActivity(intent)
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Tv,
-                                contentDescription = "TV Mode",
-                                tint = appColors.accentPrimary,
-                                modifier = Modifier.size(18.dp)
                             )
                         }
                         Spacer(Modifier.width(6.dp))
@@ -522,7 +481,7 @@ fun LibraryScreen(
                             selected = isSelected,
                             onClick = {
                                 scope.launch {
-                                    pagerState.animateScrollToPage(index)
+                                    pagerState.scrollToPage(index)
                                 }
                             },
                             selectedContentColor = appColors.textPrimary,
@@ -635,7 +594,7 @@ fun LibraryScreen(
                                     onClick = {
                                         showMoreTabsDropdown = false
                                         scope.launch {
-                                            pagerState.animateScrollToPage(moreTabIndex)
+                                            pagerState.scrollToPage(moreTabIndex)
                                         }
                                     }
                                 )
@@ -663,9 +622,10 @@ fun LibraryScreen(
                 )
             }
 
-            // ── HORIZONTAL SWIPEABLE PAGER ───────────────────────────────────────────
+            // ── HORIZONTAL PAGER (Tap navigation only — prevents swiping from hijacking carousels) ───────────
             HorizontalPager(
                 state = pagerState,
+                userScrollEnabled = false,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (tabs[page]) {

@@ -59,7 +59,7 @@ fun TvMusicApp(
 
     // Helper: plays a YouTube search result using the existing ViewModel pipeline
     val onPlaySong: (YouTubeSearchResult) -> Unit = { track ->
-        viewModel.playYouTubeVideo(track)
+        viewModel.playYouTubeVideo(track, preferVideo = true)
         showPlayer = true
     }
 

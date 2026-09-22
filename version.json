@@ -1,9 +1,8 @@
 {
-  "versionCode": 173,
-  "versionName": "1.7.2",
-  "title": "MusicDrop v1.7.2 — HD TV Video Player & TV Categories",
-  "changelog": "• HD TV Video Player: Watch YouTube music videos in full-screen HD on your TV screen with one click!\n• Video ↔ Vinyl Audio Switch: Seamlessly toggle between full-screen video mode and spinning vinyl art with TV remote\n• In-Player & TV Downloads: Download songs directly from the player overlay with a single remote click\n• TV-Optimized Card Sizing: Sleek 16:9 cards (5-6 visible across) replacing oversized mobile cards\n• TV Category Chips & Navigation: Instant mood & category switching (Trending, Bollywood, Malayalam, Tamil, Lofi, Workout, Romantic)\n• Dedicated Downloads Screen: View and play offline saved tracks from the sidebar",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.2/MusicDrop-v1.7.2.apk",
+  "versionCode": 174,
+  "versionName": "1.7.3",
+  "title": "MusicDrop v1.7.3 — Mobile Tab Smooth Navigation & Native TV Video Engine",
+  "changelog": "• Rock-Solid Mobile Tab Navigation: Swiping carousels on Discover (categories, playlists, charts) no longer hijacks screen or switches tabs\n• Header Stability: Eliminated twitchy collapsing top bar so buttons stay perfectly reachable with zero screen jitter\n• Instant Smooth Tab Switching: Switching between Home, Songs, Playlists, Downloads, and Library is instantaneous with zero intermediate lag\n• Native TV Video Playback: Full hardware-accelerated video rendering via ExoPlayer in TV mode with zero blank screens or iframe blocks\n• Header De-clutter: Mobile top bar icons cleanly spaced without overcrowding",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.3/MusicDrop-v1.7.3.apk",
   "forceUpdate": false
 }
-
