@@ -348,7 +348,7 @@ fun TvPlayerOverlay(
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 16.dp)
                 ) {
-                    // Seekbar with elapsed and total duration
+                    // Seekbar with elapsed and total duration (YouTube on Android TV style)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -356,25 +356,43 @@ fun TvPlayerOverlay(
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(formatTime(positionMs), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            Text(formatTime(durationMs), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text(formatTime(positionMs), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(formatTime(durationMs), color = Color.White.copy(0.7f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(6.dp))
                         val progressFraction = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
-                        Box(
+                        BoxWithConstraints(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(5.dp)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(Color.White.copy(0.25f))
+                                .height(16.dp),
+                            contentAlignment = Alignment.CenterStart
                         ) {
+                            val activeWidth = maxWidth * progressFraction
+                            // Background track
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth(progressFraction)
-                                    .fillMaxHeight()
-                                    .background(Color(0xFFFF0033))
+                                    .fillMaxWidth()
+                                    .height(5.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(Color.White.copy(0.3f))
+                            )
+                            // Red Progress track
+                            Box(
+                                modifier = Modifier
+                                    .width(activeWidth)
+                                    .height(5.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(Color(0xFFFF0000))
+                            )
+                            // Red scrubber circle head (Thumb)
+                            Box(
+                                modifier = Modifier
+                                    .offset(x = (activeWidth - 7.dp).coerceAtLeast(0.dp))
+                                    .size(14.dp)
+                                    .background(Color(0xFFFF0000), CircleShape)
                             )
                         }
                     }
