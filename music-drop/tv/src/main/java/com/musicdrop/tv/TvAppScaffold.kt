@@ -21,6 +21,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import com.musicdrop.tv.data.TvNavScreen
 import com.musicdrop.tv.player.TvPlayerOverlay
 import com.musicdrop.tv.screens.*
@@ -58,25 +60,22 @@ fun TvAppScaffold(viewModel: TvViewModel) {
                     .padding(vertical = 28.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                // Header Logo Avatar
+                // Header Logo: Official MusicDrop Icon + MusicDrop TV
                 Row(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Box(
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_musicdrop_bird),
+                        contentDescription = "MusicDrop",
                         modifier = Modifier
-                            .width(42.dp)
-                            .height(30.dp)
+                            .size(36.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFFFF0000)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("▶", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
+                    )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("YouTube", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        Spacer(Modifier.width(4.dp))
+                        Text("MusicDrop", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Spacer(Modifier.width(6.dp))
                         Text("TV", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF0000))
                     }
                 }
