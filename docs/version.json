@@ -1,8 +1,8 @@
 {
-  "versionCode": 169,
-  "versionName": "1.5.9",
-  "title": "MusicDrop v1.5.9 Available",
-  "changelog": "• Fixed Song Selection in Device & Download Tabs: Clicking a song in the Device or Download tab now reliably plays the exact clicked track rather than defaulting to track index 0 or another song\n• Robust Track Indexing & Fallback: Playback connection now cross-references track ID, file path, and URI, guaranteeing the selected track is played immediately\n• Fixed Double Audio / Simultaneous Video Autoplay: Playing an audio track strictly resets player view to Audio mode and prevents background YouTube video resolution from playing audio concurrently\n• Queue & Autoplay Isolation: Local track playback now clears stale online queue items and prevents online recommendation streams from unexpectedly hijacking offline listening sessions",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.9/MusicDrop-v1.5.9.apk",
+  "versionCode": 170,
+  "versionName": "1.6.0",
+  "title": "MusicDrop v1.6.0 Available",
+  "changelog": "• Voice Search Integration: Tap the new microphone button in the search bar to speak and instantly search songs, artists, or albums via Google Speech Recognizer\n• Hip-Hop & Regional Rapper Avatars: Updated Desi Hip Hop, Gully Icons, Mallu Rappers, and Tamil Rappers with verified high-resolution artist avatars and glowing gradient initials fallback cards\n• JioSaavn Live Refresh & 2026 Releases: Added live cache-busting and fresh 2026 trending release queries, plus a dedicated one-tap Refresh button on the JioSaavn screen\n• Trending & Speed Dial Album Songs: Fixed album track resolution across YouTube Music MPRE albums, OLAK playlists, and custom album cards so tapping any album in Speed Dial or New Releases always shows its full tracklist",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.6.0/MusicDrop-v1.6.0.apk",
   "forceUpdate": true
 }

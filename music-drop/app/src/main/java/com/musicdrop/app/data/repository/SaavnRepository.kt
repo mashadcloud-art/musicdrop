@@ -20,10 +20,11 @@ object SaavnRepository {
     suspend fun search(query: String, limit: Int = 20): List<MediaItem> = withContext(Dispatchers.IO) {
         try {
             val encoded = java.net.URLEncoder.encode(query, "UTF-8")
-            val url = "$PROXY_BASE/search?q=$encoded&limit=$limit"
+            val timestamp = System.currentTimeMillis()
+            val url = "$PROXY_BASE/search?q=$encoded&limit=$limit&_t=$timestamp"
             val json = URL(url).readText()
             val obj = JSONObject(json)
-            val arr = obj.getJSONArray("songs")
+            val arr = obj.optJSONArray("songs") ?: return@withContext emptyList()
             (0 until arr.length()).mapNotNull { i ->
                 parseSong(arr.getJSONObject(i))
             }
@@ -33,19 +34,51 @@ object SaavnRepository {
         }
     }
 
-    // ─── Get trending songs ─────────────────────────────────────────────────
-    suspend fun getTrending(): List<MediaItem> = withContext(Dispatchers.IO) {
+    // ─── Get trending songs (blends live 2026 hits & trending charts) ────────
+    suspend fun getTrending(force: Boolean = false): List<MediaItem> = withContext(Dispatchers.IO) {
+        val results = mutableListOf<MediaItem>()
+
+        // 1. Fetch live 2026 fresh releases & trending hits directly via search
         try {
-            val json = URL("$PROXY_BASE/trending").readText()
+            val freshHits = search("latest songs 2026", limit = 15)
+            if (freshHits.isNotEmpty()) results.addAll(freshHits)
+        } catch (_: Exception) {}
+
+        // 2. Fetch /trending with cache buster
+        try {
+            val timestamp = System.currentTimeMillis()
+            val json = URL("$PROXY_BASE/trending?_t=$timestamp").readText()
             val obj = JSONObject(json)
-            val arr = obj.getJSONArray("songs")
-            (0 until arr.length()).mapNotNull { i ->
-                parseSong(arr.getJSONObject(i))
+            val arr = obj.optJSONArray("songs")
+            if (arr != null) {
+                val trending = (0 until arr.length()).mapNotNull { i ->
+                    parseSong(arr.getJSONObject(i))
+                }
+                results.addAll(trending)
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            emptyList()
         }
+
+        // 3. Fallback to trending Bollywood & Punjabi hits if empty
+        if (results.isEmpty()) {
+            results.addAll(search("trending songs", limit = 20))
+        }
+
+        results.distinctBy { it.id }
+    }
+
+    // ─── Get new releases directly from JioSaavn ────────────────────────────
+    suspend fun getNewReleases(): List<MediaItem> = withContext(Dispatchers.IO) {
+        val list = mutableListOf<MediaItem>()
+        val queries = listOf("new releases 2026", "latest hindi songs 2026", "latest punjabi 2026")
+        for (q in queries) {
+            try {
+                val songs = search(q, limit = 12)
+                list.addAll(songs)
+            } catch (_: Exception) {}
+        }
+        list.distinctBy { it.id }
     }
 
     // ─── Get song by ID (with stream URL) ───────────────────────────────────

@@ -58,7 +58,28 @@ fun AlbumDetailScreen(
         if (albumDetails == null) {
             loading = true
         }
-        val details = YtMusicApiRepository.getAlbum(browseId)
+        var details = YtMusicApiRepository.getAlbum(browseId)
+        if (details == null || details.tracks.isEmpty()) {
+            val query = when {
+                initialTitle.isNotBlank() && initialArtist.isNotBlank() -> "$initialTitle $initialArtist songs"
+                initialTitle.isNotBlank() -> "$initialTitle full album songs"
+                else -> browseId
+            }
+            try {
+                val outcome = com.musicdrop.app.data.youtube.YouTubeSearchRepository.search(query)
+                if (outcome is com.musicdrop.app.data.youtube.YouTubeSearchOutcome.Success && outcome.results.isNotEmpty()) {
+                    details = YtMusicApiRepository.YtAlbumDetails(
+                        title = initialTitle.ifBlank { "Album" },
+                        artistName = initialArtist.ifBlank { outcome.results.first().channelTitle },
+                        year = "2026",
+                        thumbnailUrl = initialThumb.ifBlank { outcome.results.first().thumbnailUrl },
+                        trackCount = outcome.results.size,
+                        duration = "",
+                        tracks = outcome.results
+                    )
+                }
+            } catch (_: Exception) {}
+        }
         if (details != null) {
             albumDetails = details
         }

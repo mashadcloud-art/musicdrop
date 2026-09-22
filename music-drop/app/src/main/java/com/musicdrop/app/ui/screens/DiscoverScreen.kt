@@ -360,43 +360,43 @@ fun DiscoverScreen(
 
     val desiHipHopStars = remember {
         listOf(
-            HipHopArtistData("DIVINE", "Gully Gang · Mumbai", "7.4M", "https://i.ytimg.com/vi/3AtDnEC4zak/hqdefault.jpg", "DIVINE rap songs"),
-            HipHopArtistData("Naezy", "The Baa · Aafat", "1.8M", "https://i.ytimg.com/vi/u_L1rJ32iG8/hqdefault.jpg", "Naezy rap songs"),
-            HipHopArtistData("Emiway Bantai", "Bantai Records · Machayenge", "8.2M", "https://i.ytimg.com/vi/k4yXQkG2s1E/hqdefault.jpg", "Emiway Bantai songs"),
-            HipHopArtistData("Seedhe Maut", "Calm & Encore · Nayaab", "3.5M", "https://i.ytimg.com/vi/BddP6PYo2gs/hqdefault.jpg", "Seedhe Maut songs"),
-            HipHopArtistData("KR" + "$" + "NA", "Kalamkaar · Still Here", "4.1M", "https://i.ytimg.com/vi/OQv37Xo55v8/hqdefault.jpg", "KRSNA rap songs"),
-            HipHopArtistData("MC Stan", "Tadipaar · Insaan", "12.5M", "https://i.ytimg.com/vi/qG4l8_WbAis/hqdefault.jpg", "MC Stan songs"),
-            HipHopArtistData("Raftaar", "Kalamkaar · Hard Drive", "5.9M", "https://i.ytimg.com/vi/oM-225i_d-g/hqdefault.jpg", "Raftaar rap songs"),
-            HipHopArtistData("Badshah", "Desi Hip Hop · 3:00 AM", "14.2M", "https://i.ytimg.com/vi/Gkyv1KvdzZg/hqdefault.jpg", "Badshah top songs"),
-            HipHopArtistData("Yo Yo Honey Singh", "Glory · Desi Kalakaar", "16.8M", "https://i.ytimg.com/vi/KhnVcVyLmsQ/hqdefault.jpg", "Yo Yo Honey Singh songs"),
-            HipHopArtistData("King", "New Life · Maan Meri Jaan", "6.2M", "https://i.ytimg.com/vi/VuG7FT9dUJ4/hqdefault.jpg", "King hip hop songs")
+            HipHopArtistData("DIVINE", "Gully Gang · Mumbai", "7.4M", "https://yt3.googleusercontent.com/a3wZvgiy2ANMBlSzrBHr232HqX6oCBHjQ7a4DOahaeUVtTysin5uV-E9F-olprYHb7WJwF9AUZbcH5A=w120-h120-p-l90-rj", "DIVINE rap songs"),
+            HipHopArtistData("Naezy", "The Baa · Aafat", "1.8M", "https://lh3.googleusercontent.com/A7qovVuzXViK39mrt74ZlY7atQzLFKcYLrbUGpodBSA4TOiOnUviZL-dfxAm4AUjfFX3FXYS-shRs0Q=w120-h120-p-l90-rj", "Naezy rap songs"),
+            HipHopArtistData("Emiway Bantai", "Bantai Records · Machayenge", "8.2M", "https://yt3.googleusercontent.com/-7rsPejxcna4AlrsVt_SsAFs8TH34Mh967V-jGHCxR7dalOrcbxVQUcVLhMvIKI0_AbJenSCbA=w120-h120-l90-rj-dcFTOeM5kJ", "Emiway Bantai songs"),
+            HipHopArtistData("Seedhe Maut", "Calm & Encore · Nayaab", "3.5M", "https://yt3.googleusercontent.com/DUcKt_1YaJ_48_T_hlxWg285BGKkTfwNdzKRV82G-gHZVerUQ8FD8Dl2hkqHLUirrJDnG4C3RA=w120-h120-l90-rj", "Seedhe Maut songs"),
+            HipHopArtistData("KR" + "$" + "NA", "Kalamkaar · Still Here", "4.1M", "https://yt3.ggpht.com/ytc/AIdro_n00p_ZePoxDQQ9m1fOAv5f6CPy-GyG97eU5hKHI3wX5cM=w120-h120-l90-rj", "KRSNA rap songs"),
+            HipHopArtistData("MC Stan", "Tadipaar · Insaan", "12.5M", "https://yt3.googleusercontent.com/XyR-xmJJoR6J4AqcxHERWkBGfrNxtdLKU0GvK3FsstWqM6Sfuyt7HdDjOZU-sZt3Yiq9eSvVLA=w120-h120-l90-rj-dcpUWO7KEI", "MC Stan songs"),
+            HipHopArtistData("Raftaar", "Kalamkaar · Hard Drive", "5.9M", "https://lh3.googleusercontent.com/z610DpdCiipHA1F_igiSvVNupDEv9ES2-bO0N1Ox69vW-lItyCOD9Jsqti4PBm5ZPD3XoKowbHPMxw=w120-h120-p-l90-rj", "Raftaar rap songs"),
+            HipHopArtistData("Badshah", "Desi Hip Hop · 3:00 AM", "14.2M", "https://lh3.googleusercontent.com/bbR8znm7CX07mCGQH-M484ckFRaKkSmTjwrwuFZxQUBy7Uc5gQcintkpqDXCuSX0DdLLg2aPskZhC2s=w120-h120-p-l90-rj", "Badshah top songs"),
+            HipHopArtistData("Yo Yo Honey Singh", "Glory · Desi Kalakaar", "16.8M", "https://lh3.googleusercontent.com/Ss_NEfGmfpwXCiuoNxiKxWAoU3M484SwZ4UmahATX7KwOqIaoqTyESuNyZV3fzJm25bmjtfSUxsIFI8=w120-h120-p-l90-rj", "Yo Yo Honey Singh songs"),
+            HipHopArtistData("King", "New Life · Maan Meri Jaan", "6.2M", "https://yt3.googleusercontent.com/zXNttSOqO-WhRBCImfU_U_SVCrEmk4GUENAM5F_hf7n704lMA6I2fvXvTrw1D_Sf8Lq7Gkz46Q=w120-h120-l90-rj-dcqVSaryEJ", "King hip hop songs")
         )
     }
 
     val malluRappers = remember {
         listOf(
-            HipHopArtistData("Hanumankind", "Big Dawgs · Kerala", "9.8M", "https://i.ytimg.com/vi/hOHKltAiKXQ/hqdefault.jpg", "Hanumankind songs"),
-            HipHopArtistData("Dabzee", "Manavalan Thug · Malappuram", "4.5M", "https://i.ytimg.com/vi/oQ2nO1J0-R8/hqdefault.jpg", "Dabzee rap songs"),
-            HipHopArtistData("Fejo", "Aparaada · Kochi Rap", "2.1M", "https://i.ytimg.com/vi/4y3m2D5k5Z8/hqdefault.jpg", "Fejo malayalam rap"),
-            HipHopArtistData("ThirumaLi", "Malayali Da · Kottayam", "2.8M", "https://i.ytimg.com/vi/sQk4eR9r2_M/hqdefault.jpg", "ThirumaLi songs"),
-            HipHopArtistData("Baby Jean", "Kathanar · Wayanad", "1.9M", "https://i.ytimg.com/vi/y8t8kP11m0o/hqdefault.jpg", "Baby Jean malayalam rap"),
-            HipHopArtistData("Vedan", "Voice of the Voiceless", "1.7M", "https://i.ytimg.com/vi/qG-t1aZ3Rrg/hqdefault.jpg", "Vedan rap songs"),
-            HipHopArtistData("Neeraj Madhav (NJ)", "Panipaali · Kozhikode", "3.2M", "https://i.ytimg.com/vi/7yK0Jk4U18I/hqdefault.jpg", "Neeraj Madhav NJ songs"),
-            HipHopArtistData("MC Couper", "Kallanum Polisum · TVM", "920K", "https://i.ytimg.com/vi/aZ3G4Q0n7qE/hqdefault.jpg", "MC Couper rap"),
-            HipHopArtistData("Street Academics", "Kalapila · Kerala Hip Hop", "1.2M", "https://i.ytimg.com/vi/N9H8sP0p0mI/hqdefault.jpg", "Street Academics songs")
+            HipHopArtistData("Hanumankind", "Big Dawgs · Kerala", "9.8M", "https://yt3.googleusercontent.com/zOS_QYl-65KQgDT1-DVVEBuDt31HEDBz2KqtycWoRbXn6JeKcGE763hTIxqnkEP-2kL69Pwk5w=w120-h120-l90-rj-dcAUCWTxko0EgC", "Hanumankind songs"),
+            HipHopArtistData("Dabzee", "Manavalan Thug · Malappuram", "4.5M", "https://yt3.googleusercontent.com/64GelX6IXb5kZPpUlcffL0DS3_qanJ3xUU693M_lPBjaQo7BV64wyP2fyzLDKb9lnCShNeOSXZVUSpMYAw=w120-h120-l90-rj", "Dabzee rap songs"),
+            HipHopArtistData("Fejo", "Aparaada · Kochi Rap", "2.1M", "https://yt3.googleusercontent.com/7yyzK3109X05ZQ_g0dDyKwNE8mnbB3YJIfamnwp_A__YVz2NOK-CfOfflGV7ffDaRyaGLwL7E7w6UvKw=w120-h120-l90-rj", "Fejo malayalam rap"),
+            HipHopArtistData("ThirumaLi", "Malayali Da · Kottayam", "2.8M", "https://yt3.googleusercontent.com/vFBoXPk44I3XJGYO48qxvwylxXcnOiLxKBNK4KzBtf1LEITqNvUyBCyPPNPwy5TWZIywZ9AM0oWlcJvc=w120-h120-l90-rj", "ThirumaLi songs"),
+            HipHopArtistData("Baby Jean", "Kathanar · Wayanad", "1.9M", "https://yt3.googleusercontent.com/BCnmZaaQfRHs_HWyq5eAlmmXbarScypEow1UUHn2aD-4RDjaEn69wpfiIohI3MBewyTYY_GLWg=w120-h120-l90-rj", "Baby Jean malayalam rap"),
+            HipHopArtistData("Vedan", "Voice of the Voiceless", "1.7M", "https://yt3.googleusercontent.com/Q0z4edgawcUoGjo9yEi7NO4vML5BRKN9hh2XJ4h_IFG4Z4VlLmj5LmjLkmPqIW0a7R4IY100hw=w120-h120-l90-rj", "Vedan rap songs"),
+            HipHopArtistData("Neeraj Madhav (NJ)", "Panipaali · Kozhikode", "3.2M", "https://yt3.googleusercontent.com/6Q4rIkEgW8N9dfGf-EzoWW06qTYfuPyuwfjdGwyFccJ1RvG-afF65OMDnCImM7fBFHwiGoCb2FMrPY9_=w120-h120-l90-rj", "Neeraj Madhav NJ songs"),
+            HipHopArtistData("MC Couper", "Kallanum Polisum · TVM", "920K", "https://yt3.googleusercontent.com/BBin1DeTcjk-H6kaBdPKqzHPkgAUKAV6B5V_HKdFpqVm5xkeTub6w7k3o60E7OZYjsJjoTOag3C4Wwf7zg=w120-h120-l90-rj", "MC Couper rap"),
+            HipHopArtistData("Street Academics", "Kalapila · Kerala Hip Hop", "1.2M", "https://yt3.ggpht.com/ytc/AIdro_kRVLk8WMoq48w41YhC_lZz6Lz9us7CGjhzSzzWqNiEMA=w120-h120-l90-rj-dcGUOQSiEH", "Street Academics songs")
         )
     }
 
     val tamilRappers = remember {
         listOf(
-            HipHopArtistData("Arivu", "Enjoy Enjaami · Therukural", "5.4M", "https://i.ytimg.com/vi/eYq7WapuDLU/hqdefault.jpg", "Arivu rap songs"),
-            HipHopArtistData("Paal Dabba", "Kathu Mela · 170CM", "3.1M", "https://i.ytimg.com/vi/sL5K7Z2T6z0/hqdefault.jpg", "Paal Dabba songs"),
-            HipHopArtistData("Asal Kolaar", "Jorthaala · Vada Chennai", "2.6M", "https://i.ytimg.com/vi/d_2R8I6C6kQ/hqdefault.jpg", "Asal Kolaar songs"),
-            HipHopArtistData("Hiphop Tamizha", "Club Le Mabbu Le · Pioneer", "11.2M", "https://i.ytimg.com/vi/v2Eshm8H2r4/hqdefault.jpg", "Hiphop Tamizha songs"),
-            HipHopArtistData("Yogi B & Natchatra", "Madai Thiranthu · Legend", "2.9M", "https://i.ytimg.com/vi/kQe3_c5Yl5g/hqdefault.jpg", "Yogi B Natchatra songs"),
-            HipHopArtistData("ADK", "Aathichudi · Colombo/Chennai", "1.8M", "https://i.ytimg.com/vi/yT2z8g5B_6k/hqdefault.jpg", "ADK tamil rap"),
-            HipHopArtistData("OfRo", "Therukural · Producer/MC", "1.5M", "https://i.ytimg.com/vi/K1m4p2r5Z0k/hqdefault.jpg", "OfRo songs"),
-            HipHopArtistData("Ken Karunas", "Vada Chennai · Asuran", "1.1M", "https://i.ytimg.com/vi/bV6n5M7t_0Q/hqdefault.jpg", "Ken Karunas rap")
+            HipHopArtistData("Arivu", "Enjoy Enjaami · Therukural", "5.4M", "https://lh3.googleusercontent.com/0QDZohumAtFlbONVusMVMR4YNz_2en6mRIds0kvyZQ4ccnfLfukO2PsO8-_YdOLBoyk8D42_z7PLFg=w120-h120-p-l90-rj", "Arivu rap songs"),
+            HipHopArtistData("Paal Dabba", "Kathu Mela · 170CM", "3.1M", "https://yt3.googleusercontent.com/ABZuKvC3mB6TlhOBV22HJXfM4ZGLRN4uwQ1MnQcp6e8OtHDxT6rUN6efzPZeXPve7-8DEJb8=w120-h120-l90-rj", "Paal Dabba songs"),
+            HipHopArtistData("Asal Kolaar", "Jorthaala · Vada Chennai", "2.6M", "https://yt3.googleusercontent.com/RiisZ2o46Kf16cka_RGOWAT4tg_QWkSYqqnC8eCIdH3KiBARfSVzCi5LYF7QY4fqbC1HbCVMgQ=w120-h120-l90-rj", "Asal Kolaar songs"),
+            HipHopArtistData("Hiphop Tamizha", "Club Le Mabbu Le · Pioneer", "11.2M", "https://yt3.googleusercontent.com/zkX7FBr1BBzAhH7U5KT6hzBbPx8kjfK1QpTRbW-oM-J8v2f6P0t9idQuPZkssxnIk3U5yBC3KcmU5g=w120-h120-p-l90-rj", "Hiphop Tamizha songs"),
+            HipHopArtistData("Yogi B & Natchatra", "Madai Thiranthu · Legend", "2.9M", "https://yt3.googleusercontent.com/2ei96JJuFJ7TgG3cWL7OzYe1vZ0ctQo5odGRkQJDq3tIegP0rTUHxdGRTiBmtQ1rEGl5VVNkakenbNOcfQ=w120-h120-l90-rj", "Yogi B Natchatra songs"),
+            HipHopArtistData("ADK", "Aathichudi · Colombo/Chennai", "1.8M", "https://lh3.googleusercontent.com/Q9vhAQKKHv6S6Y388hjLhyLyiTlgheQQWk6_fsv6sTJUh0jzinTL6Fpa1VqTj6LRibBW0gyLhQzkdwg=w120-h120-p-l90-rj", "ADK tamil rap"),
+            HipHopArtistData("OfRo", "Therukural · Producer/MC", "1.5M", "https://yt3.googleusercontent.com/vjMgx84SV2a7IhkWmj_gFJ5NFhahGkq0_IDWzpHPn9diCwDBKk9RKMlrY0VfsHTAXrcuDIFaqQ=w120-h120-l90-rj-dcoTaMC54I", "OfRo songs"),
+            HipHopArtistData("Ken Karunas", "Vada Chennai · Asuran", "1.1M", "https://lh3.googleusercontent.com/4Jd9XSimz29-o12oJKUmgfTx3otHBHlTy0jb3Ace4ti2bz8Nuo59IeneNlM9EKRQXNRpLwk6YoEuNQ=w120-h120-p-l90-rj", "Ken Karunas rap")
         )
     }
 
@@ -894,7 +894,8 @@ fun DiscoverScreen(
                                                                 browseId = album.videoId,
                                                                 audioPlaylistId = album.videoId,
                                                                 thumbnailUrl = album.thumbnailUrl,
-                                                                type = album.duration.ifBlank { "Album" }
+                                                                type = album.duration.ifBlank { "Album" },
+                                                                artistName = album.channelTitle
                                                             )
                                                         )
                                                     }
@@ -1338,9 +1339,20 @@ fun DiscoverScreen(
                                                 modifier = Modifier
                                                     .size(86.dp)
                                                     .clip(CircleShape)
-                                                    .background(appColors.surfaceElevated)
-                                                    .border(2.dp, Brush.linearGradient(listOf(Color(0xFFFF5722), Color(0xFFFF9800))), CircleShape)
+                                                    .background(
+                                                        Brush.radialGradient(
+                                                            colors = listOf(Color(0xFF431407), Color(0xFF1E1B4B))
+                                                        )
+                                                    )
+                                                    .border(2.dp, Brush.linearGradient(listOf(Color(0xFFFF5722), Color(0xFFFF9800))), CircleShape),
+                                                contentAlignment = Alignment.Center
                                             ) {
+                                                Text(
+                                                    text = artist.name.take(2).uppercase(),
+                                                    color = Color.White.copy(alpha = 0.85f),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 20.sp
+                                                )
                                                 AsyncImage(
                                                     model = artist.imageUrl,
                                                     contentDescription = artist.name,
@@ -1394,9 +1406,20 @@ fun DiscoverScreen(
                                                 modifier = Modifier
                                                     .size(86.dp)
                                                     .clip(CircleShape)
-                                                    .background(appColors.surfaceElevated)
-                                                    .border(2.dp, Brush.linearGradient(listOf(Color(0xFF00C853), Color(0xFF64DD17))), CircleShape)
+                                                    .background(
+                                                        Brush.radialGradient(
+                                                            colors = listOf(Color(0xFF064E3B), Color(0xFF0F172A))
+                                                        )
+                                                    )
+                                                    .border(2.dp, Brush.linearGradient(listOf(Color(0xFF00C853), Color(0xFF64DD17))), CircleShape),
+                                                contentAlignment = Alignment.Center
                                             ) {
+                                                Text(
+                                                    text = artist.name.take(2).uppercase(),
+                                                    color = Color.White.copy(alpha = 0.85f),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 20.sp
+                                                )
                                                 AsyncImage(
                                                     model = artist.imageUrl,
                                                     contentDescription = artist.name,
@@ -1450,9 +1473,20 @@ fun DiscoverScreen(
                                                 modifier = Modifier
                                                     .size(86.dp)
                                                     .clip(CircleShape)
-                                                    .background(appColors.surfaceElevated)
-                                                    .border(2.dp, Brush.linearGradient(listOf(Color(0xFFFF3D00), Color(0xFFFF9100))), CircleShape)
+                                                    .background(
+                                                        Brush.radialGradient(
+                                                            colors = listOf(Color(0xFF450A0A), Color(0xFF1E1B4B))
+                                                        )
+                                                    )
+                                                    .border(2.dp, Brush.linearGradient(listOf(Color(0xFFFF3D00), Color(0xFFFF9100))), CircleShape),
+                                                contentAlignment = Alignment.Center
                                             ) {
+                                                Text(
+                                                    text = artist.name.take(2).uppercase(),
+                                                    color = Color.White.copy(alpha = 0.85f),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 20.sp
+                                                )
                                                 AsyncImage(
                                                     model = artist.imageUrl,
                                                     contentDescription = artist.name,
@@ -3582,7 +3616,8 @@ fun SpeedDialShelf(
                                                             browseId = it.videoId,
                                                             audioPlaylistId = it.videoId,
                                                             thumbnailUrl = it.thumbnailUrl,
-                                                            type = it.duration.ifBlank { "Album" }
+                                                            type = it.duration.ifBlank { "Album" },
+                                                            artistName = it.channelTitle
                                                         )
                                                     )
                                                 }

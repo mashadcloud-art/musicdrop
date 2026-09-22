@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -526,6 +527,27 @@ private fun JioSaavnSourceScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     cursorColor = Color.White
                 )
             )
+            Spacer(Modifier.width(6.dp))
+            IconButton(
+                onClick = { viewModel.refreshSaavn() },
+                enabled = !loading,
+                modifier = Modifier.size(38.dp)
+            ) {
+                if (loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MusicSource.JIOSAAVN.badgeColor
+                    )
+                } else {
+                    Icon(
+                        Icons.Filled.Refresh,
+                        contentDescription = "Refresh New Releases",
+                        tint = MusicSource.JIOSAAVN.badgeColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
         }
         EmptyOrLoading(loading, tracks.isEmpty(), "No JioSaavn results yet", accentColor = MusicSource.JIOSAAVN.badgeColor)
         LazyVerticalGrid(

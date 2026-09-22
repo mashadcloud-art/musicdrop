@@ -2040,10 +2040,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (force && _saavnLoading.value) return
         viewModelScope.launch {
             _saavnLoading.value = true
-            val songs = SaavnRepository.getTrending()
+            val songs = SaavnRepository.getTrending(force = force)
             _saavnTrending.value = songs
             _saavnLoading.value = false
         }
+    }
+
+    fun refreshSaavn() {
+        loadSaavnTrending(force = true)
     }
 
     fun searchSaavn(query: String) {

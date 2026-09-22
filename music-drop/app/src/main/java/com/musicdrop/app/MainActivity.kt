@@ -590,7 +590,7 @@ fun MainAppContent(viewModel: MainViewModel) {
                 AlbumDetailScreen(
                     browseId = albumSnapshot.browseId.orEmpty(),
                     initialTitle = albumSnapshot.title,
-                    initialArtist = albumSnapshot.type.orEmpty(),
+                    initialArtist = albumSnapshot.artistName?.ifBlank { null } ?: albumSnapshot.type.orEmpty(),
                     initialThumb = albumSnapshot.thumbnailUrl.orEmpty(),
                     viewModel = viewModel,
                     onBack = { openAlbum = null },

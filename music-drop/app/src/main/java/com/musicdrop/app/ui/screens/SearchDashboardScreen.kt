@@ -38,6 +38,14 @@ import com.musicdrop.app.data.model.UnifiedTrack
 import com.musicdrop.app.data.youtube.YouTubeSearchResult
 import com.musicdrop.app.ui.components.AddToPlaylistDialog
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.rounded.Mic
 import com.musicdrop.app.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
 
@@ -50,8 +58,22 @@ fun SearchDashboardScreen(
     onOpenArtist: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist) -> Unit = {},
     onOpenAlbum: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtCardItem) -> Unit = {}
 ) {
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf(initialQuery) }
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (!spokenText.isNullOrBlank()) {
+                searchQuery = spokenText
+                viewModel.setYtSearchQuery(spokenText)
+                viewModel.addRecentSearch(spokenText)
+            }
+        }
+    }
 
     // Handle physical and software back navigation
     BackHandler {
@@ -188,6 +210,28 @@ fun SearchDashboardScreen(
                                 modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color(0xFFB0B0B0), modifier = Modifier.size(18.dp))
+                            }
+                        } else {
+                            IconButton(
+                                onClick = {
+                                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to search songs, artists, or albums…")
+                                    }
+                                    try {
+                                        speechLauncher.launch(intent)
+                                    } catch (_: Exception) {
+                                        Toast.makeText(context, "Voice search is not supported on this device", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Mic,
+                                    contentDescription = "Voice Search",
+                                    tint = Color(0xFFE53935),
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
                     }

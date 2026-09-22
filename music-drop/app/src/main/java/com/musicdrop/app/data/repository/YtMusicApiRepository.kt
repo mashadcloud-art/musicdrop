@@ -86,7 +86,8 @@ object YtMusicApiRepository {
         val audioPlaylistId: String? = null,
         val thumbnailUrl: String? = null,
         val year: String? = null,
-        val type: String? = null
+        val type: String? = null,
+        val artistName: String? = null
     )
 
     data class YtChartArtist(
@@ -368,7 +369,11 @@ object YtMusicApiRepository {
                 val thumb = extractThumbnail(item.optJSONArray("thumbnails")) ?: ""
                 val type = item.optString("type", "Single")
 
-                val effectiveId = if (audioPlaylistId.isNotBlank()) audioPlaylistId else browseId
+                val effectiveId = when {
+                    browseId.startsWith("MPRE") -> browseId
+                    audioPlaylistId.isNotBlank() -> audioPlaylistId
+                    else -> browseId
+                }
                 if (effectiveId.isNotBlank()) {
                     list.add(
                         YouTubeSearchResult(
@@ -658,6 +663,25 @@ object YtMusicApiRepository {
     suspend fun getAlbum(browseId: String): YtAlbumDetails? = withContext(Dispatchers.IO) {
         val cacheKey = "album_$browseId"
         getCached<YtAlbumDetails>(cacheKey)?.let { return@withContext it }
+
+        // If browseId is an audio playlist (starts with OLAK, PL, VL), fetch from playlist endpoint directly
+        if (browseId.startsWith("OLAK") || browseId.startsWith("PL") || browseId.startsWith("VL")) {
+            val pTracks = getPlaylistTracks(browseId)
+            if (pTracks.isNotEmpty()) {
+                val first = pTracks.first()
+                val details = YtAlbumDetails(
+                    title = "Album",
+                    artistName = first.channelTitle.ifBlank { "Various Artists" },
+                    year = "2026",
+                    thumbnailUrl = first.thumbnailUrl,
+                    trackCount = pTracks.size,
+                    duration = "",
+                    tracks = pTracks
+                )
+                putCache(cacheKey, details)
+                return@withContext details
+            }
+        }
 
         val url = "$BASE_URL/album?id=$browseId"
         val jsonStr = httpGet(url) ?: return@withContext null
