@@ -31,9 +31,15 @@ data class DownloadedTrack(
             title.startsWith("Call", ignoreCase = true) ||
             (file.exists() && file.length() < 150_000L && !filePath.contains("MusicDrop", ignoreCase = true))
         )
+        val effectiveUri = when {
+            filePath.startsWith("content://") -> android.net.Uri.parse(filePath)
+            file.exists() -> android.net.Uri.fromFile(file)
+            filePath.isNotBlank() -> android.net.Uri.parse(filePath)
+            else -> android.net.Uri.EMPTY
+        }
         return MediaItem(
             id = key.hashCode().toLong(),
-            uri = android.net.Uri.fromFile(file),
+            uri = effectiveUri,
             name = title,
             size = if (file.exists()) file.length() else 0L,
             dateAdded = downloadedAtMs / 1000L,

@@ -1,8 +1,8 @@
 {
-  "versionCode": 168,
-  "versionName": "1.5.8",
-  "title": "MusicDrop v1.5.8 Available",
-  "changelog": "• Fixed Video Mode Switching: Eliminated unrelated hardcoded video fallback (Kesariya) and prevented stale video IDs from persisting when switching tracks\n• Strict Song-to-Video Match Verification: Switching from Audio to Video now verifies title/artist alignment; if no matching video stream exists, it displays an ambient audio cover screen rather than an unrelated video\n• Stale Video Cache Clearance: Audio playback immediately clears past video sessions so switching to video mode never bleeds from an older session\n• Seamless Video Tab Transition: Clean loading spinner and graceful audio fallback indicator",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.8/MusicDrop-v1.5.8.apk",
+  "versionCode": 169,
+  "versionName": "1.5.9",
+  "title": "MusicDrop v1.5.9 Available",
+  "changelog": "• Fixed Song Selection in Device & Download Tabs: Clicking a song in the Device or Download tab now reliably plays the exact clicked track rather than defaulting to track index 0 or another song\n• Robust Track Indexing & Fallback: Playback connection now cross-references track ID, file path, and URI, guaranteeing the selected track is played immediately\n• Fixed Double Audio / Simultaneous Video Autoplay: Playing an audio track strictly resets player view to Audio mode and prevents background YouTube video resolution from playing audio concurrently\n• Queue & Autoplay Isolation: Local track playback now clears stale online queue items and prevents online recommendation streams from unexpectedly hijacking offline listening sessions",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.9/MusicDrop-v1.5.9.apk",
   "forceUpdate": true
 }

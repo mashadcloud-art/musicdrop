@@ -3258,6 +3258,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val track = lastPlayedUnified ?: _ytCurrentVideo.value?.let { UnifiedTrack.Youtube(it) }
+        if (track is UnifiedTrack.Local) {
+            // Local device/downloaded playback is managed natively by ExoPlayer playlist and localQueue;
+            // do not leak into online YouTube searches/recommendations.
+            return
+        }
         viewModelScope.launch {
             val candidates = if (track != null) {
                 try {
@@ -3864,6 +3869,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!isVideo) {
             _ytCurrentVideo.value = null
         }
+        _upNextQueue.value = emptyList()
+        _localQueue.value = emptyList()
 
         val currentAudioList = customList ?: when (_audioFilter.value) {
             AudioFilter.ALL -> _allAudio.value

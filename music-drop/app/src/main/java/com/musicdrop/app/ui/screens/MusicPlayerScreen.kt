@@ -109,6 +109,11 @@ fun MusicPlayerScreen(
     LaunchedEffect(currentTrack?.id, currentTrack?.mediaType) {
         if (currentTrack?.mediaType == MediaType.VIDEO) {
             activeTab = 1
+        } else {
+            activeTab = 0
+            if (viewModel.isVideoMode.value) {
+                viewModel.setVideoMode(false)
+            }
         }
     }
 

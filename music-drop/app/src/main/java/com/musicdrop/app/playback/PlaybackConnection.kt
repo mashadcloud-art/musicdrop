@@ -286,15 +286,21 @@ class PlaybackConnection(private val context: Context) {
     }
 
     fun playTrack(track: AppMediaItem, currentList: List<AppMediaItem>, startPositionMs: Long = 0L) {
-        playlist = currentList
+        val foundIndex = currentList.indexOfFirst {
+            it.id == track.id ||
+            (!it.filePath.isNullOrBlank() && it.filePath.equals(track.filePath, ignoreCase = true)) ||
+            (it.uri != android.net.Uri.EMPTY && it.uri == track.uri)
+        }
+        val effectiveList = if (foundIndex >= 0) currentList else listOf(track) + currentList
+        val startIndex = if (foundIndex >= 0) foundIndex else 0
+
+        playlist = effectiveList
         _currentTrack.value = track
         if (track.durationMs > 0) {
             _durationMs.value = track.durationMs
         }
 
-        val mediaItems = currentList.map { item -> toExoMediaItem(item) }
-
-        val startIndex = currentList.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+        val mediaItems = effectiveList.map { item -> toExoMediaItem(item) }
 
         withController { c ->
             c.volume = 0.25f
@@ -306,9 +312,17 @@ class PlaybackConnection(private val context: Context) {
     }
 
     private fun toExoMediaItem(item: AppMediaItem): MediaItem {
+        val effectiveUri = when {
+            item.uri != android.net.Uri.EMPTY -> item.uri
+            !item.filePath.isNullOrBlank() -> {
+                val f = java.io.File(item.filePath)
+                if (f.exists()) android.net.Uri.fromFile(f) else android.net.Uri.parse(item.filePath)
+            }
+            else -> android.net.Uri.EMPTY
+        }
         val builder = MediaItem.Builder()
             .setMediaId(item.id.toString())
-            .setUri(item.uri)
+            .setUri(effectiveUri)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(item.name)

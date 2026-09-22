@@ -706,9 +706,7 @@ fun LibraryScreen(
                         downloadedTracks = downloadedTracks,
                         viewModel = viewModel,
                         onTrackClick = { dl ->
-                            val item = dl.toMediaItem()
-                            val list = downloadedTracks.map { it.toMediaItem() }
-                            viewModel.playTrack(item, list)
+                            viewModel.playDownloadedTrack(dl, downloadedTracks)
                         },
                         onMoreClick = { song -> selectedSongForOptions = song }
                     )
@@ -717,7 +715,7 @@ fun LibraryScreen(
                         allAudio = allAudio,
                         downloadedTracks = downloadedTracks,
                         videos = videos,
-                        onSongClick = { song -> viewModel.playTrack(song) },
+                        onSongClick = { song, list -> viewModel.playTrack(song, list) },
                         onRescan = {
                             viewModel.loadData()
                             viewModel.syncLocalDownloadedFiles()
@@ -2198,7 +2196,7 @@ fun DeviceMusicTabContent(
     allAudio: List<MediaItem>,
     downloadedTracks: List<DownloadedTrack>,
     videos: List<MediaItem>,
-    onSongClick: (MediaItem) -> Unit,
+    onSongClick: (MediaItem, List<MediaItem>) -> Unit,
     onRescan: () -> Unit,
     onMoreClick: ((MediaItem) -> Unit)? = null,
     onShareClick: ((MediaItem) -> Unit)? = null
@@ -2749,7 +2747,7 @@ fun DeviceMusicTabContent(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onSongClick(mediaItem) }
+                            .clickable { onSongClick(mediaItem, filteredList) }
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
