@@ -127,6 +127,7 @@ fun LibraryScreen(
     // In-library search filter
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
+    var showSkinThemeDialog by remember { mutableStateOf(false) }
 
     // Filtered songs
     val filteredSongs = remember(effectiveLocalSongs, searchQuery) {
@@ -220,7 +221,7 @@ fun LibraryScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0C0C10))
+            .background(appColors.background)
             .nestedScroll(nestedScrollConnection)
     ) {
         Column(
@@ -233,10 +234,10 @@ fun LibraryScreen(
                     .background(
                         Brush.verticalGradient(
                             listOf(
-                                appColors.accentPrimary.copy(alpha = 0.35f),
-                                appColors.surfaceElevated.copy(alpha = 0.85f),
-                                appColors.surface.copy(alpha = 0.90f),
-                                Color(0xFF0C0C10).copy(alpha = 0.98f)
+                                appColors.accentPrimary.copy(alpha = if (appColors.isDark) 0.35f else 0.18f),
+                                appColors.surfaceElevated.copy(alpha = if (appColors.isDark) 0.85f else 0.92f),
+                                appColors.surface.copy(alpha = if (appColors.isDark) 0.90f else 0.95f),
+                                appColors.background.copy(alpha = if (appColors.isDark) 0.98f else 0.99f)
                             )
                         )
                     )
@@ -271,7 +272,7 @@ fun LibraryScreen(
                                 val nextTheme = viewModel.cycleNextTheme()
                                 Toast.makeText(
                                     context,
-                                    "Theme: ${nextTheme.name.replace('_', ' ').lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}",
+                                    "Theme: ${nextTheme.displayName}",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
@@ -284,7 +285,7 @@ fun LibraryScreen(
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "Music",
-                            color = Color.White,
+                            color = appColors.textPrimary,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = (-0.5).sp
@@ -298,7 +299,7 @@ fun LibraryScreen(
                         )
                     }
 
-                    // Right: Refresh, Search & Themed Profile/Settings Avatar
+                    // Right: Refresh, Search, Theme/Skin Chooser & Settings Avatar
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
                             onClick = {
@@ -310,11 +311,11 @@ fun LibraryScreen(
                             Icon(
                                 imageVector = Icons.Rounded.Sync,
                                 contentDescription = "Refresh",
-                                tint = Color.White,
+                                tint = appColors.textPrimary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(4.dp))
                         IconButton(
                             onClick = { onOpenSearch("") },
                             modifier = Modifier.size(38.dp)
@@ -322,11 +323,26 @@ fun LibraryScreen(
                             Icon(
                                 imageVector = Icons.Rounded.Search,
                                 contentDescription = "Search",
-                                tint = Color.White,
+                                tint = appColors.textPrimary,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(4.dp))
+
+                        // Skin Theme Chooser Button (Matching Image 1 & 2)
+                        IconButton(
+                            onClick = { showSkinThemeDialog = true },
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Palette,
+                                contentDescription = "Skin Theme",
+                                tint = appColors.accentPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(6.dp))
+
                         // Themed Avatar / Settings Button matching active theme
                         Box(
                             modifier = Modifier
@@ -360,7 +376,7 @@ fun LibraryScreen(
                             .padding(horizontal = 16.dp, vertical = 6.dp)
                             .height(42.dp)
                             .clip(RoundedCornerShape(21.dp))
-                            .background(Color.White.copy(alpha = 0.08f))
+                            .background(if (appColors.isDark) Color.White.copy(alpha = 0.08f) else appColors.surfaceElevated)
                             .border(1.dp, appColors.accentPrimary.copy(alpha = 0.45f), RoundedCornerShape(21.dp))
                             .padding(horizontal = 14.dp),
                         contentAlignment = Alignment.CenterStart
@@ -372,7 +388,7 @@ fun LibraryScreen(
                             Icon(
                                 imageVector = Icons.Rounded.Search,
                                 contentDescription = null,
-                                tint = Color(0xFF8E8E9B),
+                                tint = appColors.textSecondary,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -381,7 +397,7 @@ fun LibraryScreen(
                                 onValueChange = { searchQuery = it },
                                 singleLine = true,
                                 textStyle = androidx.compose.ui.text.TextStyle(
-                                    color = Color.White,
+                                    color = appColors.textPrimary,
                                     fontSize = 14.sp
                                 ),
                                 modifier = Modifier.weight(1f)
@@ -407,7 +423,7 @@ fun LibraryScreen(
                 ScrollableTabRow(
                     selectedTabIndex = pagerState.currentPage,
                     containerColor = Color.Transparent,
-                    contentColor = Color.White,
+                    contentColor = appColors.textPrimary,
                     edgePadding = 16.dp,
                     divider = {},
                     indicator = { tabPositions ->
@@ -443,15 +459,15 @@ fun LibraryScreen(
                                     pagerState.animateScrollToPage(index)
                                 }
                             },
-                            selectedContentColor = Color.White,
-                            unselectedContentColor = Color(0xFF888899),
+                            selectedContentColor = appColors.textPrimary,
+                            unselectedContentColor = appColors.textSecondary,
                             modifier = Modifier.padding(vertical = 4.dp)
                         ) {
                             val tabContentModifier = if (isSelected) {
                                 Modifier
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(appColors.accentPrimary.copy(alpha = 0.16f))
-                                    .border(1.dp, appColors.accentPrimary.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                                    .background(appColors.accentPrimary.copy(alpha = if (appColors.isDark) 0.16f else 0.14f))
+                                    .border(1.dp, appColors.accentPrimary.copy(alpha = if (appColors.isDark) 0.35f else 0.5f), RoundedCornerShape(14.dp))
                                     .padding(horizontal = 10.dp, vertical = 6.dp)
                             } else {
                                 Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
@@ -464,12 +480,12 @@ fun LibraryScreen(
                                     imageVector = tab.icon,
                                     contentDescription = tab.label,
                                     modifier = Modifier.size(16.dp),
-                                    tint = if (isSelected) Color.White else Color(0xFF888899)
+                                    tint = if (isSelected) (if (appColors.isDark) Color.White else appColors.textPrimary) else appColors.textSecondary
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
                                     text = tab.label,
-                                    color = if (isSelected) Color.White else Color(0xFF888899),
+                                    color = if (isSelected) (if (appColors.isDark) Color.White else appColors.textPrimary) else appColors.textSecondary,
                                     fontSize = 14.5.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
@@ -633,11 +649,21 @@ fun LibraryScreen(
         }
     }
 
+    if (showSkinThemeDialog) {
+        val currentAppTheme by viewModel.appTheme.collectAsState()
+        com.musicdrop.app.ui.components.SkinThemeDialog(
+            currentTheme = currentAppTheme,
+            onSelectTheme = { mode -> viewModel.setAppTheme(mode) },
+            onDismiss = { showSkinThemeDialog = false },
+            viewModel = viewModel
+        )
+    }
+
     // Dialog for creating a new playlist
     if (showNewPlaylistDialog) {
         AlertDialog(
             onDismissRequest = { showNewPlaylistDialog = false },
-            title = { Text("Create Playlist", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Create Playlist", color = appColors.textPrimary, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = newPlaylistName,
@@ -645,8 +671,8 @@ fun LibraryScreen(
                     label = { Text("Playlist Name") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = appColors.textPrimary,
+                        unfocusedTextColor = appColors.textPrimary,
                         focusedBorderColor = appColors.accentPrimary,
                         unfocusedBorderColor = Color.Gray
                     )

@@ -40,6 +40,9 @@ import com.musicdrop.app.ui.theme.OledBlackAppColors
 import com.musicdrop.app.ui.theme.RetroAppColors
 import com.musicdrop.app.ui.theme.SunsetNebulaAppColors
 import com.musicdrop.app.ui.theme.TurboConnectAppColors
+import com.musicdrop.app.ui.theme.RoyalPlumAppColors
+import com.musicdrop.app.ui.theme.DeepNavyAppColors
+import com.musicdrop.app.ui.theme.RoseGoldAppColors
 import com.musicdrop.app.ui.theme.YouTubeMusicAppColors
 import com.musicdrop.app.ui.viewmodel.MainViewModel
 
@@ -488,6 +491,9 @@ private fun swatchFor(mode: AppThemeMode): com.musicdrop.app.ui.theme.AppColors 
     AppThemeMode.TURBO_CONNECT -> TurboConnectAppColors
     AppThemeMode.RETRO -> RetroAppColors
     AppThemeMode.GLASSMORPHISM -> GlassmorphismAppColors
+    AppThemeMode.ROYAL_PLUM -> RoyalPlumAppColors
+    AppThemeMode.DEEP_NAVY -> DeepNavyAppColors
+    AppThemeMode.ROSE_GOLD -> RoseGoldAppColors
 }
 
 @Composable

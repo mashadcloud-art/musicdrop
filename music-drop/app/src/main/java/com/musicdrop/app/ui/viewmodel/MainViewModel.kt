@@ -3558,6 +3558,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             com.musicdrop.app.ui.theme.AppThemeMode.TURBO_CONNECT -> com.musicdrop.app.ui.theme.PlayerThemeId.SUNSET_AMBER
             com.musicdrop.app.ui.theme.AppThemeMode.RETRO -> com.musicdrop.app.ui.theme.PlayerThemeId.VINYL_GOLD
             com.musicdrop.app.ui.theme.AppThemeMode.GLASSMORPHISM -> com.musicdrop.app.ui.theme.PlayerThemeId.PURE_FROST
+            com.musicdrop.app.ui.theme.AppThemeMode.ROYAL_PLUM -> com.musicdrop.app.ui.theme.PlayerThemeId.RADIAL_SUNSET
+            com.musicdrop.app.ui.theme.AppThemeMode.DEEP_NAVY -> com.musicdrop.app.ui.theme.PlayerThemeId.OCEAN_BLUE
+            com.musicdrop.app.ui.theme.AppThemeMode.ROSE_GOLD -> com.musicdrop.app.ui.theme.PlayerThemeId.PURE_FROST
         }
         setPlayerTheme(matchedPlayerTheme)
     }

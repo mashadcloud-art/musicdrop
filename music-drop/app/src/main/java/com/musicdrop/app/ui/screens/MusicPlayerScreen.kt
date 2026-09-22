@@ -93,6 +93,7 @@ fun MusicPlayerScreen(
     val isInPipMode by viewModel.isInPipMode.collectAsState()
     val ytCurrentVideo by viewModel.ytCurrentVideo.collectAsState()
     val isVideoLoading by viewModel.videoModeLoading.collectAsState()
+    val hasVideoTrack by connection.hasVideoTrack.collectAsState()
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val appColors = LocalAppColors.current
@@ -712,7 +713,10 @@ fun MusicPlayerScreen(
                                 .background(Color.Black),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (isDirectExoVideo) {
+                            val isDirectVideoRendering = isDirectExoVideo && hasVideoTrack
+                            val hasYouTubeVideo = !effectiveVideoId.isNullOrBlank()
+
+                            if (isDirectVideoRendering) {
                                 AndroidView(
                                     factory = { ctx ->
                                         try {
@@ -745,27 +749,9 @@ fun MusicPlayerScreen(
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
-                            } else if (isVideoLoading || (effectiveVideoId.isNullOrBlank() && isVideoMode)) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center,
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    CircularProgressIndicator(
-                                        color = Color(0xFFF97316),
-                                        strokeWidth = 3.dp
-                                    )
-                                    Spacer(Modifier.height(14.dp))
-                                    Text(
-                                        text = "Resolving official HD video...",
-                                        color = Color.White,
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            } else if (effectiveVideoId != null && effectiveVideoId.isNotBlank()) {
+                            } else if (hasYouTubeVideo && !isVideoLoading) {
                                 YouTubeIFramePlayer(
-                                    videoId = effectiveVideoId,
+                                    videoId = effectiveVideoId!!,
                                     title = currentTrack?.name,
                                     channel = currentTrack?.artist,
                                     thumbnailUrl = currentTrack?.albumArtUri?.toString(),
@@ -775,29 +761,122 @@ fun MusicPlayerScreen(
                                     modifier = Modifier.fillMaxSize()
                                 )
                             } else {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center,
-                                    modifier = Modifier.padding(16.dp)
+                                // ── NO VIDEO / AUDIO FALLBACK: SHOW COVER IMAGE (NEVER PITCH BLACK VOID!) ──
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator(
-                                        color = Color(0xFFF97316),
-                                        strokeWidth = 3.dp
+                                    // Ambient blurred cover backdrop
+                                    if (currentTrack?.albumArtUri != null) {
+                                        AsyncImage(
+                                            model = currentTrack?.albumArtUri,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .graphicsLayer { alpha = 0.4f }
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(Color.Black.copy(alpha = 0.5f), Color.Black.copy(alpha = 0.85f))
+                                                )
+                                            )
                                     )
-                                    Spacer(Modifier.height(14.dp))
-                                    Text(
-                                        text = "Resolving official video stream...",
-                                        color = Color.White,
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Spacer(Modifier.height(12.dp))
-                                    Button(
-                                        onClick = { viewModel.setVideoMode(true) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.18f)),
-                                        shape = RoundedCornerShape(16.dp)
+
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                        modifier = Modifier
+                                            .padding(20.dp)
+                                            .padding(bottom = 24.dp)
                                     ) {
-                                        Text("Search & Play Video", color = Color.White, fontSize = 12.sp)
+                                        // Centered high-definition artwork with glow and rounded corners
+                                        Surface(
+                                            shape = RoundedCornerShape(20.dp),
+                                            shadowElevation = 18.dp,
+                                            color = Color(0xFF141418),
+                                            border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White.copy(alpha = 0.15f)),
+                                            modifier = Modifier.size(200.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                if (currentTrack?.albumArtUri != null) {
+                                                    AsyncImage(
+                                                        model = currentTrack?.albumArtUri,
+                                                        contentDescription = currentTrack?.name,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.MusicNote,
+                                                        contentDescription = null,
+                                                        tint = appColors.accentPrimary,
+                                                        modifier = Modifier.size(64.dp)
+                                                    )
+                                                }
+
+                                                if (isVideoLoading) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .background(Color.Black.copy(alpha = 0.6f)),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        CircularProgressIndicator(
+                                                            color = appColors.accentPrimary,
+                                                            strokeWidth = 3.dp,
+                                                            modifier = Modifier.size(36.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(Modifier.height(14.dp))
+
+                                        // Status Pill Badge
+                                        Surface(
+                                            shape = RoundedCornerShape(14.dp),
+                                            color = Color.Black.copy(alpha = 0.65f),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isVideoLoading) Icons.Rounded.Sync else Icons.Rounded.Headphones,
+                                                    contentDescription = null,
+                                                    tint = appColors.accentPrimary,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                                Spacer(Modifier.width(6.dp))
+                                                Text(
+                                                    text = if (isVideoLoading) "Searching online video..." else "Audio Track • No Video Stream",
+                                                    color = Color.White.copy(alpha = 0.88f),
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+
+                                        if (!isVideoLoading) {
+                                            Spacer(Modifier.height(10.dp))
+                                            Button(
+                                                onClick = { viewModel.setVideoMode(true) },
+                                                colors = ButtonDefaults.buttonColors(containerColor = appColors.accentPrimary),
+                                                shape = RoundedCornerShape(16.dp),
+                                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                                            ) {
+                                                Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                                                Spacer(Modifier.width(5.dp))
+                                                Text("Search & Play Video", color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -910,7 +989,7 @@ fun MusicPlayerScreen(
                                         )
                                     }
                                 }
-                            } else {
+                            } else if (isDirectVideoRendering || hasYouTubeVideo) {
                                 // Bottom Strip on Video: Quick Full Screen & Resize Mode buttons (Screenshot 1)
                                 Row(
                                     modifier = Modifier
@@ -1773,14 +1852,14 @@ fun MusicPlayerScreen(
         }
 
         if (showAppThemeModal) {
-            AppThemeChooserDialog(
+            com.musicdrop.app.ui.components.SkinThemeDialog(
                 currentTheme = appTheme,
                 onSelectTheme = { selectedTheme ->
                     viewModel.setAppTheme(selectedTheme)
-                    Toast.makeText(context, "Theme set to ${selectedTheme.displayName}", Toast.LENGTH_SHORT).show()
-                    showAppThemeModal = false
+                    Toast.makeText(context, "Theme: ${selectedTheme.displayName}", Toast.LENGTH_SHORT).show()
                 },
-                onDismiss = { showAppThemeModal = false }
+                onDismiss = { showAppThemeModal = false },
+                viewModel = viewModel
             )
         }
 
@@ -2531,6 +2610,9 @@ private fun swatchForMode(mode: AppThemeMode): AppColors = when (mode) {
     AppThemeMode.TURBO_CONNECT -> TurboConnectAppColors
     AppThemeMode.RETRO -> RetroAppColors
     AppThemeMode.GLASSMORPHISM -> GlassmorphismAppColors
+    AppThemeMode.ROYAL_PLUM -> RoyalPlumAppColors
+    AppThemeMode.DEEP_NAVY -> DeepNavyAppColors
+    AppThemeMode.ROSE_GOLD -> RoseGoldAppColors
 }
 
 @Composable

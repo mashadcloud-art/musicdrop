@@ -43,6 +43,9 @@ class PlaybackConnection(private val context: Context) {
     private val _isRepeat = MutableStateFlow(false)
     val isRepeat: StateFlow<Boolean> = _isRepeat.asStateFlow()
 
+    private val _hasVideoTrack = MutableStateFlow(false)
+    val hasVideoTrack: StateFlow<Boolean> = _hasVideoTrack.asStateFlow()
+
     private var playlist: List<AppMediaItem> = emptyList()
     private var progressJob: Job? = null
     private var errorRetryCount = 0
@@ -162,7 +165,16 @@ class PlaybackConnection(private val context: Context) {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 syncTrackFromMediaItem(mediaItem)
                 _durationMs.value = controller?.duration?.coerceAtLeast(0L) ?: 0L
+                _hasVideoTrack.value = (controller?.videoSize?.width ?: 0) > 0 && (controller?.videoSize?.height ?: 0) > 0
                 errorRetryCount = 0
+            }
+
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                _hasVideoTrack.value = videoSize.width > 0 && videoSize.height > 0
+            }
+
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                _hasVideoTrack.value = tracks.isTypeSelected(androidx.media3.common.C.TRACK_TYPE_VIDEO)
             }
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {

@@ -26,7 +26,10 @@ enum class AppThemeMode(val displayName: String, val subtitle: String, val isDar
     NEARBY_SHARE("Nearby Share", "Clean & Minimal · Quick-Share Style", false),
     TURBO_CONNECT("Turbo Connect", "Bold & Energetic · Fast-Transfer Style", true),
     RETRO("Retro", "Warm Sunset & Vintage Tape", false),
-    GLASSMORPHISM("Glassmorphism", "Frosted Glass & Soft Neon", true)
+    GLASSMORPHISM("Glassmorphism", "Frosted Glass & Soft Neon", true),
+    ROYAL_PLUM("Royal Plum", "Rich Wine & Velvet Rose (Image 1 Theme)", true),
+    DEEP_NAVY("Deep Navy", "Midnight Sea & Royal Blue", true),
+    ROSE_GOLD("Rose Gold", "Soft Blush & Ruby Rose", false)
 }
 
 val LocalAppTheme = compositionLocalOf { AppThemeMode.YOUTUBE_MUSIC }
@@ -118,13 +121,13 @@ val CyberDarkAppColors = AppColors(
 )
 
 val CleanLightAppColors = AppColors(
-    background = Color(0xFFF1F5F9),
+    background = Color(0xFFF8FAFC),
     surface = Color(0xFFFFFFFF),
-    surfaceElevated = Color(0xFFE2E8F0),
-    surfaceBorder = Color(0xFFCBD5E1),
+    surfaceElevated = Color(0xFFF1F5F9),
+    surfaceBorder = Color(0xFFE2E8F0),
     textPrimary = Color(0xFF0F172A),
-    textSecondary = Color(0xFF334155),
-    textMuted = Color(0xFF64748B),
+    textSecondary = Color(0xFF475569),
+    textMuted = Color(0xFF94A3B8),
     accentPrimary = Color(0xFF2563EB),
     accentSecondary = Color(0xFF3B82F6),
     isDark = false
@@ -204,24 +207,20 @@ val TurboConnectAppColors = AppColors(
 
 // Warm cream & burnt-orange/teal palette — 70s/80s vintage-tape mood.
 val RetroAppColors = AppColors(
-    background = Color(0xFFF5EDE0),
-    surface = Color(0xFFFFF8ED),
-    surfaceElevated = Color(0xFFF0E4D0),
-    surfaceBorder = Color(0xFFE0CBA8),
-    textPrimary = Color(0xFF3D2B1F),
-    textSecondary = Color(0xFF7A5C46),
-    textMuted = Color(0xFFA68B6E),
-    accentPrimary = Color(0xFFE8734A),
+    background = Color(0xFFFBF5EC),
+    surface = Color(0xFFFFFDF9),
+    surfaceElevated = Color(0xFFF3E7D5),
+    surfaceBorder = Color(0xFFDFCDAF),
+    textPrimary = Color(0xFF261910),
+    textSecondary = Color(0xFF5E4331),
+    textMuted = Color(0xFF8F7057),
+    accentPrimary = Color(0xFFE86034),
     accentSecondary = Color(0xFF2A9D8F),
     isDark = false
 )
 
 // Deep indigo base with frosted ice-blue + soft pink accents — the color side
-// of a glassmorphism look. Note: this gives every screen the glass PALETTE
-// (the cool, translucent-reading tones), the same way every other theme here
-// is color-tokens-only; it doesn't by itself add blur/translucency to cards —
-// that would need per-component changes (backdrop blur, alpha surfaces) on
-// top of this palette.
+// of a glassmorphism look.
 val GlassmorphismAppColors = AppColors(
     background = Color(0xFF12102A),
     surface = Color(0xFF1C1940),
@@ -233,6 +232,48 @@ val GlassmorphismAppColors = AppColors(
     accentPrimary = Color(0xFF7DD3FC),
     accentSecondary = Color(0xFFF472B6),
     isDark = true
+)
+
+// Rich wine & dark velvet plum palette matching Image 1
+val RoyalPlumAppColors = AppColors(
+    background = Color(0xFF24071A),
+    surface = Color(0xFF350B28),
+    surfaceElevated = Color(0xFF491238),
+    surfaceBorder = Color(0xFF671D4F),
+    textPrimary = Color(0xFFFFF0F7),
+    textSecondary = Color(0xFFE4B5D4),
+    textMuted = Color(0xFFAE7A9C),
+    accentPrimary = Color(0xFFE11D48),
+    accentSecondary = Color(0xFFF472B6),
+    isDark = true
+)
+
+// Deep midnight oceanic navy with electric cobalt
+val DeepNavyAppColors = AppColors(
+    background = Color(0xFF071224),
+    surface = Color(0xFF0E1E3A),
+    surfaceElevated = Color(0xFF162B50),
+    surfaceBorder = Color(0xFF224074),
+    textPrimary = Color(0xFFF0F6FF),
+    textSecondary = Color(0xFF94B5E6),
+    textMuted = Color(0xFF6285B8),
+    accentPrimary = Color(0xFF3B82F6),
+    accentSecondary = Color(0xFF60A5FA),
+    isDark = true
+)
+
+// Light rose gold & soft blush aesthetic
+val RoseGoldAppColors = AppColors(
+    background = Color(0xFFFFF1F4),
+    surface = Color(0xFFFFFFFF),
+    surfaceElevated = Color(0xFFFFE4EB),
+    surfaceBorder = Color(0xFFFBCFE8),
+    textPrimary = Color(0xFF4C1528),
+    textSecondary = Color(0xFF83334F),
+    textMuted = Color(0xFFA8667E),
+    accentPrimary = Color(0xFFE11D48),
+    accentSecondary = Color(0xFFFB7185),
+    isDark = false
 )
 
 val LocalAppColors = compositionLocalOf { YouTubeMusicAppColors }
@@ -471,6 +512,60 @@ private val GlassmorphismColorScheme = darkColorScheme(
     outline = Color(0xFF3D3780)
 )
 
+private val RoyalPlumColorScheme = darkColorScheme(
+    primary = Color(0xFFE11D48),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF491238),
+    onPrimaryContainer = Color(0xFFF472B6),
+    secondary = Color(0xFFF472B6),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFF350B28),
+    onSecondaryContainer = Color(0xFFFFF0F7),
+    background = Color(0xFF24071A),
+    onBackground = Color(0xFFFFF0F7),
+    surface = Color(0xFF350B28),
+    onSurface = Color(0xFFFFF0F7),
+    surfaceVariant = Color(0xFF491238),
+    onSurfaceVariant = Color(0xFFE4B5D4),
+    outline = Color(0xFF671D4F)
+)
+
+private val DeepNavyColorScheme = darkColorScheme(
+    primary = Color(0xFF3B82F6),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF162B50),
+    onPrimaryContainer = Color(0xFF60A5FA),
+    secondary = Color(0xFF60A5FA),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFF0E1E3A),
+    onSecondaryContainer = Color(0xFFF0F6FF),
+    background = Color(0xFF071224),
+    onBackground = Color(0xFFF0F6FF),
+    surface = Color(0xFF0E1E3A),
+    onSurface = Color(0xFFF0F6FF),
+    surfaceVariant = Color(0xFF162B50),
+    onSurfaceVariant = Color(0xFF94B5E6),
+    outline = Color(0xFF224074)
+)
+
+private val RoseGoldColorScheme = lightColorScheme(
+    primary = Color(0xFFE11D48),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFFFE4EB),
+    onPrimaryContainer = Color(0xFF881337),
+    secondary = Color(0xFFFB7185),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFFFF1F4),
+    onSecondaryContainer = Color(0xFF4C1528),
+    background = Color(0xFFFFF1F4),
+    onBackground = Color(0xFF4C1528),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF4C1528),
+    surfaceVariant = Color(0xFFFFE4EB),
+    onSurfaceVariant = Color(0xFF83334F),
+    outline = Color(0xFFFBCFE8)
+)
+
 @Composable
 fun FileDropTheme(
     themeMode: AppThemeMode = AppThemeMode.YOUTUBE_MUSIC,
@@ -490,6 +585,9 @@ fun FileDropTheme(
         AppThemeMode.TURBO_CONNECT -> TurboConnectColorScheme
         AppThemeMode.RETRO -> RetroColorScheme
         AppThemeMode.GLASSMORPHISM -> GlassmorphismColorScheme
+        AppThemeMode.ROYAL_PLUM -> RoyalPlumColorScheme
+        AppThemeMode.DEEP_NAVY -> DeepNavyColorScheme
+        AppThemeMode.ROSE_GOLD -> RoseGoldColorScheme
     }
 
     val appColors = when (themeMode) {
@@ -506,6 +604,9 @@ fun FileDropTheme(
         AppThemeMode.TURBO_CONNECT -> TurboConnectAppColors
         AppThemeMode.RETRO -> RetroAppColors
         AppThemeMode.GLASSMORPHISM -> GlassmorphismAppColors
+        AppThemeMode.ROYAL_PLUM -> RoyalPlumAppColors
+        AppThemeMode.DEEP_NAVY -> DeepNavyAppColors
+        AppThemeMode.ROSE_GOLD -> RoseGoldAppColors
     }
 
     val view = LocalView.current

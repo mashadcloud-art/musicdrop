@@ -1,8 +1,8 @@
 {
-  "versionCode": 161,
-  "versionName": "1.5.1",
-  "title": "MusicDrop v1.5.1 Available",
-  "changelog": "• Collapsible Brand Header: Scrolling up seamlessly collapses the MusicDrop brand icon & actions bar, moving the navigation tabs right to the top for maximum screen space\n• Quick Reveal: Pulling down or switching tabs immediately reveals the brand logo, search, and settings\n• Edge-to-Edge Glass Immersion: Completely borderless header fluidly glowing behind the status bar and camera cutout\n• Smooth 60fps Physics: Animated with hardware-accelerated fluid transitions",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.1/MusicDrop-v1.5.1.apk",
+  "versionCode": 162,
+  "versionName": "1.5.2",
+  "title": "MusicDrop v1.5.2 Available",
+  "changelog": "• New Skin Theme Chooser: Gorgeous skin theme dialog with circular color swatches and wallpaper gallery for live one-tap theme switching\n• Royal Plum & Deep Navy Themes: Added luxurious Royal Plum (Wine/Velvet) and Deep Navy color skins\n• High-Contrast Light & Retro Themes: Completely overhauled Clean Light, iOS Light, and Retro themes with high-contrast text, clear search bar, and theme-adaptive artist cards\n• Music Player Cover Art Fallback: When playing audio tracks without a video stream, the player displays a high-definition album cover with ambient blur backdrop instead of a black screen\n• Quick Theme Shortcut: Instant skin theme palette button directly on the library and player headers",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.2/MusicDrop-v1.5.2.apk",
   "forceUpdate": true
 }

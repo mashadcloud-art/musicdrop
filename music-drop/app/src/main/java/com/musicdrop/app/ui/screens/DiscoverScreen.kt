@@ -590,8 +590,8 @@ fun DiscoverScreen(
                                 .padding(horizontal = 16.dp, vertical = 4.dp)
                                 .height(46.dp)
                                 .clip(RoundedCornerShape(23.dp))
-                                .background(Color(0xFF1E1E26))
-                                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(23.dp))
+                                .background(if (appColors.isDark) Color(0xFF1E1E26) else appColors.surfaceElevated)
+                                .border(1.dp, if (appColors.isDark) Color.White.copy(alpha = 0.12f) else appColors.surfaceBorder, RoundedCornerShape(23.dp))
                                 .clickable { onOpenSearchWithQuery("") }
                                 .padding(horizontal = 14.dp),
                             contentAlignment = Alignment.CenterStart
@@ -603,13 +603,13 @@ fun DiscoverScreen(
                                 Icon(
                                     imageVector = Icons.Rounded.Search,
                                     contentDescription = "Search",
-                                    tint = Color(0xFFF97316),
+                                    tint = appColors.accentPrimary,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(10.dp))
                                 Text(
                                     text = searchHints[currentHintIndex],
-                                    color = Color.White.copy(alpha = 0.55f),
+                                    color = appColors.textSecondary,
                                     fontSize = 14.sp
                                 )
                             }
@@ -1976,6 +1976,7 @@ fun SpotlightArtistsSection(
     onOpenChartArtist: (com.musicdrop.app.data.repository.YtMusicApiRepository.YtChartArtist) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
     val coroutineScope = rememberCoroutineScope()
     var shuffleOffset by remember { mutableIntStateOf(0) }
 
@@ -2085,7 +2086,7 @@ fun SpotlightArtistsSection(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = if (liveGenrePages != null) "YOUTUBE TRENDING ARTISTS" else "SPOTLIGHT ARTISTS",
-                    color = Color(0xFFFFD600),
+                    color = if (appColors.isDark) Color(0xFFFFD600) else appColors.accentPrimary,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 0.5.sp
@@ -2100,7 +2101,8 @@ fun SpotlightArtistsSection(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF2A2A2E))
+                        .background(if (appColors.isDark) Color(0xFF2A2A2E) else appColors.surfaceElevated)
+                        .border(1.dp, appColors.surfaceBorder.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                         .clickable {
                             shuffleOffset = (shuffleOffset + 1) % 4
                             coroutineScope.launch {
@@ -2114,13 +2116,13 @@ fun SpotlightArtistsSection(
                         Icon(
                             imageVector = Icons.Rounded.Shuffle,
                             contentDescription = "Change",
-                            tint = Color(0xFFFFD600),
+                            tint = if (appColors.isDark) Color(0xFFFFD600) else appColors.accentPrimary,
                             modifier = Modifier.size(13.dp)
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = "Change",
-                            color = Color.White,
+                            color = appColors.textPrimary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -2131,12 +2133,13 @@ fun SpotlightArtistsSection(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0x1FFFFFFF))
+                        .background(if (appColors.isDark) Color(0x1FFFFFFF) else appColors.surfaceElevated)
+                        .border(1.dp, appColors.surfaceBorder.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = "${pagerState.currentPage + 1}/${effectivePages.size} Swipe >",
-                        color = Color(0xFFB0B0B0),
+                        color = appColors.textSecondary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2162,11 +2165,10 @@ fun SpotlightArtistsSection(
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .clip(RoundedCornerShape(22.dp))
                     .background(
-                        Brush.verticalGradient(
-                            listOf(Color(0xFF142B32), Color(0xFF0E1E24))
-                        )
+                        if (appColors.isDark) Brush.verticalGradient(listOf(Color(0xFF142B32), Color(0xFF0E1E24)))
+                        else Brush.verticalGradient(listOf(appColors.surfaceElevated, appColors.surface))
                     )
-                    .border(1.dp, Color(0xFF224954), RoundedCornerShape(22.dp))
+                    .border(1.dp, if (appColors.isDark) Color(0xFF224954) else appColors.surfaceBorder, RoundedCornerShape(22.dp))
                     .padding(horizontal = 12.dp, vertical = 14.dp)
             ) {
                 Column {
@@ -2178,14 +2180,14 @@ fun SpotlightArtistsSection(
                         Column {
                             Text(
                                 text = page.genreTitle,
-                                color = Color.White,
+                                color = appColors.textPrimary,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 0.5.sp
                             )
                             Text(
                                 text = page.categoryTag,
-                                color = Color(0xFF88A8B3),
+                                color = appColors.textSecondary,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.8.sp
@@ -2212,7 +2214,7 @@ fun SpotlightArtistsSection(
                                     modifier = Modifier
                                         .width(1.dp)
                                         .height(88.dp)
-                                        .background(Color(0x22FFFFFF))
+                                        .background(if (appColors.isDark) Color(0x22FFFFFF) else appColors.surfaceBorder)
                                 )
                             }
                             val matchedLive = liveArtists.firstOrNull { it.title.equals(artist.name, ignoreCase = true) }
@@ -2267,7 +2269,7 @@ fun SpotlightArtistsSection(
 
                                 Text(
                                     text = artist.name,
-                                    color = Color.White,
+                                    color = appColors.textPrimary,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1,
@@ -2275,7 +2277,7 @@ fun SpotlightArtistsSection(
                                 )
                                 Text(
                                     text = artist.subs,
-                                    color = Color(0xFF88A8B3),
+                                    color = appColors.textSecondary,
                                     fontSize = 9.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -2287,7 +2289,8 @@ fun SpotlightArtistsSection(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(Color(0x2EFFFFFF))
+                                        .background(if (appColors.isDark) Color(0x2EFFFFFF) else appColors.accentPrimary.copy(alpha = 0.12f))
+                                        .border(0.8.dp, if (appColors.isDark) Color.Transparent else appColors.accentPrimary.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
                                         .clickable {
                                             if (matchedLive != null) {
                                                 onOpenChartArtist(matchedLive)
@@ -2300,7 +2303,7 @@ fun SpotlightArtistsSection(
                                 ) {
                                     Text(
                                         text = "Explore >",
-                                        color = Color.White,
+                                        color = if (appColors.isDark) Color.White else appColors.accentPrimary,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -2354,6 +2357,7 @@ fun YouTubeMixPreviewCard(
     onRotateMix: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val appColors = com.musicdrop.app.ui.theme.LocalAppColors.current
     var isExpanded by remember { mutableStateOf(false) }
     var isSaved by remember { mutableStateOf(false) }
     val displayTracks = if (isExpanded) tracks.take(15) else tracks.take(3)
@@ -2375,8 +2379,8 @@ fun YouTubeMixPreviewCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(24.dp))
-            .background(Color.Transparent)
-            .border(1.dp, Color(0x24FFFFFF), RoundedCornerShape(24.dp))
+            .background(if (appColors.isDark) Color(0x15FFFFFF) else appColors.surfaceElevated)
+            .border(1.dp, if (appColors.isDark) Color(0x24FFFFFF) else appColors.surfaceBorder, RoundedCornerShape(24.dp))
             .padding(16.dp)
     ) {
         Column {
@@ -2390,7 +2394,7 @@ fun YouTubeMixPreviewCard(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF282828))
+                        .background(if (appColors.isDark) Color(0xFF282828) else Color(0xFFE2E4E8))
                         .clickable { onPlayAll() }
                 ) {
                     AsyncImage(
@@ -2427,7 +2431,7 @@ fun YouTubeMixPreviewCard(
                 ) {
                     Text(
                         text = title,
-                        color = Color.White,
+                        color = appColors.textPrimary,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -2436,12 +2440,12 @@ fun YouTubeMixPreviewCard(
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = subtitle,
-                        color = Color(0xFFAAAAAA),
+                        color = appColors.textSecondary,
                         fontSize = 13.sp
                     )
                     Text(
                         text = "${tracks.size.coerceAtLeast(15)} songs • Auto-updating",
-                        color = Color(0xFF757575),
+                        color = appColors.textMuted,
                         fontSize = 12.sp
                     )
                 }
@@ -2452,12 +2456,12 @@ fun YouTubeMixPreviewCard(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color(0x22FFFFFF))
+                            .background(if (appColors.isDark) Color(0x22FFFFFF) else appColors.surfaceBorder.copy(alpha = 0.5f))
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
                             contentDescription = "Rotate Mix",
-                            tint = Color(0xFFFF5722),
+                            tint = appColors.accentPrimary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -2503,7 +2507,7 @@ fun YouTubeMixPreviewCard(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = track.title,
-                                color = Color.White,
+                                color = appColors.textPrimary,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
@@ -2512,7 +2516,7 @@ fun YouTubeMixPreviewCard(
                             Spacer(Modifier.height(2.dp))
                             Text(
                                 text = "${track.artist} • YouTube",
-                                color = Color(0xFFAAAAAA),
+                                color = appColors.textSecondary,
                                 fontSize = 11.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -2527,7 +2531,7 @@ fun YouTubeMixPreviewCard(
                                 Icon(
                                     imageVector = Icons.Rounded.MoreVert,
                                     contentDescription = "More",
-                                    tint = Color(0xFFAAAAAA),
+                                    tint = appColors.textSecondary,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -2571,7 +2575,7 @@ fun YouTubeMixPreviewCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = if (isExpanded) "Show less" else "See more (${(tracks.size - 3).coerceAtLeast(10)})",
-                        color = Color(0xFFAAAAAA),
+                        color = appColors.textSecondary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2579,7 +2583,7 @@ fun YouTubeMixPreviewCard(
                     Icon(
                         imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
                         contentDescription = null,
-                        tint = Color(0xFFAAAAAA),
+                        tint = appColors.textSecondary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -2598,7 +2602,7 @@ fun YouTubeMixPreviewCard(
                     modifier = Modifier
                         .size(52.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF383838))
+                        .background(appColors.accentPrimary)
                         .clickable { onPlayAll() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -2615,14 +2619,14 @@ fun YouTubeMixPreviewCard(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .border(1.2.dp, Color(0x44FFFFFF), CircleShape)
+                        .border(1.2.dp, if (appColors.isDark) Color(0x44FFFFFF) else appColors.surfaceBorder, CircleShape)
                         .clickable { onSeeMore() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.GraphicEq,
                         contentDescription = "Mix Radio",
-                        tint = Color.White,
+                        tint = appColors.textPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -2632,14 +2636,14 @@ fun YouTubeMixPreviewCard(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .border(1.2.dp, if (isSaved) Color(0xFF00E676) else Color(0x44FFFFFF), CircleShape)
+                        .border(1.2.dp, if (isSaved) Color(0xFF00E676) else if (appColors.isDark) Color(0x44FFFFFF) else appColors.surfaceBorder, CircleShape)
                         .clickable { isSaved = !isSaved },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isSaved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
                         contentDescription = "Save Playlist",
-                        tint = if (isSaved) Color(0xFF00E676) else Color.White,
+                        tint = if (isSaved) Color(0xFF00E676) else appColors.textPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
