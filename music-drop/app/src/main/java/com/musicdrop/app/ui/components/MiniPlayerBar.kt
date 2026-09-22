@@ -63,6 +63,17 @@ fun MiniPlayerBar(
     val effectiveProgress = if (isDragging) dragProgress else normalProgress
 
     val shape = RoundedCornerShape(14.dp)
+    val cardOpacity = com.musicdrop.app.ui.theme.LocalCardOpacity.current
+    val barBg = if (appColors.isGlassmorphism) {
+        Color(0xFF1E1B4B).copy(alpha = (cardOpacity * 0.75f).coerceIn(0.35f, 0.85f))
+    } else {
+        appColors.surfaceElevated
+    }
+    val barBorder = if (appColors.isGlassmorphism) {
+        Color.White.copy(alpha = 0.24f)
+    } else {
+        appColors.surfaceBorder.copy(alpha = 0.4f)
+    }
 
     Box(
         modifier = modifier
@@ -70,8 +81,8 @@ fun MiniPlayerBar(
             .padding(horizontal = 8.dp, vertical = 4.dp)
             .shadow(elevation = 10.dp, shape = shape, spotColor = Color.Black.copy(alpha = 0.4f))
             .clip(shape)
-            .background(appColors.surfaceElevated)
-            .border(1.dp, appColors.surfaceBorder.copy(alpha = 0.4f), shape)
+            .background(barBg)
+            .border(1.dp, barBorder, shape)
             .clickable(onClick = onClick)
             .pointerInput(Unit) {
                 detectVerticalDragGestures { _, dragAmount ->

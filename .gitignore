@@ -11,6 +11,8 @@ build/
 .cxx/
 */.cxx/
 */*/.cxx/
+.kotlin/
+*/.kotlin/
 
 # IDE & OS files
 .idea/

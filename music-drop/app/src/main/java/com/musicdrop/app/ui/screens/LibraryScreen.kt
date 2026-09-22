@@ -84,6 +84,25 @@ enum class LibraryTab(val label: String, val icon: ImageVector) {
     FOLDERS("Folders", Icons.Rounded.Folder)
 }
 
+fun isDeviceVoiceRecording(item: MediaItem): Boolean {
+    val name = item.name
+    val path = item.filePath.orEmpty()
+    return !item.isSong ||
+        name.matches(Regex("""^20\d{6}_\d{6}.*""")) ||
+        name.startsWith("PTT-", ignoreCase = true) ||
+        name.startsWith("AUD-", ignoreCase = true) ||
+        name.startsWith("REC_", ignoreCase = true) ||
+        name.startsWith("Record", ignoreCase = true) ||
+        name.startsWith("Voice", ignoreCase = true) ||
+        name.startsWith("Call", ignoreCase = true) ||
+        path.contains("/Recordings", ignoreCase = true) ||
+        path.contains("/Voice", ignoreCase = true) ||
+        path.contains("/Call", ignoreCase = true) ||
+        path.contains("/WhatsApp", ignoreCase = true) ||
+        (item.mediaType == com.musicdrop.app.data.model.MediaType.AUDIO && item.durationMs in 1..20000L && item.size < 250_000L) ||
+        (item.mediaType == com.musicdrop.app.data.model.MediaType.AUDIO && item.size in 1..100_000L)
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(
@@ -109,12 +128,13 @@ fun LibraryScreen(
     val savedArtists by viewModel.savedArtists.collectAsState()
     val savedAlbums by viewModel.savedAlbums.collectAsState()
 
-    // Effective local songs list
+    // Effective local songs list (Clean music only, excluding voice notes/recordings)
     val effectiveLocalSongs = remember(songs, allAudio, downloadedTracks) {
-        val base = if (songs.isNotEmpty()) songs else allAudio.filter { it.isSong || it.durationMs > 20_000L }
-        if (base.isNotEmpty()) base else {
+        val rawBase = if (songs.isNotEmpty()) songs else allAudio.filter { it.isSong && it.durationMs > 20_000L }
+        val cleanBase = rawBase.filter { !isDeviceVoiceRecording(it) }
+        if (cleanBase.isNotEmpty()) cleanBase else {
             // Include downloaded tracks mapped to MediaItem if local scan is empty
-            downloadedTracks.map { it.toMediaItem() }
+            downloadedTracks.map { it.toMediaItem() }.filter { !isDeviceVoiceRecording(it) }
         }
     }
 
@@ -198,6 +218,24 @@ fun LibraryScreen(
     }
 
     val tabs = LibraryTab.values()
+    val primaryTabs = remember {
+        listOf(
+            LibraryTab.HOME,
+            LibraryTab.SONGS,
+            LibraryTab.PLAYLISTS,
+            LibraryTab.DOWNLOAD,
+            LibraryTab.DEVICE
+        )
+    }
+    val moreTabs = remember {
+        listOf(
+            LibraryTab.ALBUMS,
+            LibraryTab.ARTISTS,
+            LibraryTab.GENRES,
+            LibraryTab.FOLDERS
+        )
+    }
+    var showMoreTabsDropdown by remember { mutableStateOf(false) }
     val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
     var selectedSongForOptions by remember { mutableStateOf<MediaItem?>(null) }
     var selectedArtistForOptions by remember { mutableStateOf<Pair<String, List<MediaItem>>?>(null) }
@@ -419,16 +457,22 @@ fun LibraryScreen(
                     }
                 }
 
-                // ── 3. STICKY ICON TAB BAR (Glass styled with glowing indicator) ───────
+                // ── 3. STICKY ICON TAB BAR (Glass styled with glowing indicator & More ▾ dropdown) ───────
+                val isExtendedTabActive = pagerState.currentPage >= primaryTabs.size
+                val currentExtendedTab = if (isExtendedTabActive) tabs[pagerState.currentPage] else null
+                val moreButtonLabel = currentExtendedTab?.label ?: "More"
+                val moreButtonIcon = currentExtendedTab?.icon ?: Icons.Rounded.MoreHoriz
+                val activeTabIndicatorIndex = if (isExtendedTabActive) primaryTabs.size else pagerState.currentPage
+
                 ScrollableTabRow(
-                    selectedTabIndex = pagerState.currentPage,
+                    selectedTabIndex = activeTabIndicatorIndex,
                     containerColor = Color.Transparent,
                     contentColor = appColors.textPrimary,
                     edgePadding = 16.dp,
                     divider = {},
                     indicator = { tabPositions ->
-                        if (pagerState.currentPage < tabPositions.size) {
-                            val tab = tabPositions[pagerState.currentPage]
+                        if (activeTabIndicatorIndex < tabPositions.size) {
+                            val tab = tabPositions[activeTabIndicatorIndex]
                             Box(
                                 modifier = Modifier
                                     .tabIndicatorOffset(tab)
@@ -450,7 +494,8 @@ fun LibraryScreen(
                         .fillMaxWidth()
                         .padding(top = if (isTopBarVisible) 0.dp else 4.dp)
                 ) {
-                    tabs.forEachIndexed { index, tab ->
+                    // 1. Five Primary Tabs: Home, Songs, Playlists, Download, Device
+                    primaryTabs.forEachIndexed { index, tab ->
                         val isSelected = pagerState.currentPage == index
                         Tab(
                             selected = isSelected,
@@ -488,6 +533,90 @@ fun LibraryScreen(
                                     color = if (isSelected) (if (appColors.isDark) Color.White else appColors.textPrimary) else appColors.textSecondary,
                                     fontSize = 14.5.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+
+                    // 2. Sixth "More ▾" Tab with Dropdown
+                    Box {
+                        Tab(
+                            selected = isExtendedTabActive,
+                            onClick = { showMoreTabsDropdown = !showMoreTabsDropdown },
+                            selectedContentColor = appColors.textPrimary,
+                            unselectedContentColor = appColors.textSecondary,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            val tabContentModifier = if (isExtendedTabActive) {
+                                Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(appColors.accentPrimary.copy(alpha = if (appColors.isDark) 0.16f else 0.14f))
+                                    .border(1.dp, appColors.accentPrimary.copy(alpha = if (appColors.isDark) 0.35f else 0.5f), RoundedCornerShape(14.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            } else {
+                                Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = tabContentModifier
+                            ) {
+                                Icon(
+                                    imageVector = moreButtonIcon,
+                                    contentDescription = moreButtonLabel,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (isExtendedTabActive) (if (appColors.isDark) Color.White else appColors.textPrimary) else appColors.textSecondary
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                Text(
+                                    text = if (isExtendedTabActive) "$moreButtonLabel ▾" else "More ▾",
+                                    color = if (isExtendedTabActive) (if (appColors.isDark) Color.White else appColors.textPrimary) else appColors.textSecondary,
+                                    fontSize = 14.5.sp,
+                                    fontWeight = if (isExtendedTabActive) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showMoreTabsDropdown,
+                            onDismissRequest = { showMoreTabsDropdown = false },
+                            modifier = Modifier
+                                .background(if (appColors.isDark) Color(0xFF1E1B2E) else Color.White)
+                                .border(1.dp, appColors.surfaceBorder.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                        ) {
+                            moreTabs.forEach { moreTab ->
+                                val moreTabIndex = tabs.indexOf(moreTab)
+                                val isThisSelected = pagerState.currentPage == moreTabIndex
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            moreTab.label,
+                                            color = if (isThisSelected) appColors.accentPrimary else (if (appColors.isDark) Color.White else appColors.textPrimary),
+                                            fontWeight = if (isThisSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = moreTab.icon,
+                                            contentDescription = null,
+                                            tint = if (isThisSelected) appColors.accentPrimary else appColors.textSecondary
+                                        )
+                                    },
+                                    trailingIcon = if (isThisSelected) {
+                                        {
+                                            Icon(
+                                                Icons.Rounded.Check,
+                                                contentDescription = null,
+                                                tint = appColors.accentPrimary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    } else null,
+                                    onClick = {
+                                        showMoreTabsDropdown = false
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(moreTabIndex)
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -2060,6 +2189,7 @@ enum class DeviceMediaCategory(val label: String, val icon: ImageVector) {
     ALL("All", Icons.Rounded.Folder),
     SONGS("Songs", Icons.Rounded.MusicNote),
     DOWNLOADS("Downloads", Icons.Rounded.DownloadDone),
+    RECORDINGS("Recordings", Icons.Rounded.Mic),
     VIDEOS("Videos", Icons.Rounded.Videocam)
 }
 
@@ -2194,12 +2324,15 @@ fun DeviceMusicTabContent(
         result.sortedByDescending { it.dateAdded }
     }
 
-    // Counts
+    // Counts: Clean separation of Songs, Downloads, Recordings, Videos
     val songsCount = remember(allDeviceMedia) {
-        allDeviceMedia.count { it.mediaType == com.musicdrop.app.data.model.MediaType.AUDIO }
+        allDeviceMedia.count { it.mediaType == com.musicdrop.app.data.model.MediaType.AUDIO && !isDeviceVoiceRecording(it) }
     }
     val downloadsCount = remember(downloadedItems) {
-        downloadedItems.size
+        downloadedItems.count { !isDeviceVoiceRecording(it) }
+    }
+    val recordingsCount = remember(allDeviceMedia) {
+        allDeviceMedia.count { it.mediaType == com.musicdrop.app.data.model.MediaType.AUDIO && isDeviceVoiceRecording(it) }
     }
     val videosCount = remember(allDeviceMedia) {
         allDeviceMedia.count { it.mediaType == com.musicdrop.app.data.model.MediaType.VIDEO }
@@ -2209,10 +2342,11 @@ fun DeviceMusicTabContent(
     val filteredList = remember(allDeviceMedia, selectedCategory, tabSearchQuery) {
         var list = when (selectedCategory) {
             DeviceMediaCategory.ALL -> allDeviceMedia
-            DeviceMediaCategory.SONGS -> allDeviceMedia.filter { it.mediaType == com.musicdrop.app.data.model.MediaType.AUDIO }
+            DeviceMediaCategory.SONGS -> allDeviceMedia.filter { it.mediaType == com.musicdrop.app.data.model.MediaType.AUDIO && !isDeviceVoiceRecording(it) }
             DeviceMediaCategory.DOWNLOADS -> allDeviceMedia.filter { item ->
-                downloadedItems.any { it.id == item.id || (!it.filePath.isNullOrBlank() && it.filePath.equals(item.filePath, ignoreCase = true)) }
+                downloadedItems.any { it.id == item.id || (!it.filePath.isNullOrBlank() && it.filePath.equals(item.filePath, ignoreCase = true)) } && !isDeviceVoiceRecording(item)
             }
+            DeviceMediaCategory.RECORDINGS -> allDeviceMedia.filter { it.mediaType == com.musicdrop.app.data.model.MediaType.AUDIO && isDeviceVoiceRecording(it) }
             DeviceMediaCategory.VIDEOS -> allDeviceMedia.filter { it.mediaType == com.musicdrop.app.data.model.MediaType.VIDEO }
         }
         if (tabSearchQuery.isNotBlank()) {
@@ -2455,6 +2589,7 @@ fun DeviceMusicTabContent(
                             DeviceMediaCategory.ALL -> allDeviceMedia.size
                             DeviceMediaCategory.SONGS -> songsCount
                             DeviceMediaCategory.DOWNLOADS -> downloadsCount
+                            DeviceMediaCategory.RECORDINGS -> recordingsCount
                             DeviceMediaCategory.VIDEOS -> videosCount
                         }
                         Surface(
@@ -2610,6 +2745,7 @@ fun DeviceMusicTabContent(
                         downloadedItems.any { it.id == mediaItem.id || (!it.filePath.isNullOrBlank() && it.filePath.equals(mediaItem.filePath, ignoreCase = true)) }
                     }
                     val isVideo = mediaItem.mediaType == com.musicdrop.app.data.model.MediaType.VIDEO
+                    val isRecording = remember(mediaItem) { isDeviceVoiceRecording(mediaItem) }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2622,7 +2758,14 @@ fun DeviceMusicTabContent(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isVideo) Color(0xFF1E1B4B) else (if (appColors.isDark) Color(0xFF22222E) else Color(0xFFE2E8F0))),
+                                .background(
+                                    when {
+                                        isVideo -> Color(0xFF1E1B4B)
+                                        isRecording -> Color(0xFF451A03).copy(alpha = 0.6f)
+                                        appColors.isDark -> Color(0xFF22222E)
+                                        else -> Color(0xFFE2E8F0)
+                                    }
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             if (mediaItem.albumArtUri != null) {
@@ -2637,6 +2780,13 @@ fun DeviceMusicTabContent(
                                     imageVector = Icons.Rounded.Videocam,
                                     contentDescription = null,
                                     tint = Color(0xFF818CF8),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            } else if (isRecording) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Mic,
+                                    contentDescription = null,
+                                    tint = Color(0xFFF59E0B),
                                     modifier = Modifier.size(24.dp)
                                 )
                             } else {
@@ -2705,6 +2855,16 @@ fun DeviceMusicTabContent(
                                             .padding(horizontal = 4.dp, vertical = 1.dp)
                                     ) {
                                         Text("VIDEO", color = Color(0xFFA5B4FC), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                } else if (isRecording) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFFF59E0B).copy(alpha = 0.18f))
+                                            .border(0.8.dp, Color(0xFFFBBF24), RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    ) {
+                                        Text("VOICE NOTE", color = Color(0xFFFCD34D), fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                     }
                                 } else if (isDownloaded) {
                                     Box(

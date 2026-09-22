@@ -329,12 +329,17 @@ fun MusicPlayerScreen(
         playerTheme.getBackgroundBrush(fallbackAccent = activeAccent)
     }
 
-    // Dynamic docked bottom card surface (Frosted glass transparent if skin is FROSTED_GLASS or in VIDEO mode)
-    val isTransparentCard = playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS || activeTab == 1
+    val isGlassMode = playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS ||
+        playerTheme == PlayerThemeId.PURE_FROST ||
+        appTheme == com.musicdrop.app.ui.theme.AppThemeMode.GLASSMORPHISM ||
+        appColors.isGlassmorphism
 
-    val bottomCardSurface = remember(appColors, playerTheme, playerSkinLayout, activeTab) {
+    // Dynamic docked bottom card surface (Frosted glass transparent if skin is FROSTED_GLASS, glass mode, or in VIDEO mode)
+    val isTransparentCard = isGlassMode || activeTab == 1
+
+    val bottomCardSurface = remember(appColors, playerTheme, playerSkinLayout, activeTab, isGlassMode) {
         if (isTransparentCard) {
-            Color.White.copy(alpha = 0.08f)
+            Color.White.copy(alpha = 0.12f)
         } else when {
             playerTheme == PlayerThemeId.MIDNIGHT_OLED || playerTheme == PlayerThemeId.VINYL_MIDNIGHT -> Color(0xFF070708)
             playerTheme == PlayerThemeId.CARBON_SLATE -> Color(0xFF101216)
@@ -351,7 +356,7 @@ fun MusicPlayerScreen(
 
     val bottomCardBorder = remember(isTransparentCard) {
         if (isTransparentCard) {
-            androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
+            androidx.compose.foundation.BorderStroke(1.2.dp, Color.White.copy(alpha = 0.25f))
         } else {
             androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
         }
@@ -370,21 +375,36 @@ fun MusicPlayerScreen(
             }
     ) {
         // Blurred Album Artwork Background for Frosted Glass Skin & Video Songs
-        if (playerSkinLayout == PlayerSkinLayout.FROSTED_GLASS || activeTab == 1) {
+        if (isGlassMode || activeTab == 1) {
             val artUri = currentTrack?.albumArtUri
-            if (artUri != null) {
+            if (artUri != null && artUri.toString().isNotBlank()) {
                 AsyncImage(
                     model = artUri,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
-                        .blur(radius = 45.dp)
+                        .blur(radius = 50.dp)
                 )
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.38f))
+                        .background(Color.Black.copy(alpha = 0.42f))
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    Color(0xFF1E1B4B),
+                                    Color(0xFF0F172A),
+                                    Color(0xFF1E293B),
+                                    Color(0xFF0F0A1C)
+                                )
+                            )
+                        )
                 )
             }
         }
@@ -645,18 +665,18 @@ fun MusicPlayerScreen(
                                 }
                             }
                             PlayerSkinLayout.FROSTED_GLASS -> {
-                                // ── 6. FROSTED GLASS TRANSPARENT SKIN (MATCHING SCREENSHOT 2) ──
+                                // ── 6. FROSTED GLASS TRANSPARENT SKIN ──
                                 Surface(
                                     shape = RoundedCornerShape(28.dp),
-                                    color = Color(0xFF1B1B22),
+                                    color = Color.White.copy(alpha = 0.12f),
                                     shadowElevation = 24.dp,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
+                                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White.copy(alpha = 0.28f)),
                                     modifier = Modifier
-                                        .size(245.dp)
-                                        .shadow(32.dp, RoundedCornerShape(28.dp), spotColor = Color.Black.copy(alpha = 0.8f))
+                                        .size(255.dp)
+                                        .shadow(32.dp, RoundedCornerShape(28.dp), spotColor = Color.Black.copy(alpha = 0.7f))
                                 ) {
                                     val artUri = currentTrack?.albumArtUri
-                                    if (artUri != null) {
+                                    if (artUri != null && artUri.toString().isNotBlank()) {
                                         AsyncImage(
                                             model = artUri,
                                             contentDescription = "Cover Art",
@@ -667,32 +687,43 @@ fun MusicPlayerScreen(
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .background(Brush.radialGradient(listOf(Color(0xFF2C3E50), Color(0xFF0F2027)))),
+                                                .background(
+                                                    Brush.linearGradient(
+                                                        listOf(
+                                                            Color.White.copy(alpha = 0.15f),
+                                                            Color(0xFF38BDF8).copy(alpha = 0.25f),
+                                                            Color(0xFF1E1B4B).copy(alpha = 0.65f)
+                                                        )
+                                                    )
+                                                ),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.MusicNote,
                                                 contentDescription = null,
-                                                tint = Color.White.copy(alpha = 0.6f),
-                                                modifier = Modifier.size(72.dp)
+                                                tint = Color.White.copy(alpha = 0.85f),
+                                                modifier = Modifier.size(76.dp)
                                             )
                                         }
                                     }
                                 }
                             }
                             else -> {
-                                // ── 5. MODERN CARD SKIN (HERO ALBUM COVER - SCREENSHOT 1) ──
+                                // ── 5. MODERN CARD SKIN (HERO ALBUM COVER) ──
                                 Surface(
                                     shape = RoundedCornerShape(22.dp),
-                                    color = Color(0xFF1B1B22),
+                                    color = if (isGlassMode) Color.White.copy(alpha = 0.12f) else Color(0xFF1B1B22),
                                     shadowElevation = 18.dp,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        if (isGlassMode) 1.5.dp else 1.dp,
+                                        if (isGlassMode) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.12f)
+                                    ),
                                     modifier = Modifier
                                         .size(285.dp)
                                         .shadow(24.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.8f))
                                 ) {
                                     val artUri = currentTrack?.albumArtUri
-                                    if (artUri != null) {
+                                    if (artUri != null && artUri.toString().isNotBlank()) {
                                         AsyncImage(
                                             model = artUri,
                                             contentDescription = "Cover Art",
@@ -703,13 +734,25 @@ fun MusicPlayerScreen(
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .background(Brush.radialGradient(listOf(Color(0xFF2C3E50), Color(0xFF0F2027)))),
+                                                .background(
+                                                    if (isGlassMode) {
+                                                        Brush.linearGradient(
+                                                            listOf(
+                                                                Color.White.copy(alpha = 0.15f),
+                                                                Color(0xFF38BDF8).copy(alpha = 0.25f),
+                                                                Color(0xFF1E1B4B).copy(alpha = 0.65f)
+                                                            )
+                                                        )
+                                                    } else {
+                                                        Brush.radialGradient(listOf(Color(0xFF2C3E50), Color(0xFF0F2027)))
+                                                    }
+                                                ),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.MusicNote,
                                                 contentDescription = null,
-                                                tint = Color.White.copy(alpha = 0.6f),
+                                                tint = Color.White.copy(alpha = 0.75f),
                                                 modifier = Modifier.size(80.dp)
                                             )
                                         }

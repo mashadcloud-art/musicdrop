@@ -20,6 +20,17 @@ data class DownloadedTrack(
 ) {
     fun toMediaItem(): MediaItem {
         val file = File(filePath)
+        val isVideo = mimeType.startsWith("video") || filePath.endsWith(".mp4", ignoreCase = true) || key.startsWith("yt_video:")
+        val isVoiceNote = !isVideo && (
+            title.matches(Regex("""^20\d{6}_\d{6}.*""")) ||
+            title.startsWith("PTT-", ignoreCase = true) ||
+            title.startsWith("AUD-", ignoreCase = true) ||
+            title.startsWith("REC_", ignoreCase = true) ||
+            title.startsWith("Record", ignoreCase = true) ||
+            title.startsWith("Voice", ignoreCase = true) ||
+            title.startsWith("Call", ignoreCase = true) ||
+            (file.exists() && file.length() < 150_000L && !filePath.contains("MusicDrop", ignoreCase = true))
+        )
         return MediaItem(
             id = key.hashCode().toLong(),
             uri = android.net.Uri.fromFile(file),
@@ -27,11 +38,11 @@ data class DownloadedTrack(
             size = if (file.exists()) file.length() else 0L,
             dateAdded = downloadedAtMs / 1000L,
             mimeType = mimeType,
-            mediaType = if (mimeType.startsWith("video") || filePath.endsWith(".mp4", ignoreCase = true) || key.startsWith("yt_video:")) MediaType.VIDEO else MediaType.AUDIO,
+            mediaType = if (isVideo) MediaType.VIDEO else MediaType.AUDIO,
             durationMs = 0L,
             artist = artist.ifBlank { "Offline Track" },
             album = "Downloads",
-            isSong = true,
+            isSong = !isVoiceNote,
             filePath = filePath,
             albumArtUri = if (coverUrl.isNotBlank()) android.net.Uri.parse(coverUrl) else null
         )
@@ -55,6 +66,18 @@ object DownloadedTracksStore {
             for (i in 0 until array.length()) {
                 val obj = array.optJSONObject(i) ?: continue
                 val filePath = obj.optString("filePath")
+                val title = obj.optString("title", "")
+                val isVoiceNote = title.matches(Regex("""^20\d{6}_\d{6}.*""")) ||
+                    title.startsWith("PTT-", ignoreCase = true) ||
+                    title.startsWith("AUD-", ignoreCase = true) ||
+                    title.startsWith("REC_", ignoreCase = true) ||
+                    title.startsWith("Record", ignoreCase = true) ||
+                    title.startsWith("Voice", ignoreCase = true) ||
+                    title.startsWith("Call", ignoreCase = true) ||
+                    (File(filePath).exists() && File(filePath).length() < 150_000L && !filePath.contains("MusicDrop", ignoreCase = true) && !filePath.endsWith(".mp4", ignoreCase = true))
+
+                if (isVoiceNote) continue
+
                 if (filePath.isNotBlank() && File(filePath).exists()) {
                     list.add(
                         DownloadedTrack(

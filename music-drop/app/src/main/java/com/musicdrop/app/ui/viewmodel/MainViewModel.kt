@@ -3955,6 +3955,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     val cleanName = file.nameWithoutExtension
                                     val ext = file.extension.lowercase()
                                     val isVideo = ext in videoExts
+
+                                    val isVoiceNote = !isVideo && (
+                                        cleanName.matches(Regex("""^20\d{6}_\d{6}.*""")) ||
+                                        cleanName.startsWith("PTT-", ignoreCase = true) ||
+                                        cleanName.startsWith("AUD-", ignoreCase = true) ||
+                                        cleanName.startsWith("REC_", ignoreCase = true) ||
+                                        cleanName.startsWith("Record", ignoreCase = true) ||
+                                        cleanName.startsWith("Voice", ignoreCase = true) ||
+                                        cleanName.startsWith("Call", ignoreCase = true) ||
+                                        (file.length() < 150_000L && !file.parentFile?.name.equals("MusicDrop", ignoreCase = true))
+                                    )
+
+                                    if (isVoiceNote) {
+                                        continue
+                                    }
+
                                     val mimeType = when (ext) {
                                         "mp4" -> "video/mp4"
                                         "mkv" -> "video/x-matroska"

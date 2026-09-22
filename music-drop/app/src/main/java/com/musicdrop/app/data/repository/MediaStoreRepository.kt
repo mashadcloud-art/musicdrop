@@ -240,10 +240,18 @@ class MediaStoreRepository(private val context: Context) {
                     val isVoiceNotePattern = name.startsWith("PTT-", ignoreCase = true) ||
                             name.startsWith("AUD-", ignoreCase = true) ||
                             name.startsWith("REC_", ignoreCase = true) ||
-                            (name.startsWith("Voice", ignoreCase = true) && duration < 60000L) ||
-                            (name.contains("WhatsApp", ignoreCase = true) && duration < 45000L)
+                            name.startsWith("Record", ignoreCase = true) ||
+                            name.startsWith("Voice", ignoreCase = true) ||
+                            name.startsWith("Call", ignoreCase = true) ||
+                            name.matches(Regex("""^20\d{6}_\d{6}.*""")) ||
+                            (filePath?.contains("/Recordings", ignoreCase = true) == true) ||
+                            (filePath?.contains("/Voice", ignoreCase = true) == true) ||
+                            (filePath?.contains("/Call", ignoreCase = true) == true) ||
+                            (filePath?.contains("/WhatsApp", ignoreCase = true) == true && duration < 60000L) ||
+                            (duration in 1..20000L && it.getLong(sizeCol) < 250_000L) ||
+                            (it.getLong(sizeCol) in 1..100_000L)
 
-                    val isTrueSong = !isRingtone && !isVoiceNotePattern && (isMusicFlag || isTelegramOrSnaptube || duration >= 30000L)
+                    val isTrueSong = !isRingtone && !isVoiceNotePattern && (isMusicFlag || isTelegramOrSnaptube || duration >= 25000L) && (it.getLong(sizeCol) >= 150_000L || duration >= 25000L)
 
                     list.add(
                         MediaItem(

@@ -1,8 +1,8 @@
 {
-  "versionCode": 166,
-  "versionName": "1.5.6",
-  "title": "MusicDrop v1.5.6 Available",
-  "changelog": "• Fixed Device Tab Layout & Chips: Made category filter pills smoothly scrollable with no text wrapping or squishing\n• Light Theme Contrast Fix: All device media rows, headers, and counts now dynamically use high-contrast theme colors (no more faint white-on-white text)\n• Smart Sleep Timer: Added 'End of current song' mode so playback stops right when your current song finishes\n• Interactive Queue Reordering: Move Up and Move Down buttons directly on Up Next queue items to easily promote and arrange upcoming tracks\n• Stream & Media Cache Manager: One-tap 'Clear Cache' in Settings with real-time size calculation while keeping downloaded music safe",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.6/MusicDrop-v1.5.6.apk",
+  "versionCode": 167,
+  "versionName": "1.5.7",
+  "title": "MusicDrop v1.5.7 Available",
+  "changelog": "• Glassmorphic Player for Audio: Full translucent frosted glass panels, glowing glass borders, and iridescent gradient fallback when playing audio songs\n• Voice Notes & Non-Music Separation: Voice recordings (e.g. WhatsApp notes, call recordings, timestamped audio clips) are now cleanly segregated into a dedicated Recordings category, keeping Songs and Downloads pure music\n• Streamlined Library Tabs with 'More ▾' Popup: Replaced crowded 9-tab row with primary tabs + smart 'More ▾' dropdown (Albums, Artists, Genres, Folders), completely eliminating text truncation ('Gen...')\n• Mini Player Glassmorphism: Translucent frosted glass mini-player bar with dynamic card opacity\n• Fully responsive button spacing and layout polish across all devices",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.7/MusicDrop-v1.5.7.apk",
   "forceUpdate": true
 }

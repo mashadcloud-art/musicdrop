@@ -52,7 +52,8 @@ data class AppColors(
     val textMuted: Color,
     val accentPrimary: Color,
     val accentSecondary: Color,
-    val isDark: Boolean
+    val isDark: Boolean,
+    val isGlassmorphism: Boolean = false
 )
 
 // ── YouTube Music Official Dark Theme (Image 1 & 2) ──
@@ -233,7 +234,8 @@ val GlassmorphismAppColors = AppColors(
     textMuted = Color(0xFF8078B0),
     accentPrimary = Color(0xFF7DD3FC),
     accentSecondary = Color(0xFFF472B6),
-    isDark = true
+    isDark = true,
+    isGlassmorphism = true
 )
 
 // Rich wine & dark velvet plum palette matching Image 1
