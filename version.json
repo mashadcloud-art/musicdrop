@@ -1,8 +1,8 @@
 {
-  "versionCode": 174,
-  "versionName": "1.7.3",
-  "title": "MusicDrop v1.7.3 — Mobile Tab Smooth Navigation & Native TV Video Engine",
-  "changelog": "• Rock-Solid Mobile Tab Navigation: Swiping carousels on Discover (categories, playlists, charts) no longer hijacks screen or switches tabs\n• Header Stability: Eliminated twitchy collapsing top bar so buttons stay perfectly reachable with zero screen jitter\n• Instant Smooth Tab Switching: Switching between Home, Songs, Playlists, Downloads, and Library is instantaneous with zero intermediate lag\n• Native TV Video Playback: Full hardware-accelerated video rendering via ExoPlayer in TV mode with zero blank screens or iframe blocks\n• Header De-clutter: Mobile top bar icons cleanly spaced without overcrowding",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.3/MusicDrop-v1.7.3.apk",
+  "versionCode": 175,
+  "versionName": "1.7.4",
+  "title": "MusicDrop v1.7.4 — True YouTube on TV UI & Native ExoPlayer Video Engine",
+  "changelog": "• YouTube on Android TV UI: Faithful recreation matching official YouTube on TV reference with collapsible navigation rail\n• Cinema-Scale 16:9 Widescreen Cards: Large 330x186dp video cards with high-contrast white focus outline border, titles, and duration badges\n• YouTube TV In-Player HUD: Complete player overhaul with solid white circular Play/Pause button, seekbar, and quick mode toggle\n• In-Player Up Next Carousel: Seamless horizontal carousel of recommended tracks directly beneath playback controls\n• Direct ExoPlayer Video Streaming: Fixed stream detection so 1080p/720p hardware-accelerated video plays natively with zero blank screens",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.4/MusicDrop-v1.7.4.apk",
   "forceUpdate": false
 }

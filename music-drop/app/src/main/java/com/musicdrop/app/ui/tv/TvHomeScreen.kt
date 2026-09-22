@@ -1,13 +1,12 @@
 package com.musicdrop.app.ui.tv
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,37 +31,43 @@ import com.musicdrop.app.ui.viewmodel.MainViewModel
 data class TvQuickCategory(val title: String, val emoji: String, val query: String)
 
 private val TV_QUICK_CATEGORIES = listOf(
+    TvQuickCategory("All", "✨", ""),
     TvQuickCategory("Trending", "🔥", "trending songs india"),
     TvQuickCategory("Bollywood", "🎬", "bollywood top songs"),
     TvQuickCategory("Malayalam", "🌴", "malayalam hits"),
     TvQuickCategory("Tamil", "🎶", "tamil hits"),
     TvQuickCategory("Punjabi", "🎤", "punjabi hits"),
-    TvQuickCategory("Lofi Vibes", "🌙", "lofi chill music"),
+    TvQuickCategory("Lofi Chill", "🌙", "lofi chill music"),
     TvQuickCategory("Workout", "⚡", "workout gym music"),
     TvQuickCategory("Romantic", "❤️", "romantic love songs"),
     TvQuickCategory("Acoustic", "🎸", "acoustic guitar covers")
 )
 
 /**
- * TV Home screen:
- *  - Top Category Pills row for instant mood switching
- *  - Hero Banner with "Play/Pause" and "Watch Video" buttons
- *  - Horizontal genre rows with TV-proportioned 16:9 cards (not giant mobile cards)
+ * YouTube on Android TV Styled Home Screen (Matches Photos 1 & 2):
+ *  - Top Search Pill & MusicDrop Logo
+ *  - Mood / Category Filter Chips
+ *  - Large 16:9 Widescreen Cinema Cards (330dp wide, 186dp high, 2.5-3 cards per screen)
+ *  - High-Contrast White Focused Border on remote D-pad selection
+ *  - Rows for Recommended, Music Mixes, Regional hits, and Chill
  */
 @Composable
 fun TvHomeScreen(
     viewModel: MainViewModel,
     onPlaySong: (YouTubeSearchResult) -> Unit,
     onOpenPlayer: () -> Unit,
+    onOpenSearch: () -> Unit = {},
     onSelectCategory: (String) -> Unit = {},
     firstFocusRequester: FocusRequester = remember { FocusRequester() }
 ) {
     val currentTrack by viewModel.playbackConnection.currentTrack.collectAsState()
-    val isPlaying   by viewModel.playbackConnection.isPlaying.collectAsState()
-    val indiaQuick  by viewModel.indiaQuickPicks.collectAsState()
-    val malayalam   by viewModel.malayalamQuickPicks.collectAsState()
-    val tamil       by viewModel.tamilQuickPicks.collectAsState()
-    val lofi        by viewModel.lofiQuickPicks.collectAsState()
+    val isPlaying by viewModel.playbackConnection.isPlaying.collectAsState()
+    val indiaQuick by viewModel.indiaQuickPicks.collectAsState()
+    val malayalam by viewModel.malayalamQuickPicks.collectAsState()
+    val tamil by viewModel.tamilQuickPicks.collectAsState()
+    val lofi by viewModel.lofiQuickPicks.collectAsState()
+
+    var activeCategoryQuery by remember { mutableStateOf("") }
 
     // Request focus on first element
     LaunchedEffect(Unit) {
@@ -71,32 +76,109 @@ fun TvHomeScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 36.dp)
+        contentPadding = PaddingValues(bottom = 48.dp)
     ) {
-        // ── 1. Top Category Pills ─────────────────────────────────────
+        // ── 1. Top Header: Search Pill & Logo (Photo 1 & 2) ───────────
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 36.dp, vertical = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Search Pill (Photo 1 & 2)
+                TvFocusButton(
+                    onClick = onOpenSearch,
+                    cornerRadius = 24.dp,
+                    modifier = Modifier.width(380.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .background(Color.White.copy(0.12f), RoundedCornerShape(24.dp))
+                            .padding(horizontal = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = "Search",
+                            tint = Color.White.copy(0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Search music, artists, videos",
+                            color = Color.White.copy(0.6f),
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                // Brand Logo on top right (Matches YouTube logo in Photo 1 & 2)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(Color(0xFFFF0033), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        text = "MusicDrop",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.5).sp
+                    )
+                }
+            }
+        }
+
+        // ── 2. Category Filter Chips (Photo 1) ────────────────────────
         item {
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 36.dp, vertical = 18.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(horizontal = 36.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(bottom = 16.dp)
             ) {
                 items(TV_QUICK_CATEGORIES) { cat ->
+                    val isSelected = activeCategoryQuery == cat.query
                     TvFocusButton(
-                        onClick = { onSelectCategory(cat.query) },
+                        onClick = {
+                            activeCategoryQuery = cat.query
+                            if (cat.query.isNotBlank()) {
+                                onSelectCategory(cat.query)
+                            }
+                        },
                         cornerRadius = 20.dp
                     ) {
                         Row(
                             modifier = Modifier
-                                .background(Color.White.copy(0.08f), RoundedCornerShape(20.dp))
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                                .background(
+                                    if (isSelected) Color.White else Color.White.copy(0.10f),
+                                    RoundedCornerShape(20.dp)
+                                )
+                                .padding(horizontal = 16.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(cat.emoji, fontSize = 16.sp)
+                            Text(cat.emoji, fontSize = 14.sp)
                             Text(
-                                cat.title,
+                                text = cat.title,
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) Color.Black else Color.White.copy(0.9f)
                             )
                         }
                     }
@@ -104,205 +186,108 @@ fun TvHomeScreen(
             }
         }
 
-        // ── 2. Hero Banner ───────────────────────────────────────────
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(230.dp)
-                    .padding(horizontal = 36.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(
-                        Brush.linearGradient(listOf(Color(0xFF1E0533), Color(0xFF0C1445)))
-                    )
-            ) {
-                // Background artwork
-                currentTrack?.albumArtUri?.let { art ->
-                    AsyncImage(
-                        model = art,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(
-                                        Color.Black.copy(0.92f),
-                                        Color.Black.copy(0.65f),
-                                        Color.Black.copy(0.85f)
-                                    )
-                                )
-                            )
-                    )
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 36.dp, vertical = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Surface(
-                            color = Color(0xFF7C3AED).copy(alpha = 0.35f),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        ) {
-                            Text(
-                                text = if (currentTrack != null) "● NOW PLAYING" else "FEATURED FOR TV",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFA78BFA),
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
-                        }
-
-                        Text(
-                            text = currentTrack?.name ?: "Trending Music Hits",
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = currentTrack?.artist ?: "Press Play to start the music experience",
-                            fontSize = 15.sp,
-                            color = Color.White.copy(0.7f),
-                            maxLines = 1
-                        )
-                    }
-
-                    // Action buttons
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Watch Video Button
-                        if (currentTrack != null) {
-                            TvFocusButton(
-                                onClick = onOpenPlayer,
-                                cornerRadius = 14.dp
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .background(Color(0xFF7C3AED), RoundedCornerShape(14.dp))
-                                        .padding(horizontal = 18.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(Icons.Filled.Videocam, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                                    Text("Watch Video", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                }
-                            }
-                        }
-
-                        // Play/Pause button
-                        TvFocusButton(
-                            onClick = {
-                                if (currentTrack != null) {
-                                    viewModel.playbackConnection.togglePlayPause()
-                                } else if (indiaQuick.isNotEmpty()) {
-                                    onPlaySong(indiaQuick.first())
-                                }
-                            },
-                            focusRequester = firstFocusRequester,
-                            cornerRadius = 50.dp,
-                            modifier = Modifier.size(64.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Brush.linearGradient(listOf(Color(0xFF2563EB), Color(0xFF06B6D4))),
-                                        CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // ── 3. TV Track Rows ─────────────────────────────────────────
+        // ── 3. TV Video Rows (Large 16:9 Widescreen Cards - Photo 1 & 2) ──
         if (indiaQuick.isNotEmpty()) {
-            item { TvTrackRow("🔥 India Trending", indiaQuick, onPlaySong) }
+            item {
+                TvVideoRow(
+                    sectionTitle = "Recommended",
+                    tracks = indiaQuick,
+                    onPlay = onPlaySong
+                )
+            }
         }
-        if (malayalam.isNotEmpty()) {
-            item { TvTrackRow("🌴 Malayalam Hits", malayalam, onPlaySong) }
-        }
-        if (tamil.isNotEmpty()) {
-            item { TvTrackRow("🎶 Tamil Hits", tamil, onPlaySong) }
-        }
-        if (lofi.isNotEmpty()) {
-            item { TvTrackRow("🌙 Lofi & Chill", lofi, onPlaySong) }
-        }
-    }
-}
 
-@Composable
-fun TvTrackRow(
-    title: String,
-    tracks: List<YouTubeSearchResult>,
-    onPlay: (YouTubeSearchResult) -> Unit
-) {
-    Column(modifier = Modifier.padding(top = 22.dp)) {
-        Text(
-            text = title,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier.padding(horizontal = 36.dp, vertical = 6.dp)
-        )
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 36.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            itemsIndexed(tracks.take(15)) { _, track ->
-                TvTrackCard(track = track, onClick = { onPlay(track) })
+        if (malayalam.isNotEmpty()) {
+            item {
+                TvVideoRow(
+                    sectionTitle = "Start a Music Mix",
+                    tracks = malayalam,
+                    onPlay = onPlaySong
+                )
+            }
+        }
+
+        if (tamil.isNotEmpty()) {
+            item {
+                TvVideoRow(
+                    sectionTitle = "Tamil & Regional Hits",
+                    tracks = tamil,
+                    onPlay = onPlaySong
+                )
+            }
+        }
+
+        if (lofi.isNotEmpty()) {
+            item {
+                TvVideoRow(
+                    sectionTitle = "Lofi & Relaxing Chill",
+                    tracks = lofi,
+                    onPlay = onPlaySong
+                )
             }
         }
     }
 }
 
 /**
- * TV Card: Clean 16:9 widescreen ratio, 175dp wide.
- * Displays 5-6 cards across on 1080p / 4K TV screens instead of mobile oversized cards.
+ * YouTube on TV Horizontal Video Row:
+ * 16:9 cinema thumbnails with titles, channel names, and duration badges.
  */
 @Composable
-fun TvTrackCard(
+fun TvVideoRow(
+    sectionTitle: String,
+    tracks: List<YouTubeSearchResult>,
+    onPlay: (YouTubeSearchResult) -> Unit
+) {
+    Column(modifier = Modifier.padding(top = 18.dp)) {
+        Text(
+            text = sectionTitle,
+            fontSize = 19.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 36.dp, vertical = 8.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 36.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            items(tracks.take(15)) { track ->
+                TvWidescreenCard(track = track, onClick = { onPlay(track) })
+            }
+        }
+    }
+}
+
+/**
+ * YouTube on TV 16:9 Widescreen Card (Matches Photo 1 & 2):
+ *  - 330dp wide x 186dp thumbnail
+ *  - 16dp rounded corners
+ *  - Thick 3dp white border when focused via remote
+ *  - 2-line title + channel/views subtitle
+ *  - Bottom-right duration badge
+ */
+@Composable
+fun TvWidescreenCard(
     track: YouTubeSearchResult,
     onClick: () -> Unit
 ) {
     TvFocusButton(
         onClick = onClick,
-        cornerRadius = 14.dp,
-        modifier = Modifier.width(175.dp)
+        cornerRadius = 16.dp,
+        modifier = Modifier.width(330.dp)
     ) {
         Column(
             modifier = Modifier
-                .width(175.dp)
-                .background(Color.White.copy(0.06f), RoundedCornerShape(14.dp))
+                .width(330.dp)
+                .clip(RoundedCornerShape(16.dp))
         ) {
-            // 16:9 Thumbnail
+            // 16:9 Thumbnail Box
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(100.dp)
-                    .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                    .height(186.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF1E1E28))
             ) {
                 AsyncImage(
                     model = track.thumbnailUrl,
@@ -310,51 +295,63 @@ fun TvTrackCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-                // Gradient bottom fade
+
+                // Bottom subtle shadow vignette
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .height(50.dp)
                         .align(Alignment.BottomCenter)
-                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.75f))))
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.7f))))
                 )
-                // Duration badge
+
+                // Duration badge on bottom-right (Photo 2)
                 if (track.duration.isNotBlank()) {
-                    Surface(
-                        color = Color.Black.copy(0.8f),
-                        shape = RoundedCornerShape(4.dp),
+                    Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(5.dp)
+                            .padding(8.dp)
+                            .background(Color.Black.copy(0.85f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = track.duration,
-                            fontSize = 10.sp,
                             color = Color.White,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
-            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+
+            // Title & Channel Subtitle (Photo 1 & 2)
+            Column(modifier = Modifier.padding(top = 10.dp, start = 2.dp, end = 2.dp, bottom = 6.dp)) {
                 Text(
                     text = track.title,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.SemiBold,
                     color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 16.sp
+                    lineHeight = 20.sp,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(3.dp))
                 Text(
-                    text = track.channelTitle,
-                    fontSize = 11.sp,
-                    color = Color.White.copy(0.5f),
+                    text = if (track.channelTitle.isNotBlank()) track.channelTitle else "MusicDrop",
+                    color = Color.White.copy(0.6f),
+                    fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
         }
     }
+}
+
+@Composable
+fun TvTrackCard(
+    track: YouTubeSearchResult,
+    onClick: () -> Unit
+) {
+    TvWidescreenCard(track = track, onClick = onClick)
 }
