@@ -123,6 +123,8 @@ fun MusicPlayerScreen(
     var showSleepTimerModal by remember { mutableStateOf(false) }
     var showDownloadModal by remember { mutableStateOf(false) }
     var sleepTimerTargetMs by remember { mutableLongStateOf(0L) }
+    var sleepTimerStopAtEndOfSong by remember { mutableStateOf(false) }
+    var sleepTimerInitialTrackId by remember { mutableLongStateOf(0L) }
     var showOptionsMenu by remember { mutableStateOf(false) }
     var videoResizeMode by remember { mutableIntStateOf(1) } // 0: 16:9 Fit, 1: Fill (Zoom), 2: Wide (Stretch)
     var isVideoControlsCollapsed by remember { mutableStateOf(false) } // Edge-to-Edge video mode (collapses lower controls)
@@ -251,12 +253,30 @@ fun MusicPlayerScreen(
         return
     }
 
-    // Check favorite status
+    // Check favorite status and handle sleep timer stop at end of song
     LaunchedEffect(currentTrack?.id) {
         val cur = currentTrack
         if (cur != null) {
+            // If timer was waiting for current song to end and a new song is now playing
+            if (sleepTimerStopAtEndOfSong && sleepTimerInitialTrackId != 0L && cur.id != sleepTimerInitialTrackId) {
+                connection.pause()
+                sleepTimerStopAtEndOfSong = false
+                sleepTimerInitialTrackId = 0L
+                Toast.makeText(context, "Sleep timer: Stopped at end of song", Toast.LENGTH_SHORT).show()
+                return@LaunchedEffect
+            }
             isLiked = viewModel.isTrackFavorite(cur)
             viewModel.fetchLyrics(cur.name, cur.artist)
+        }
+    }
+
+    // Handle end-of-song sleep timer when song finishes playing
+    LaunchedEffect(sleepTimerStopAtEndOfSong, positionMs, durationMs) {
+        if (sleepTimerStopAtEndOfSong && durationMs > 5000L && positionMs >= durationMs - 500L) {
+            connection.pause()
+            sleepTimerStopAtEndOfSong = false
+            sleepTimerInitialTrackId = 0L
+            Toast.makeText(context, "Sleep timer: Stopped at end of song", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -2176,9 +2196,39 @@ fun MusicPlayerScreen(
                                             )
                                         }
 
+                                        // Move up button
+                                        if (index > 0) {
+                                            IconButton(
+                                                onClick = { viewModel.moveQueueItem(index, index - 1) },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.KeyboardArrowUp,
+                                                    contentDescription = "Move Up",
+                                                    tint = Color.White.copy(alpha = 0.7f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+
+                                        // Move down button
+                                        if (index < upNextQueue.size - 1) {
+                                            IconButton(
+                                                onClick = { viewModel.moveQueueItem(index, index + 1) },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                                                    contentDescription = "Move Down",
+                                                    tint = Color.White.copy(alpha = 0.7f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+
                                         IconButton(
                                             onClick = { viewModel.removeFromQueue(item) },
-                                            modifier = Modifier.size(30.dp)
+                                            modifier = Modifier.size(28.dp)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.Close,
@@ -2208,6 +2258,37 @@ fun MusicPlayerScreen(
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text("Set Sleep Timer", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(16.dp))
+
+                        // "End of current song" option
+                        val isEndOfSongActive = sleepTimerStopAtEndOfSong
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isEndOfSongActive) activeAccent.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
+                                .border(1.dp, if (isEndOfSongActive) activeAccent else Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                                .clickable {
+                                    sleepTimerStopAtEndOfSong = true
+                                    sleepTimerInitialTrackId = currentTrack?.id ?: 0L
+                                    sleepTimerTargetMs = 0L
+                                    showSleepTimerModal = false
+                                    Toast.makeText(context, "Timer set: Stop at end of current song", Toast.LENGTH_SHORT).show()
+                                }
+                                .padding(vertical = 12.dp, horizontal = 12.dp)
+                        ) {
+                            Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = activeAccent, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = "End of current song",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
                         val options = listOf(15, 30, 45, 60, 90)
                         options.forEach { minutes ->
                             Text(
@@ -2218,6 +2299,8 @@ fun MusicPlayerScreen(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .clickable {
+                                        sleepTimerStopAtEndOfSong = false
+                                        sleepTimerInitialTrackId = 0L
                                         sleepTimerTargetMs = System.currentTimeMillis() + minutes * 60 * 1000L
                                         showSleepTimerModal = false
                                         Toast.makeText(context, "Timer set for $minutes minutes", Toast.LENGTH_SHORT).show()
@@ -2225,7 +2308,8 @@ fun MusicPlayerScreen(
                                     .padding(vertical = 12.dp, horizontal = 8.dp)
                             )
                         }
-                        if (sleepTimerTargetMs > 0L) {
+                        if (sleepTimerTargetMs > 0L || sleepTimerStopAtEndOfSong) {
+                            Spacer(Modifier.height(8.dp))
                             Text(
                                 text = "Turn off timer",
                                 color = Color(0xFFEF4444),
@@ -2235,6 +2319,8 @@ fun MusicPlayerScreen(
                                     .fillMaxWidth()
                                     .clickable {
                                         sleepTimerTargetMs = 0L
+                                        sleepTimerStopAtEndOfSong = false
+                                        sleepTimerInitialTrackId = 0L
                                         showSleepTimerModal = false
                                         Toast.makeText(context, "Timer cancelled", Toast.LENGTH_SHORT).show()
                                     }

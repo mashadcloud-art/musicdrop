@@ -10,6 +10,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -17,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -1508,6 +1510,7 @@ private fun SongItemRow(
     onMoreClick: (() -> Unit)? = null,
     onShareClick: (() -> Unit)? = null
 ) {
+    val appColors = LocalAppColors.current
     val dateFormat = remember { SimpleDateFormat("MM-dd", Locale.getDefault()) }
     val dateStr = remember(song.dateAdded) {
         try {
@@ -1529,7 +1532,7 @@ private fun SongItemRow(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF22222E)),
+                .background(if (appColors.isDark) Color(0xFF22222E) else Color(0xFFE2E8F0)),
             contentAlignment = Alignment.Center
         ) {
             if (song.albumArtUri != null) {
@@ -1555,7 +1558,7 @@ private fun SongItemRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.name,
-                color = Color.White,
+                color = appColors.textPrimary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
@@ -1565,7 +1568,7 @@ private fun SongItemRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "${song.artist} - ${song.album.ifBlank { "Music" }}",
-                    color = Color(0xFF8E8E9B),
+                    color = appColors.textSecondary,
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1575,10 +1578,10 @@ private fun SongItemRow(
                 // 320K Tag
                 Box(
                     modifier = Modifier
-                        .border(0.8.dp, Color(0xFF555566), RoundedCornerShape(3.dp))
+                        .border(0.8.dp, if (appColors.isDark) Color(0xFF555566) else Color(0xFFCBD5E1), RoundedCornerShape(3.dp))
                         .padding(horizontal = 4.dp, vertical = 1.dp)
                 ) {
-                    Text("320K", color = Color(0xFFAAAAAA), fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
+                    Text("320K", color = if (appColors.isDark) Color(0xFFAAAAAA) else Color(0xFF64748B), fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -1588,7 +1591,7 @@ private fun SongItemRow(
         // Date (MM-dd)
         Text(
             text = dateStr,
-            color = Color(0xFF6E6E7E),
+            color = appColors.textSecondary.copy(alpha = 0.75f),
             fontSize = 11.5.sp
         )
 
@@ -1602,7 +1605,7 @@ private fun SongItemRow(
             Icon(
                 imageVector = if (onMoreClick != null) Icons.Rounded.MoreVert else (if (onShareClick != null) Icons.Rounded.Share else Icons.Rounded.MoreVert),
                 contentDescription = if (onMoreClick != null) "Song options" else (if (onShareClick != null) "Share file" else "Options"),
-                tint = if (onMoreClick != null) Color(0xFF8E8E9B) else (if (onShareClick != null) Color(0xFF38BDF8) else Color(0xFF8E8E9B)),
+                tint = if (onMoreClick != null) appColors.textSecondary else (if (onShareClick != null) Color(0xFF38BDF8) else appColors.textSecondary),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -1845,7 +1848,7 @@ private fun AlbumVinylCard(
                     .border(1.dp, appColors.surfaceBorder, RoundedCornerShape(12.dp))
                     .shadow(6.dp, RoundedCornerShape(12.dp))
             ) {
-                if (coverUri != null) {
+                if (coverUri != null && coverUri != android.net.Uri.EMPTY) {
                     AsyncImage(
                         model = coverUri,
                         contentDescription = title,
@@ -1853,14 +1856,23 @@ private fun AlbumVinylCard(
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    Icon(
-                        imageVector = Icons.Rounded.Album,
-                        contentDescription = null,
-                        tint = appColors.accentPrimary,
+                    Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .align(Alignment.Center)
-                    )
+                            .fillMaxSize()
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(appColors.accentPrimary.copy(alpha = 0.25f), appColors.accentSecondary.copy(alpha = 0.15f))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Album,
+                            contentDescription = null,
+                            tint = appColors.accentPrimary,
+                            modifier = Modifier.size(44.dp)
+                        )
+                    }
                 }
 
                 // "X songs" pill at bottom left
@@ -2433,6 +2445,7 @@ fun DeviceMusicTabContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -2461,20 +2474,22 @@ fun DeviceMusicTabContent(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
                             ) {
                                 Icon(
                                     imageVector = category.icon,
                                     contentDescription = null,
                                     tint = if (isSelected) appColors.accentPrimary else appColors.textSecondary,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
-                                Spacer(Modifier.width(4.dp))
+                                Spacer(Modifier.width(6.dp))
                                 Text(
                                     text = "${category.label} ($count)",
-                                    color = if (isSelected) appColors.textPrimary else appColors.textSecondary,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    color = if (isSelected) (if (appColors.isDark) Color.White else appColors.accentPrimary) else appColors.textSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                             }
                         }
@@ -2493,7 +2508,7 @@ fun DeviceMusicTabContent(
                 ) {
                     Text(
                         text = "${filteredList.size} ${selectedCategory.label} Found",
-                        color = Color.White,
+                        color = appColors.textPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -2536,7 +2551,7 @@ fun DeviceMusicTabContent(
                                 } else {
                                     "No ${selectedCategory.label} Found on Device"
                                 },
-                                color = Color.White,
+                                color = appColors.textPrimary,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center
@@ -2550,7 +2565,7 @@ fun DeviceMusicTabContent(
                                 } else {
                                     "Download songs or videos in MusicDrop or copy files into your Music/Movies/Download folders to play them here."
                                 },
-                                color = Color(0xFF8E8E9B),
+                                color = appColors.textSecondary,
                                 fontSize = 13.sp,
                                 textAlign = TextAlign.Center
                             )
@@ -2607,7 +2622,7 @@ fun DeviceMusicTabContent(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isVideo) Color(0xFF1E1B4B) else Color(0xFF22222E)),
+                                .background(if (isVideo) Color(0xFF1E1B4B) else (if (appColors.isDark) Color(0xFF22222E) else Color(0xFFE2E8F0))),
                             contentAlignment = Alignment.Center
                         ) {
                             if (mediaItem.albumArtUri != null) {
@@ -2659,7 +2674,7 @@ fun DeviceMusicTabContent(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = mediaItem.name,
-                                color = Color.White,
+                                color = appColors.textPrimary,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
@@ -2672,7 +2687,7 @@ fun DeviceMusicTabContent(
                             ) {
                                 Text(
                                     text = if (isVideo) mediaItem.folderName else "${mediaItem.artist} - ${mediaItem.folderName}",
-                                    color = Color(0xFF8E8E9B),
+                                    color = appColors.textSecondary,
                                     fontSize = 12.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -2704,10 +2719,10 @@ fun DeviceMusicTabContent(
                                 } else {
                                     Box(
                                         modifier = Modifier
-                                            .border(0.8.dp, Color(0xFF555566), RoundedCornerShape(3.dp))
+                                            .border(0.8.dp, if (appColors.isDark) Color(0xFF555566) else Color(0xFFCBD5E1), RoundedCornerShape(3.dp))
                                             .padding(horizontal = 4.dp, vertical = 1.dp)
                                     ) {
-                                        Text("AUDIO", color = Color(0xFFAAAAAA), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+                                        Text("AUDIO", color = if (appColors.isDark) Color(0xFFAAAAAA) else Color(0xFF64748B), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
 
@@ -2715,7 +2730,7 @@ fun DeviceMusicTabContent(
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = mediaItem.formattedDuration,
-                                        color = Color(0xFF9CA3AF),
+                                        color = appColors.textSecondary.copy(alpha = 0.85f),
                                         fontSize = 11.sp
                                     )
                                 }
@@ -2724,7 +2739,7 @@ fun DeviceMusicTabContent(
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "• ${mediaItem.formattedSize}",
-                                        color = Color(0xFF6B7280),
+                                        color = appColors.textSecondary.copy(alpha = 0.7f),
                                         fontSize = 10.5.sp
                                     )
                                 }
@@ -2741,7 +2756,7 @@ fun DeviceMusicTabContent(
                             Icon(
                                 imageVector = if (onMoreClick != null) Icons.Rounded.MoreVert else Icons.Rounded.Share,
                                 contentDescription = "Options",
-                                tint = Color(0xFF8E8E9B),
+                                tint = appColors.textSecondary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }

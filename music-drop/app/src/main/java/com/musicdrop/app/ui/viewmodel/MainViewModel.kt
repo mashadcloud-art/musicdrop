@@ -1983,6 +1983,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _upNextQueue.value = emptyList()
     }
 
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        val current = _upNextQueue.value.toMutableList()
+        if (fromIndex in current.indices && toIndex in current.indices && fromIndex != toIndex) {
+            val item = current.removeAt(fromIndex)
+            current.add(toIndex, item)
+            _upNextQueue.value = current
+        }
+    }
+
     fun playNextTrackFromQueue() {
         val localList = _localQueue.value
         val localNext = localList.firstOrNull()
@@ -4194,7 +4203,60 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearRecentSearches() {
         com.musicdrop.app.data.repository.RecentSearchStore.clearAll(getApplication())
-        _recentSearches.value = emptyList()
+        _recentSearches.value = com.musicdrop.app.data.repository.RecentSearchStore.getSearches(getApplication())
+    }
+
+    fun getStreamCacheSizeBytes(): Long {
+        var size = 0L
+        try {
+            val app = getApplication<Application>()
+            size += getFolderSizeBytes(app.cacheDir)
+            val ext = app.externalCacheDir
+            if (ext != null) {
+                size += getFolderSizeBytes(ext)
+            }
+        } catch (_: Throwable) {}
+        return size
+    }
+
+    fun getFormattedCacheSize(): String {
+        val size = getStreamCacheSizeBytes()
+        val mb = size / (1024.0 * 1024.0)
+        val kb = size / 1024.0
+        return when {
+            mb >= 1.0 -> String.format("%.1f MB", mb)
+            kb >= 1.0 -> String.format("%.0f KB", kb)
+            else -> "$size B"
+        }
+    }
+
+    fun clearAppStreamCache(onDone: () -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                streamCache.clear()
+                com.musicdrop.app.data.youtube.StreamCacheStore.save(getApplication(), streamCache)
+                com.musicdrop.app.data.repository.YtMusicApiRepository.clearCache()
+                regionTrendingCache.clear()
+
+                val app = getApplication<Application>()
+                app.cacheDir.listFiles()?.forEach { it.deleteRecursively() }
+                app.externalCacheDir?.listFiles()?.forEach { it.deleteRecursively() }
+            } catch (_: Throwable) {}
+            withContext(Dispatchers.Main) {
+                onDone()
+            }
+        }
+    }
+
+    private fun getFolderSizeBytes(dir: java.io.File?): Long {
+        if (dir == null || !dir.exists()) return 0L
+        var size = 0L
+        try {
+            dir.listFiles()?.forEach { file ->
+                size += if (file.isDirectory) getFolderSizeBytes(file) else file.length()
+            }
+        } catch (_: Throwable) {}
+        return size
     }
 
     override fun onCleared() {

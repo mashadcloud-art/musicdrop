@@ -743,7 +743,107 @@ fun MoreSettingsScreen(
                 }
             }
 
-            // ── SECTION 5: APP INFO & INSTANT UPDATER ─────────────────────────
+            // ── SECTION 5: STORAGE & CACHE MANAGEMENT ─────────────────────────
+            item {
+                var cacheSizeText by remember { mutableStateOf(viewModel.getFormattedCacheSize()) }
+                var isClearingCache by remember { mutableStateOf(false) }
+                val context = androidx.compose.ui.platform.LocalContext.current
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = appColors.surfaceElevated),
+                    shape = RoundedCornerShape(20.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, appColors.surfaceBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFF59E0B).copy(alpha = 0.18f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Rounded.Cached, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    "Storage & Stream Cache",
+                                    color = appColors.textPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    "Manage temporary streaming data and cache",
+                                    color = appColors.textSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        "Stream & Media Cache",
+                                        color = appColors.textPrimary,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(Color(0xFFF59E0B).copy(alpha = 0.18f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(cacheSizeText, color = Color(0xFFF59E0B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "Cached audio streams, search indexes & thumbnails. Your downloaded offline songs are kept safe.",
+                                    color = appColors.textSecondary,
+                                    fontSize = 11.5.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
+
+                            Button(
+                                onClick = {
+                                    isClearingCache = true
+                                    viewModel.clearAppStreamCache {
+                                        cacheSizeText = viewModel.getFormattedCacheSize()
+                                        isClearingCache = false
+                                        android.widget.Toast.makeText(context, "Stream cache cleared", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                enabled = !isClearingCache,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFF59E0B).copy(alpha = 0.2f),
+                                    contentColor = Color(0xFFF59E0B)
+                                ),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(
+                                    if (isClearingCache) "Clearing..." else "Clear Cache",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── SECTION 6: APP INFO & INSTANT UPDATER ─────────────────────────
             item {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = appColors.surfaceElevated),
