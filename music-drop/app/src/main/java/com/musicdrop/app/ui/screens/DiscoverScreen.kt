@@ -3522,7 +3522,10 @@ fun SpeedDialShelf(
         // Real HorizontalPager for 3x3 grids (Swipe: Songs -> Albums -> Artists)
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentWidth(Alignment.CenterHorizontally)
+                .widthIn(max = 500.dp)
         ) { page ->
             when (page) {
                 0 -> {

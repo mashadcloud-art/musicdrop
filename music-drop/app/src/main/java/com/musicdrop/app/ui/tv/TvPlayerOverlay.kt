@@ -165,6 +165,26 @@ fun TvPlayerOverlay(
                         showControls = true
                         true
                     }
+                    Key.MediaPlayPause -> {
+                        connection.togglePlayPause()
+                        true
+                    }
+                    Key.MediaPlay -> {
+                        connection.play()
+                        true
+                    }
+                    Key.MediaPause, Key.MediaStop -> {
+                        connection.pause()
+                        true
+                    }
+                    Key.MediaFastForward -> {
+                        connection.seekTo((positionMs + 10_000L).coerceAtMost(durationMs))
+                        true
+                    }
+                    Key.MediaRewind -> {
+                        connection.seekTo((positionMs - 10_000L).coerceAtLeast(0L))
+                        true
+                    }
                     Key.Back, Key.Escape -> {
                         if (showControls) {
                             showControls = false

@@ -66,6 +66,7 @@ fun isTvDevice(context: Context): Boolean {
     if (pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) return true
     if (pm.hasSystemFeature("android.hardware.type.television")) return true
     if (pm.hasSystemFeature("android.software.leanback")) return true
+    if (pm.hasSystemFeature("android.software.leanback_only")) return true
 
     // 2. UiModeManager check (standard Android TV mode)
     try {
@@ -81,14 +82,49 @@ fun isTvDevice(context: Context): Boolean {
     // 4. Any Android device without a touchscreen is almost certainly a TV box / console
     if (!pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) return true
 
-    // 5. Check if it's a non-battery box (HDMI media box / Android TV box without telephony & battery)
+    // 5. Hardware / Model / Brand strings typical of TV boxes & Android TVs
+    val brandInfo = (Build.BRAND + " " + Build.MANUFACTURER + " " + Build.MODEL + " " + Build.PRODUCT + " " + Build.HARDWARE + " " + Build.DEVICE).lowercase()
+    val tvKeywords = listOf(
+        "tv", "box", "droidlogic", "amlogic", "rockchip", "allwinner", "realtek", "mstar",
+        "shield", "bravia", "sony tv", "tcl", "hisense", "philips tv", "xiaomi tv", "mitv",
+        "redmi tv", "mi box", "mibox", "atv", "googletv", "smarttv", "firetv", "stick"
+    )
+    if (tvKeywords.any { brandInfo.contains(it) }) return true
+
+    // 6. Navigation configuration: D-pad / Trackball remote controller
+    val config = context.resources.configuration
+    if (config.navigation == Configuration.NAVIGATION_DPAD || config.navigation == Configuration.NAVIGATION_TRACKBALL) return true
+
+    // 7. Input device check: presence of a TV remote or D-pad input device
+    try {
+        val deviceIds = android.view.InputDevice.getDeviceIds()
+        for (id in deviceIds) {
+            val dev = android.view.InputDevice.getDevice(id) ?: continue
+            val sources = dev.sources
+            val name = dev.name.lowercase()
+            if (sources and android.view.InputDevice.SOURCE_DPAD != 0 && dev.isExternal) {
+                if (name.contains("remote") || name.contains("cec") || name.contains("air") || name.contains("controller") || name.contains("tv")) {
+                    return true
+                }
+            }
+        }
+    } catch (_: Throwable) {}
+
+    // 8. Landscape widescreen display (>= 720dp) with no telephony and no camera (classic Android TV Box)
+    val isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isWide = config.screenWidthDp >= 720 || config.smallestScreenWidthDp >= 540
+    val hasTelephony = pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
+    val hasCamera = pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+    val hasTouch = pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)
+    if (isLandscape && isWide && !hasTelephony && (!hasCamera || !hasTouch)) return true
+
+    // 9. Non-battery box (HDMI media box / Android TV box plugged into wall)
     try {
         val batteryIntent = context.registerReceiver(
             null,
             android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
         )
         val hasBattery = batteryIntent?.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true) ?: true
-        val hasTelephony = pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
         if (!hasBattery && !hasTelephony) return true
     } catch (_: Throwable) {}
 
@@ -188,8 +224,8 @@ fun TvModeChooser(onChoice: (TvModeChoice) -> Unit) {
                 ) {
                     ModeCard(
                         icon = Icons.Filled.Tv,
-                        title = "TV Mode",
-                        description = "Remote-friendly\nD-pad navigation\nFull-screen player",
+                        title = "📺 Android TV & Box",
+                        description = "100% Remote Control\n16:9 Cinema Video\nYouTube TV Experience",
                         gradient = Brush.linearGradient(
                             listOf(Color(0xFF7C3AED), Color(0xFF2563EB))
                         ),
@@ -201,8 +237,8 @@ fun TvModeChooser(onChoice: (TvModeChoice) -> Unit) {
                     )
                     ModeCard(
                         icon = Icons.Filled.PhoneAndroid,
-                        title = "Music Mode",
-                        description = "Full mobile UI\nAll features\nTouch-optimized",
+                        title = "📱 Mobile Touch",
+                        description = "Touchscreen only\nDesigned for phones\nNo remote D-pad",
                         gradient = Brush.linearGradient(
                             listOf(Color(0xFF059669), Color(0xFF0891B2))
                         ),

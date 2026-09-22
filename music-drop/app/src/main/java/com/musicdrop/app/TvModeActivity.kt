@@ -56,9 +56,11 @@ class TvModeActivity : ComponentActivity() {
                 TvRootContent(
                     viewModel = viewModel,
                     onSwitchToMobile = {
-                        // Launch full mobile UI and finish TV activity
+                        // Explicitly switch to mobile
+                        com.musicdrop.app.ui.tv.saveTvModeChoice(this@TvModeActivity, TvModeChoice.MOBILE)
                         startActivity(
                             Intent(this@TvModeActivity, MainActivity::class.java)
+                                .putExtra("force_mobile", true)
                                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                         )
                         finish()
@@ -78,31 +80,13 @@ private fun TvRootContent(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    // Read persisted choice; null means "not yet decided"
-    var choice by remember { mutableStateOf(getTvModeChoice(context)) }
-
-    when (choice) {
-        null -> {
-            // First launch — show chooser
-            TvModeChooser { picked ->
-                choice = picked
-                if (picked == TvModeChoice.MOBILE) {
-                    onSwitchToMobile()
-                }
-            }
-        }
-        TvModeChoice.TV -> {
-            TvMusicApp(
-                viewModel = viewModel,
-                onSwitchToMobile = {
-                    choice = null  // clear so chooser shows again if they change mind later
-                    onSwitchToMobile()
-                }
-            )
-        }
-        TvModeChoice.MOBILE -> {
-            // Immediately hand off — effect runs once
-            LaunchedEffect(Unit) { onSwitchToMobile() }
-        }
+    // Ensure TV mode is saved as active
+    LaunchedEffect(Unit) {
+        com.musicdrop.app.ui.tv.saveTvModeChoice(context, TvModeChoice.TV)
     }
+
+    TvMusicApp(
+        viewModel = viewModel,
+        onSwitchToMobile = onSwitchToMobile
+    )
 }

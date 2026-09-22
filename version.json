@@ -1,8 +1,8 @@
 {
-  "versionCode": 175,
-  "versionName": "1.7.4",
-  "title": "MusicDrop v1.7.4 — True YouTube on TV UI & Native ExoPlayer Video Engine",
-  "changelog": "• YouTube on Android TV UI: Faithful recreation matching official YouTube on TV reference with collapsible navigation rail\n• Cinema-Scale 16:9 Widescreen Cards: Large 330x186dp video cards with high-contrast white focus outline border, titles, and duration badges\n• YouTube TV In-Player HUD: Complete player overhaul with solid white circular Play/Pause button, seekbar, and quick mode toggle\n• In-Player Up Next Carousel: Seamless horizontal carousel of recommended tracks directly beneath playback controls\n• Direct ExoPlayer Video Streaming: Fixed stream detection so 1080p/720p hardware-accelerated video plays natively with zero blank screens",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.4/MusicDrop-v1.7.4.apk",
+  "versionCode": 176,
+  "versionName": "1.7.5",
+  "title": "MusicDrop v1.7.5 — Fix TV Hardware Auto-Routing, Remote Control & Screen Sizing",
+  "changelog": "• Automatic TV Detection & Routing: Comprehensive multi-layer detection for Android TV, Google TV, Fire TV, Mi Box, and generic Android TV boxes, instantly launching the dedicated TV Experience without getting stuck in mobile mode\n• 100% TV Remote Control Navigation: All HUD controls (Play/Pause, Next, Previous, Seek, Rewind, Fast Forward, Download, Like) fully navigable with TV remote D-Pad, OK, and media keys\n• Fixed Speed Dial Card Sizing: Constrained card dimensions on landscape and TV displays so cards never take up the full screen or cause erratic scrolling\n• One-Touch TV Mode Switch: High-visibility 'TV Mode' toggle in the top bar allows immediate switching to TV mode anytime\n• Suppressed Mobile Player on TV: TV mode exclusively uses the high-performance native ExoPlayer overlay with no blank screens",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.5/MusicDrop-v1.7.5.apk",
   "forceUpdate": false
 }
