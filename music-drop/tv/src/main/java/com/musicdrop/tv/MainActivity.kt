@@ -52,6 +52,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.viewinterop.AndroidView
 
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.platform.LocalContext
 
@@ -73,14 +74,84 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-            when (event.keyCode) {
-                android.view.KeyEvent.KEYCODE_BACK -> {
-                    if (onTvBackPressed?.invoke() == true) {
+            val vm = activeViewModel
+            if (vm?.showFullPlayer?.value == true) {
+                when (event.keyCode) {
+                    android.view.KeyEvent.KEYCODE_BACK -> {
+                        if (onTvBackPressed?.invoke() == true) return true
+                        vm.closeFullPlayer()
                         return true
                     }
-                    val vm = activeViewModel
-                    if (vm?.showFullPlayer?.value == true) {
-                        vm.closeFullPlayer()
+                    android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                    android.view.KeyEvent.KEYCODE_ENTER,
+                    android.view.KeyEvent.KEYCODE_NUMPAD_ENTER,
+                    android.view.KeyEvent.KEYCODE_BUTTON_A,
+                    android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                        vm.playbackConnection.togglePlayPause()
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                        vm.playbackConnection.play()
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                        vm.playbackConnection.pause()
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                        vm.playbackConnection.skipNext()
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                        vm.playbackConnection.skipPrevious()
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                        val pos = vm.playbackConnection.currentPositionMs.value
+                        val dur = vm.playbackConnection.durationMs.value
+                        val target = if (dur > 0) minOf(dur, pos + 15_000L) else pos + 15_000L
+                        vm.playbackConnection.seekTo(target)
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                        val pos = vm.playbackConnection.currentPositionMs.value
+                        val target = maxOf(0L, pos - 15_000L)
+                        vm.playbackConnection.seekTo(target)
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        val pos = vm.playbackConnection.currentPositionMs.value
+                        val dur = vm.playbackConnection.durationMs.value
+                        val target = if (dur > 0) minOf(dur, pos + 10_000L) else pos + 10_000L
+                        vm.playbackConnection.seekTo(target)
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        val pos = vm.playbackConnection.currentPositionMs.value
+                        val target = maxOf(0L, pos - 10_000L)
+                        vm.playbackConnection.seekTo(target)
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                        vm.setVideoMode(!vm.isVideoMode.value)
+                        return true
+                    }
+                }
+            } else {
+                when (event.keyCode) {
+                    android.view.KeyEvent.KEYCODE_BACK -> {
+                        if (onTvBackPressed?.invoke() == true) return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                        vm?.playbackConnection?.togglePlayPause()
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                        vm?.playbackConnection?.skipNext()
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                        vm?.playbackConnection?.skipPrevious()
                         return true
                     }
                 }
@@ -474,8 +545,13 @@ fun MainAppContent(viewModel: MainViewModel) {
         }
     }
 
+    val isAnyOverlayOpen = (showFullPlayer && currentTrack != null) || openPlaylist != null || openSource != null || openArtist != null || openAlbum != null || isSearchOpen || showSettingsOverlay
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
+            modifier = Modifier
+                .fillMaxSize()
+                .focusProperties { canFocus = !isAnyOverlayOpen },
             containerColor = appColors.background,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {

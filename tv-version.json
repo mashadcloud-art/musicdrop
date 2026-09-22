@@ -1,7 +1,7 @@
 {
-  "versionCode": 3,
-  "versionName": "1.2.0",
-  "title": "MusicDrop TV v1.2.0 (Full Mobile Edition for TV)",
-  "changelog": "Full MusicDrop experience brought to Android TV: complete Discover feeds, trending, charts, curated playlists, artists, albums, search dashboard, full music player, background downloads, Leanback launcher, landscape adaptation, and remote D-pad focus control.",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/tv-v1.2.0/MusicDropTV-v1.2.0.apk"
+  "versionCode": 4,
+  "versionName": "1.2.1",
+  "title": "MusicDrop TV v1.2.1 (Remote Focus & Background Fix)",
+  "changelog": "Fixed TV remote focus: background cards are now completely blocked from receiving focus or scrolling when player is open. Mapped remote control keys directly to player: OK/Enter to Play/Pause, Left/Right to Seek 10s, Next/Prev to skip tracks, Up to toggle video mode, and Back to exit player.",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/tv-v1.2.1/MusicDropTV-v1.2.1.apk"
 }
