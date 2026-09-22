@@ -482,7 +482,7 @@ fun MoreSettingsScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // DJ Overlap Crossfade
+                        // Seamless Merge & Crossfade (Zero-Gap)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -490,13 +490,13 @@ fun MoreSettingsScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                                 Text(
-                                    "DJ Overlap Crossfade (Seamless Blend)",
+                                    "Seamless Merge & Crossfade (Zero-Gap)",
                                     color = appColors.textPrimary,
                                     fontSize = 13.5.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    "Overlap the next song before the current track finishes for an uninterrupted party mix",
+                                    "Gently fade out the ending song and smoothly fade in the next track with zero silent gap or abrupt cuts",
                                     color = appColors.textSecondary,
                                     fontSize = 11.5.sp,
                                     lineHeight = 15.sp

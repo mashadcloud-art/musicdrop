@@ -255,18 +255,12 @@ class PlaybackConnection(private val context: Context) {
                             onPreloadNextTrack?.invoke()
                         }
 
-                        // 2. Smooth DJ Mashup Crossfade & Overlap (if enabled by user in Settings)
-                        if (isDjCrossfadeEnabled && dur > 10_000L && pos >= (dur - 4_500L)) {
+                        // 2. Smooth Merge & Gentle Crossfade (Gently fade out over final 2s, letting song finish naturally)
+                        if (isDjCrossfadeEnabled && dur > 8_000L && pos >= (dur - 2_200L)) {
                             isCrossfadingOut = true
                             val remaining = (dur - pos).coerceAtLeast(0L)
-                            val fadeVol = (remaining / 4_500f).coerceIn(0.12f, 1f)
+                            val fadeVol = (remaining / 2_200f).coerceIn(0.15f, 1f)
                             c.volume = fadeVol
-
-                            // Start next song ~3.5s before current song ends for seamless DJ mashup mix
-                            if (pos >= (dur - 3_500L) && !isOverlapTriggered) {
-                                isOverlapTriggered = true
-                                onOverlapNextTrack?.invoke()
-                            }
                         } else if (!isCrossfadingOut && (fadeInJob == null || fadeInJob?.isActive == false)) {
                             if (c.volume < 1f) c.volume = 1f
                         }

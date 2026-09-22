@@ -3649,11 +3649,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         playbackConnection.onNeedsFreshStream = { currentPlaybackRetry?.invoke() }
         playbackConnection.onPlaybackEnded = { autoplayNext() }
         playbackConnection.onPreloadNextTrack = { preloadNextTrack() }
-        playbackConnection.onOverlapNextTrack = {
-            if (_isDjCrossfadeEnabled.value) {
-                playNextTrackFromQueue()
-            }
-        }
+        playbackConnection.onOverlapNextTrack = null
         playbackConnection.onSkipPreviousAction = { playPreviousTrack() }
         playbackConnection.onSkipNextAction = { playNextTrackFromQueue() }
         playbackConnection.onPlaybackFailed = {

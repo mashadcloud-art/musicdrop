@@ -2083,33 +2083,37 @@ fun SpotlightArtistsSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (liveGenrePages != null) "YOUTUBE TRENDING ARTISTS" else "SPOTLIGHT ARTISTS",
-                    color = if (appColors.isDark) Color(0xFFFFD600) else appColors.accentPrimary,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.5.sp
-                )
-            }
+            Text(
+                text = if (liveGenrePages != null) "TRENDING ARTISTS" else "SPOTLIGHT ARTISTS",
+                color = if (appColors.isDark) Color(0xFFFFD600) else appColors.accentPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.5.sp,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+
+            Spacer(Modifier.width(8.dp))
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 // Interactive "Change" Button -> Cycles all pages to get new results every time!
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (appColors.isDark) Color(0xFF2A2A2E) else appColors.surfaceElevated)
-                        .border(1.dp, appColors.surfaceBorder.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(appColors.surfaceElevated)
+                        .border(1.dp, appColors.surfaceBorder.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
                         .clickable {
                             shuffleOffset = (shuffleOffset + 1) % 4
                             coroutineScope.launch {
                                 pagerState.animateScrollToPage((pagerState.currentPage + 1) % effectivePages.size)
                             }
                         }
-                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2124,24 +2128,28 @@ fun SpotlightArtistsSection(
                             text = "Change",
                             color = appColors.textPrimary,
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }
 
-                // Page indicator badge e.g. "1/6 Swipe >"
+                // Page indicator badge e.g. "1/6"
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (appColors.isDark) Color(0x1FFFFFFF) else appColors.surfaceElevated)
-                        .border(1.dp, appColors.surfaceBorder.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(appColors.surfaceElevated)
+                        .border(1.dp, appColors.surfaceBorder.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 7.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "${pagerState.currentPage + 1}/${effectivePages.size} Swipe >",
+                        text = "${pagerState.currentPage + 1}/${effectivePages.size}",
                         color = appColors.textSecondary,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }

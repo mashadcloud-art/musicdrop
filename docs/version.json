@@ -1,8 +1,8 @@
 {
-  "versionCode": 163,
-  "versionName": "1.5.3",
-  "title": "MusicDrop v1.5.3 Available",
-  "changelog": "• Glassmorphic Translucency & Opacity Slider: Adjust transparency of all sections, category cards (playlists, albums, folders, artists, trending mixes) from 10% to 100% with live percentage readout and quick presets\n• Clean Edge-to-Edge Transparent Display: Removed the top accent gradient band for a clean, seamless, transparent header and status bar experience\n• Typography & Font Style Chooser: Select Default Sans, Modern Sans, Rounded, Serif Elegant, or Monospace fonts\n• High-Contrast Font Colors: Choose Adaptive, Pure White, Warm Cream, Vivid Gold, Cyan Ice, or High Contrast text for crystal-clear readability\n• Settings Page Redesign: Beautiful commercial music app layout with Appearance Hero, Hardware Audio Equalizer, Seamless DJ Crossfade, and Instant Updater\n• Wallpaper Skin Integration: Apply custom gallery wallpapers or preset skins with adaptive glass overlay",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.3/MusicDrop-v1.5.3.apk",
+  "versionCode": 164,
+  "versionName": "1.5.4",
+  "title": "MusicDrop v1.5.4 Available",
+  "changelog": "• Fixed Mobile Layout & Spacing Bug: Resolved text-wrapping bug on narrow screen mobiles where the trending artists swipe badge wrapped vertically, eliminating the large empty space\n• Silky Smooth Song Fade & Merge: Replaced the disruptive DJ overlap jump with a gentle, elegant volume fade-out over the final 2 seconds and a seamless fade-in for the next track\n• Zero-Gap Playback: Next track starts smoothly with zero audible gap or abrupt song cut-offs\n• Settings UI Update: Renamed transition setting to 'Seamless Merge & Crossfade (Zero-Gap)'",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.4/MusicDrop-v1.5.4.apk",
   "forceUpdate": true
 }
