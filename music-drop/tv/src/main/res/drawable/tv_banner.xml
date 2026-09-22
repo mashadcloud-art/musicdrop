@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <!-- Dark Background matching YouTube on TV -->
+    <path
+        android:fillColor="#0F0F0F"
+        android:pathData="M0,0h320v180h-320z" />
+    
+    <!-- Red Accent Pill -->
+    <path
+        android:fillColor="#FF0000"
+        android:pathData="M110,65 h100 a15,15 0 0 1 15,15 v20 a15,15 0 0 1 -15,15 h-100 a15,15 0 0 1 -15,-15 v-20 a15,15 0 0 1 15,-15 z" />
+
+    <!-- Play Triangle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M152,78 L174,90 L152,102 Z" />
+</vector>
