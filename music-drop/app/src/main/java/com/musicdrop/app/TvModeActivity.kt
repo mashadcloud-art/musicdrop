@@ -33,11 +33,11 @@ class TvModeActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Non-TV devices (phones / tablets): hand off to normal MainActivity immediately
-        if (!isRunningOnTv()) {
-            startActivity(Intent(this, MainActivity::class.java))
-            finish()
-            return
+        // If forced via intent, update preference
+        if (intent.getBooleanExtra("force_tv", false)) {
+            com.musicdrop.app.ui.tv.saveTvModeChoice(this, TvModeChoice.TV)
+        } else if (intent.getBooleanExtra("force_chooser", false)) {
+            com.musicdrop.app.ui.tv.clearTvModeChoice(this)
         }
 
         setContent {
@@ -68,17 +68,7 @@ class TvModeActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Returns true when the system reports this device is a TV / Leanback UI.
-     */
-    private fun isRunningOnTv(): Boolean {
-        return try {
-            val uiModeManager = getSystemService(Context.UI_MODE_SERVICE) as UiModeManager
-            uiModeManager.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
-        } catch (_: Throwable) {
-            false
-        }
-    }
+
 }
 
 @Composable

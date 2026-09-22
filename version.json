@@ -1,8 +1,9 @@
 {
-  "versionCode": 171,
-  "versionName": "1.7.0",
-  "title": "MusicDrop v1.7.0 — TV Mode Available",
-  "changelog": "• NEW: TV Mode — Install on Android TV or Fire TV for a full remote-controlled music experience with D-pad navigation, full-screen player, spinning vinyl art, and genre browsing\n• TV Chooser: First TV launch shows a beautiful mode selector — choose 'TV Mode' for the optimized 10-foot UI or 'Music Mode' for the full mobile interface\n• TV Home: Hero now-playing banner + horizontal genre rows (India Trending, Malayalam, Tamil, Lofi) all navigable with the TV remote\n• TV Player: Spinning vinyl album art, large seek bar, and full D-pad remote controls (← prev / → next / OK play-pause / ↑ +10s / ↓ -10s)\n• TV Browse & Search: Genre sidebar + 3-column results grid, all remote-friendly with glowing focus rings\n• Mobile version unchanged — zero risk, same great experience on phones",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.0/MusicDrop-v1.7.0.apk",
+  "versionCode": 172,
+  "versionName": "1.7.1",
+  "title": "MusicDrop v1.7.1 — TV Mode Auto-Detect & Icon",
+  "changelog": "• Distinct TV Label: Displays as 'MusicDrop TV' on Android TV / Fire TV home screens\n• Auto-Detect on TV: Automatically detects TV devices, boxes, and Firesticks on launch and prompts with the TV Mode vs Music Mode chooser\n• Header & Settings TV Switch: Easily launch TV Mode anytime from the TV button in the mobile header or in Settings\n• Enhanced TV Hardware Compatibility: Support for Amazon Fire TV sticks, Google TV, and generic Android TV boxes without touchscreens\n• Mobile phones remain 100% untouched",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.1/MusicDrop-v1.7.1.apk",
   "forceUpdate": false
 }
+

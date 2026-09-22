@@ -379,6 +379,27 @@ fun LibraryScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                         }
+                        // Quick TV Mode Switch Button
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(appColors.accentPrimary.copy(alpha = 0.22f))
+                                .border(1.2.dp, appColors.accentPrimary.copy(alpha = 0.65f), CircleShape)
+                                .clickable {
+                                    val intent = android.content.Intent(context, com.musicdrop.app.TvModeActivity::class.java)
+                                        .putExtra("force_chooser", true)
+                                    context.startActivity(intent)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tv,
+                                contentDescription = "TV Mode",
+                                tint = appColors.accentPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                         Spacer(Modifier.width(6.dp))
 
                         // Themed Avatar / Settings Button matching active theme

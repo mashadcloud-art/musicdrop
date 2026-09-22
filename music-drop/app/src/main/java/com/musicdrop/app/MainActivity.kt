@@ -80,6 +80,21 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         hideSystemNavigationBar()
 
+        // Automatic TV routing:
+        // 1. If user previously chose TV Mode -> go straight to TvModeActivity
+        // 2. If running on TV hardware and no choice has been made yet -> go to TvModeActivity (which shows the chooser)
+        val tvChoice = com.musicdrop.app.ui.tv.getTvModeChoice(this)
+        if (tvChoice == com.musicdrop.app.ui.tv.TvModeChoice.TV) {
+            startActivity(android.content.Intent(this, TvModeActivity::class.java))
+            finish()
+            return
+        }
+        if (tvChoice == null && com.musicdrop.app.ui.tv.isTvDevice(this)) {
+            startActivity(android.content.Intent(this, TvModeActivity::class.java))
+            finish()
+            return
+        }
+
         val shouldShowSplash = !hasShownOpeningSplashThisProcess && savedInstanceState == null
         if (shouldShowSplash) {
             hasShownOpeningSplashThisProcess = true

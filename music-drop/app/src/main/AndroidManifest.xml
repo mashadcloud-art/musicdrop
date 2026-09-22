@@ -113,6 +113,8 @@
         <activity
             android:name=".TvModeActivity"
             android:exported="true"
+            android:label="MusicDrop TV"
+            android:icon="@mipmap/ic_launcher"
             android:theme="@style/Theme.FileDrop"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:launchMode="singleTask">

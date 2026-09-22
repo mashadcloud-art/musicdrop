@@ -27,6 +27,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
+import android.app.UiModeManager
+import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.os.BatteryManager
+import android.os.Build
+
 // Preference key stored in SharedPreferences
 private const val TV_PREFS = "musicdrop_tv_prefs"
 private const val KEY_TV_MODE = "tv_mode_choice"  // "TV" | "MOBILE" | null (not yet chosen)
@@ -47,6 +53,46 @@ fun saveTvModeChoice(context: Context, choice: TvModeChoice) {
 fun clearTvModeChoice(context: Context) {
     context.getSharedPreferences(TV_PREFS, Context.MODE_PRIVATE)
         .edit().remove(KEY_TV_MODE).apply()
+}
+
+/**
+ * Checks if the current hardware device is an Android TV, Google TV, Fire TV,
+ * or TV box with remote control.
+ */
+fun isTvDevice(context: Context): Boolean {
+    val pm = context.packageManager
+
+    // 1. Android TV / Google TV Leanback system features
+    if (pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) return true
+    if (pm.hasSystemFeature("android.hardware.type.television")) return true
+    if (pm.hasSystemFeature("android.software.leanback")) return true
+
+    // 2. UiModeManager check (standard Android TV mode)
+    try {
+        val uiModeManager = context.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+        if (uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION) return true
+    } catch (_: Throwable) {}
+
+    // 3. Amazon Fire TV devices (Fire TV Stick, Cube, Omni TV)
+    if (pm.hasSystemFeature("amazon.hardware.fire_tv")) return true
+    if (Build.MANUFACTURER.equals("Amazon", ignoreCase = true)) return true
+    if (Build.MODEL.contains("AFT", ignoreCase = true)) return true
+
+    // 4. Any Android device without a touchscreen is almost certainly a TV box / console
+    if (!pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) return true
+
+    // 5. Check if it's a non-battery box (HDMI media box / Android TV box without telephony & battery)
+    try {
+        val batteryIntent = context.registerReceiver(
+            null,
+            android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
+        )
+        val hasBattery = batteryIntent?.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true) ?: true
+        val hasTelephony = pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
+        if (!hasBattery && !hasTelephony) return true
+    } catch (_: Throwable) {}
+
+    return false
 }
 
 /**
