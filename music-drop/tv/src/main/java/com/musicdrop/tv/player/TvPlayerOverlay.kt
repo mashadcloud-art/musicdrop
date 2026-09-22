@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -65,6 +66,11 @@ fun TvPlayerOverlay(
     var controlsTimeoutKey by remember { mutableIntStateOf(0) }
     var isDownloading by remember { mutableStateOf(false) }
 
+    fun userInteracted() {
+        showControls = true
+        controlsTimeoutKey++
+    }
+
     // Build ExoPlayer
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
@@ -72,6 +78,91 @@ fun TvPlayerOverlay(
             repeatMode = Player.REPEAT_MODE_OFF
         }
     }
+
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val playPauseFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    val upNextFirstFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+
+    LaunchedEffect(currentVideo.id) {
+        kotlinx.coroutines.delay(400L)
+        try {
+            playPauseFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
+    // Direct Remote Control Key Interceptor for Player (Instant Up Next shelf on DOWN, seek on LEFT/RIGHT)
+    DisposableEffect(currentVideo.id) {
+        val activity = context as? com.musicdrop.tv.TvMainActivity
+        activity?.playerKeyHandler = { keyCode ->
+            userInteracted()
+            when (keyCode) {
+                android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (!showControls) {
+                        showControls = true
+                        coroutineScope.launch {
+                            kotlinx.coroutines.delay(120L)
+                            try {
+                                upNextFirstFocusRequester.requestFocus()
+                            } catch (_: Exception) {}
+                        }
+                        true
+                    } else {
+                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                        true
+                    }
+                }
+                android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                    if (!showControls) {
+                        showControls = true
+                        coroutineScope.launch {
+                            kotlinx.coroutines.delay(120L)
+                            try {
+                                playPauseFocusRequester.requestFocus()
+                            } catch (_: Exception) {}
+                        }
+                        true
+                    } else {
+                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)
+                        true
+                    }
+                }
+                android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    if (!showControls) {
+                        exoPlayer.seekTo((exoPlayer.currentPosition - 10_000L).coerceAtLeast(0L))
+                        true
+                    } else {
+                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)
+                        true
+                    }
+                }
+                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    if (!showControls) {
+                        exoPlayer.seekTo((exoPlayer.currentPosition + 10_000L).coerceAtMost(exoPlayer.duration))
+                        true
+                    } else {
+                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
+                        true
+                    }
+                }
+                android.view.KeyEvent.KEYCODE_BACK -> {
+                    if (showControls) {
+                        showControls = false
+                        true
+                    } else {
+                        onClose()
+                        true
+                    }
+                }
+                else -> false
+            }
+        }
+        onDispose {
+            activity?.playerKeyHandler = null
+        }
+    }
+
+
+
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
@@ -113,11 +204,6 @@ fun TvPlayerOverlay(
             delay(6000L)
             showControls = false
         }
-    }
-
-    fun userInteracted() {
-        showControls = true
-        controlsTimeoutKey++
     }
 
     // Load & extract video stream
@@ -468,6 +554,7 @@ fun TvPlayerOverlay(
                                     userInteracted()
                                     if (isPlaying) exoPlayer.pause() else exoPlayer.play()
                                 },
+                                focusRequester = playPauseFocusRequester,
                                 cornerRadius = 50.dp,
                                 modifier = Modifier.size(68.dp)
                             ) {
@@ -504,11 +591,12 @@ fun TvPlayerOverlay(
                             }
                         }
 
-                        // Right: Download Video / Audio button
+                        // Right: Download Video & MP3 buttons
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            // Download Video Button
                             TvFocusButton(
                                 onClick = {
                                     userInteracted()
@@ -517,14 +605,14 @@ fun TvPlayerOverlay(
                                         return@TvFocusButton
                                     }
                                     isDownloading = true
-                                    Toast.makeText(context, "Downloading \"${currentVideo.title}\"...", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "⬇ Downloading \"${currentVideo.title}\"...", Toast.LENGTH_SHORT).show()
                                     coroutineScope.launch {
                                         downloadManager.downloadMedia(
                                             video = currentVideo,
                                             downloadAsVideo = true,
-                                            onComplete = { ok, path ->
+                                            onComplete = { ok, _ ->
                                                 isDownloading = false
-                                                val msg = if (ok) "✓ Downloaded Video: ${currentVideo.title}" else "Download failed"
+                                                val msg = if (ok) "✓ Downloaded Video to TV storage!" else "Download failed"
                                                 Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                                             }
                                         )
@@ -534,15 +622,15 @@ fun TvPlayerOverlay(
                             ) {
                                 Row(
                                     modifier = Modifier
-                                        .background(Color.White.copy(0.12f), RoundedCornerShape(24.dp))
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                        .background(Color.White.copy(0.15f), RoundedCornerShape(24.dp))
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Icon(
                                         imageVector = if (isDownloading) Icons.Filled.HourglassTop else Icons.Filled.Download,
-                                        contentDescription = "Download",
-                                        tint = if (isDownloading) Color(0xFFFFD600) else Color.White,
+                                        contentDescription = "Download Video",
+                                        tint = if (isDownloading) Color(0xFFFFD600) else Color(0xFFFF3333),
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Text(
@@ -553,7 +641,54 @@ fun TvPlayerOverlay(
                                     )
                                 }
                             }
+
+                            // Download MP3 Button
+                            TvFocusButton(
+                                onClick = {
+                                    userInteracted()
+                                    if (isDownloading) {
+                                        Toast.makeText(context, "Download in progress...", Toast.LENGTH_SHORT).show()
+                                        return@TvFocusButton
+                                    }
+                                    isDownloading = true
+                                    Toast.makeText(context, "🎵 Downloading MP3: \"${currentVideo.title}\"...", Toast.LENGTH_SHORT).show()
+                                    coroutineScope.launch {
+                                        downloadManager.downloadMedia(
+                                            video = currentVideo,
+                                            downloadAsVideo = false,
+                                            onComplete = { ok, _ ->
+                                                isDownloading = false
+                                                val msg = if (ok) "✓ Downloaded MP3 to TV storage!" else "Download failed"
+                                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                            }
+                                        )
+                                    }
+                                },
+                                cornerRadius = 24.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .background(Color.White.copy(0.15f), RoundedCornerShape(24.dp))
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.MusicNote,
+                                        contentDescription = "Download MP3",
+                                        tint = Color(0xFF00E676),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "Download MP3",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
+
                     }
 
                     // Up Next Video Shelf
@@ -574,6 +709,7 @@ fun TvPlayerOverlay(
                             items(upNextVideos, key = { it.id }) { video ->
                                 TvVideoCard(
                                     video = video,
+                                    focusRequester = if (video.id == upNextVideos.firstOrNull()?.id) upNextFirstFocusRequester else null,
                                     onClick = {
                                         userInteracted()
                                         onSelectVideo(video)
@@ -582,6 +718,8 @@ fun TvPlayerOverlay(
                                 )
                             }
                         }
+
+
                     }
                 }
             }

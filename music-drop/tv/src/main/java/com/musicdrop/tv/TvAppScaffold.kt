@@ -39,11 +39,66 @@ private val NAV_ITEMS = listOf(
     NavItem(TvNavScreen.SETTINGS, Icons.Filled.Settings, "Settings")
 )
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun TvAppScaffold(viewModel: TvViewModel) {
     var currentScreen by remember { mutableStateOf(TvNavScreen.HOME) }
     val currentVideo by viewModel.currentVideo.collectAsState()
     val upNextVideos by viewModel.upNextVideos.collectAsState()
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val inputModeManager = androidx.compose.ui.platform.LocalInputModeManager.current
+    val homeFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+
+    // Direct Hardware Remote Focus Driver:
+    // Intercepts Up/Down/Left/Right hardware keys directly, bypassing buggy AOSP Touch Mode
+    DisposableEffect(currentVideo) {
+        val activity = context as? TvMainActivity
+        activity?.dpadListener = { event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                when (event.keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Right)
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_BACK -> {
+                        if (currentVideo != null) {
+                            viewModel.closePlayer()
+                            true
+                        } else false
+                    }
+                    else -> false
+                }
+            } else false
+        }
+        onDispose {
+            activity?.dpadListener = null
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            inputModeManager.requestInputMode(androidx.compose.ui.input.InputMode.Keyboard)
+        } catch (_: Exception) {}
+        kotlinx.coroutines.delay(150L)
+        try {
+            homeFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
 
     Box(
         modifier = Modifier
@@ -87,6 +142,7 @@ fun TvAppScaffold(viewModel: TvViewModel) {
                     val isSelected = (currentScreen == item.screen)
                     TvFocusButton(
                         onClick = { currentScreen = item.screen },
+                        focusRequester = if (item.screen == TvNavScreen.HOME) homeFocusRequester else null,
                         cornerRadius = 24.dp,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -123,6 +179,7 @@ fun TvAppScaffold(viewModel: TvViewModel) {
             // ── Right Main Content Viewport ────────────────────────────────
             Box(
                 modifier = Modifier
+
                     .weight(1f)
                     .fillMaxHeight()
             ) {

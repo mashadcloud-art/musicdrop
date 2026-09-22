@@ -4,16 +4,16 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.view.KeyEvent
-import android.view.View
 import android.webkit.*
 import android.widget.FrameLayout
 import com.musicdrop.tv.bridge.TvNativeBridge
 
 object TvChromiumHelper {
 
-    // Official Android TV Smart TV User-Agent accepted by Google for https://www.youtube.com/tv
+    // PlayStation 4 Cobalt Leanback Shell User-Agent:
+    // Recognized by Google for YouTube on TV, does NOT enforce Google Play Services device sign-in
     const val YOUTUBE_TV_USER_AGENT =
-        "Mozilla/5.0 (Linux; GoogleTV 14; BRAVIA 4K 2026 Build/1.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (PS4; Leanback Shell) Cobalt/26.lts.0-qa; compatible;"
 
     const val YOUTUBE_TV_URL = "https://www.youtube.com/tv"
 
@@ -23,6 +23,23 @@ object TvChromiumHelper {
         bridge: TvNativeBridge,
         onPageFinished: (() -> Unit)? = null
     ): WebView {
+        // Initialize CookieManager with Google consent cookies to prevent consent / sign-in dialogs
+        try {
+            val cookieManager = CookieManager.getInstance()
+            cookieManager.setAcceptCookie(true)
+            cookieManager.setCookie(
+                "https://www.youtube.com",
+                "SOCS=CAESEwgDEgk0ODEzNzk5NDIaAmVuIAEaBgiA_LyaBg; path=/; domain=.youtube.com; Secure"
+            )
+            cookieManager.setCookie(
+                "https://www.youtube.com",
+                "CONSENT=YES+cb.20210720-07-p0.en+FX+417; path=/; domain=.youtube.com; Secure"
+            )
+            cookieManager.flush()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         return WebView(context).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -34,6 +51,12 @@ object TvChromiumHelper {
             isFocusableInTouchMode = true
             requestFocus()
 
+            try {
+                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
@@ -43,6 +66,7 @@ object TvChromiumHelper {
                 useWideViewPort = true
                 loadWithOverviewMode = true
                 allowFileAccess = true
+                allowContentAccess = true
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 cacheMode = WebSettings.LOAD_DEFAULT
             }
@@ -72,19 +96,15 @@ object TvChromiumHelper {
 
                 override fun onLoadResource(view: WebView?, url: String?) {
                     super.onLoadResource(view, url)
-                    // Periodic injection to defeat dynamically loaded ads
+                    // Periodic injection to defeat dynamically loaded ads and popups
                     view?.evaluateJavascript(TvAdBypassScript.SCRIPT, null)
                 }
             }
 
             // Map D-pad and TV Remote Keys directly into the Chromium page
-            setOnKeyListener { v, keyCode, event ->
+            setOnKeyListener { _, keyCode, event ->
                 if (event.action == KeyEvent.ACTION_DOWN) {
                     when (keyCode) {
-                        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                            // Forward Enter/OK to WebView
-                            return@setOnKeyListener false
-                        }
                         KeyEvent.KEYCODE_BACK -> {
                             if (canGoBack()) {
                                 goBack()
@@ -101,3 +121,4 @@ object TvChromiumHelper {
         }
     }
 }
+

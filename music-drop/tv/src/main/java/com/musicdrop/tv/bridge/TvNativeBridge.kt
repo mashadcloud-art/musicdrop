@@ -19,57 +19,68 @@ class TvNativeBridge(
 
     @JavascriptInterface
     fun onVideoStarted(videoId: String, title: String) {
-        currentVideoId = videoId
-        currentTitle = title
+        if (videoId.isNotBlank() && videoId != currentVideoId) {
+            currentVideoId = videoId
+            currentTitle = title
+            coroutineScope.launch(Dispatchers.Main) {
+                val displayTitle = if (title.isNotBlank()) title else "Video Ready"
+                Toast.makeText(context, "▶ Ready to Download: $displayTitle", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     @JavascriptInterface
     fun downloadCurrentVideo() {
-        if (currentVideoId.isBlank()) {
-            Toast.makeText(context, "No video currently playing", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val video = TvVideoItem(
-            id = currentVideoId,
-            title = currentTitle.ifBlank { "YouTube Video ($currentVideoId)" },
-            channelTitle = "YouTube TV",
-            thumbnailUrl = "https://img.youtube.com/vi/$currentVideoId/hqdefault.jpg"
-        )
-        Toast.makeText(context, "⬇ Downloading Video: ${video.title}...", Toast.LENGTH_SHORT).show()
-        coroutineScope.launch(Dispatchers.IO) {
-            downloadManager.downloadMedia(
-                video = video,
-                downloadAsVideo = true,
-                onComplete = { ok, path ->
-                    coroutineScope.launch(Dispatchers.Main) {
-                        val msg = if (ok) "✓ Downloaded Video to TV storage!" else "Download failed"
-                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                    }
-                }
-            )
-        }
+        download(null, null, asVideo = true)
     }
 
     @JavascriptInterface
     fun downloadCurrentAudio() {
-        if (currentVideoId.isBlank()) {
-            Toast.makeText(context, "No video currently playing", Toast.LENGTH_SHORT).show()
+        download(null, null, asVideo = false)
+    }
+
+    fun download(videoId: String?, title: String?, asVideo: Boolean) {
+        val targetId = (videoId ?: currentVideoId).trim()
+        val targetTitle = (title ?: currentTitle).trim()
+
+        if (targetId.isBlank()) {
+            coroutineScope.launch(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    "⚠️ Please click and play a video first to download",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
             return
         }
+
         val video = TvVideoItem(
-            id = currentVideoId,
-            title = currentTitle.ifBlank { "YouTube Audio ($currentVideoId)" },
+            id = targetId,
+            title = if (targetTitle.isNotBlank()) targetTitle else "YouTube Media ($targetId)",
             channelTitle = "YouTube TV",
-            thumbnailUrl = "https://img.youtube.com/vi/$currentVideoId/hqdefault.jpg"
+            thumbnailUrl = "https://img.youtube.com/vi/$targetId/hqdefault.jpg"
         )
-        Toast.makeText(context, "🎵 Downloading MP3: ${video.title}...", Toast.LENGTH_SHORT).show()
+        val formatName = if (asVideo) "4K/HD Video" else "MP3 Audio"
+
+        coroutineScope.launch(Dispatchers.Main) {
+            Toast.makeText(
+                context,
+                "⬇ Downloading $formatName: ${video.title}...",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
         coroutineScope.launch(Dispatchers.IO) {
             downloadManager.downloadMedia(
                 video = video,
-                downloadAsVideo = false,
+                downloadAsVideo = asVideo,
                 onComplete = { ok, path ->
                     coroutineScope.launch(Dispatchers.Main) {
-                        val msg = if (ok) "✓ Downloaded MP3 to TV storage!" else "Download failed"
+                        val msg = if (ok) {
+                            "✓ Downloaded $formatName to TV storage!"
+                        } else {
+                            "❌ Download failed for $targetId"
+                        }
                         Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                     }
                 }
@@ -77,3 +88,4 @@ class TvNativeBridge(
         }
     }
 }
+

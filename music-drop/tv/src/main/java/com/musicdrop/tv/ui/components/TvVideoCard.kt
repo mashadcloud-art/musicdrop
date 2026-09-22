@@ -22,13 +22,16 @@ import com.musicdrop.tv.data.TvVideoItem
 fun TvVideoCard(
     video: TvVideoItem,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    focusRequester: androidx.compose.ui.focus.FocusRequester? = null
 ) {
     TvFocusButton(
         onClick = onClick,
+        focusRequester = focusRequester,
         cornerRadius = 14.dp,
         modifier = modifier.width(320.dp)
     ) {
+
         Column(
             modifier = Modifier
                 .width(320.dp)
