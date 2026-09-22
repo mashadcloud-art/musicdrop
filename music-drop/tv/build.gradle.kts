@@ -22,9 +22,8 @@ android {
         applicationId = "com.musicdrop.tv"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
-
+        versionCode = 3
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -45,11 +44,14 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+        }
+        debug {
+            applicationIdSuffix = ""
         }
     }
     compileOptions {
@@ -97,10 +99,21 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
+    // ZXing for QR Code generation & camera scanning
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+
+    // YouTube IFrame Player API wrapper
+    implementation(libs.youtube.player.core)
+
     // NewPipeExtractor & OkHttp for Ad-free YouTube Stream extraction
     implementation(libs.newpipe.extractor)
     implementation(libs.okhttp)
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
+
+    // Android Auto Car App Library
+    implementation(libs.car.app)
+    implementation(libs.car.app.projected)
 
     debugImplementation(libs.androidx.ui.tooling)
 }
