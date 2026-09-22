@@ -50,6 +50,12 @@
     <!-- Android Auto: declares hardware type as optional so app installs on phones too -->
     <uses-feature android:name="android.hardware.type.automotive" android:required="false" />
 
+    <!-- Android TV / Leanback: optional so the APK also installs on phones and tablets -->
+    <uses-feature android:name="android.hardware.type.television" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <!-- TV remotes don't have a touchscreen -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
     <application
         android:name=".FileDropApp"
         android:allowBackup="true"
@@ -97,6 +103,23 @@
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             TV Mode Activity — shown in the Android TV / Fire TV launcher.
+             On phones this activity immediately redirects to MainActivity.
+             ═══════════════════════════════════════════════════════════ -->
+        <activity
+            android:name=".TvModeActivity"
+            android:exported="true"
+            android:theme="@style/Theme.FileDrop"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:launchMode="singleTask">
+            <!-- Shows in Android TV / Fire TV home launcher -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
 
