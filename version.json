@@ -1,8 +1,8 @@
 {
-  "versionCode": 162,
-  "versionName": "1.5.2",
-  "title": "MusicDrop v1.5.2 Available",
-  "changelog": "• New Skin Theme Chooser: Gorgeous skin theme dialog with circular color swatches and wallpaper gallery for live one-tap theme switching\n• Royal Plum & Deep Navy Themes: Added luxurious Royal Plum (Wine/Velvet) and Deep Navy color skins\n• High-Contrast Light & Retro Themes: Completely overhauled Clean Light, iOS Light, and Retro themes with high-contrast text, clear search bar, and theme-adaptive artist cards\n• Music Player Cover Art Fallback: When playing audio tracks without a video stream, the player displays a high-definition album cover with ambient blur backdrop instead of a black screen\n• Quick Theme Shortcut: Instant skin theme palette button directly on the library and player headers",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.2/MusicDrop-v1.5.2.apk",
+  "versionCode": 163,
+  "versionName": "1.5.3",
+  "title": "MusicDrop v1.5.3 Available",
+  "changelog": "• Glassmorphic Translucency & Opacity Slider: Adjust transparency of all sections, category cards (playlists, albums, folders, artists, trending mixes) from 10% to 100% with live percentage readout and quick presets\n• Clean Edge-to-Edge Transparent Display: Removed the top accent gradient band for a clean, seamless, transparent header and status bar experience\n• Typography & Font Style Chooser: Select Default Sans, Modern Sans, Rounded, Serif Elegant, or Monospace fonts\n• High-Contrast Font Colors: Choose Adaptive, Pure White, Warm Cream, Vivid Gold, Cyan Ice, or High Contrast text for crystal-clear readability\n• Settings Page Redesign: Beautiful commercial music app layout with Appearance Hero, Hardware Audio Equalizer, Seamless DJ Crossfade, and Instant Updater\n• Wallpaper Skin Integration: Apply custom gallery wallpapers or preset skins with adaptive glass overlay",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.5.3/MusicDrop-v1.5.3.apk",
   "forceUpdate": true
 }

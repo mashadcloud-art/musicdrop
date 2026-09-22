@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +50,18 @@ data class SkinWallpaper(
     val imageUrl: String
 )
 
+data class FontOption(
+    val id: String,
+    val label: String,
+    val family: FontFamily
+)
+
+data class FontColorOption(
+    val id: String,
+    val label: String,
+    val previewColor: Color
+)
+
 @Composable
 fun SkinThemeDialog(
     currentTheme: AppThemeMode,
@@ -58,6 +71,11 @@ fun SkinThemeDialog(
 ) {
     val context = LocalContext.current
     val appColors = LocalAppColors.current
+
+    val cardOpacity by (viewModel?.cardOpacity?.collectAsState() ?: remember { mutableFloatStateOf(0.55f) })
+    val appFontFamily by (viewModel?.appFontFamily?.collectAsState() ?: remember { mutableStateOf("DEFAULT") })
+    val appFontColor by (viewModel?.appFontColorOption?.collectAsState() ?: remember { mutableStateOf("DEFAULT") })
+    val currentWallpaperUri by (viewModel?.themeWallpaperUri?.collectAsState() ?: remember { mutableStateOf<String?>(null) })
 
     val themeSwatches = remember {
         listOf(
@@ -84,6 +102,27 @@ fun SkinThemeDialog(
         )
     }
 
+    val fontOptions = remember {
+        listOf(
+            FontOption("DEFAULT", "Default Sans", FontFamily.Default),
+            FontOption("SANS_SERIF", "Modern Sans", FontFamily.SansSerif),
+            FontOption("ROUNDED", "Rounded", FontFamily.SansSerif),
+            FontOption("SERIF", "Serif Elegant", FontFamily.Serif),
+            FontOption("MONOSPACE", "Monospace", FontFamily.Monospace)
+        )
+    }
+
+    val fontColorOptions = remember {
+        listOf(
+            FontColorOption("DEFAULT", "Adaptive", appColors.textPrimary),
+            FontColorOption("PURE_WHITE", "Pure White", Color.White),
+            FontColorOption("WARM_CREAM", "Warm Cream", Color(0xFFFFFBEB)),
+            FontColorOption("GOLD_ACCENT", "Vivid Gold", Color(0xFFFDE047)),
+            FontColorOption("CYAN_ICE", "Cyan Ice", Color(0xFF67E8F9)),
+            FontColorOption("HIGH_CONTRAST", "High Contrast", if (appColors.isDark) Color.White else Color(0xFF0F172A))
+        )
+    }
+
     val wallpaperCategories = listOf("All images", "Nature", "Space", "Anime", "Others")
     var selectedCategory by remember { mutableStateOf("All images") }
 
@@ -102,7 +141,8 @@ fun SkinThemeDialog(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            Toast.makeText(context, "Custom skin wallpaper applied!", Toast.LENGTH_SHORT).show()
+            viewModel?.setThemeWallpaper(uri.toString())
+            Toast.makeText(context, "Custom wallpaper applied!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -117,7 +157,7 @@ fun SkinThemeDialog(
             color = appColors.background
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // ── HEADER: [< Skin theme] ─────────────────────────────────────────────
+                // ── HEADER: [< Skin & Appearance Studio] ───────────────────────────
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -136,25 +176,32 @@ fun SkinThemeDialog(
                         )
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Skin theme",
-                        color = appColors.textPrimary,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Text(
+                            text = "Skin & Appearance",
+                            color = appColors.textPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Themes, Translucency, Typography & Wallpapers",
+                            color = appColors.textSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
 
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(bottom = 32.dp)
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    contentPadding = PaddingValues(bottom = 36.dp)
                 ) {
-                    // ── SECTION 1: COLOR SWATCHES (MATCHING SCREENSHOT 2) ─────────────
+                    // ── SECTION 1: THEME COLOR PALETTE ────────────────────────────────
                     item {
                         Text(
-                            text = "Color",
+                            text = "Theme Palette",
                             color = appColors.textPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -179,7 +226,7 @@ fun SkinThemeDialog(
                                                 .clip(CircleShape)
                                                 .background(swatch.brush)
                                                 .border(
-                                                    width = if (isSelected) 2.5.dp else 1.2.dp,
+                                                    width = if (isSelected) 3.dp else 1.2.dp,
                                                     color = if (isSelected) appColors.accentPrimary else (if (appColors.isDark) Color.White.copy(alpha = 0.25f) else Color.Black.copy(alpha = 0.15f)),
                                                     shape = CircleShape
                                                 )
@@ -192,7 +239,7 @@ fun SkinThemeDialog(
                                             if (isSelected) {
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(22.dp)
+                                                        .size(24.dp)
                                                         .clip(CircleShape)
                                                         .background(Color.Black.copy(alpha = 0.75f)),
                                                     contentAlignment = Alignment.Center
@@ -201,13 +248,12 @@ fun SkinThemeDialog(
                                                         imageVector = Icons.Rounded.Check,
                                                         contentDescription = "Selected",
                                                         tint = Color.White,
-                                                        modifier = Modifier.size(15.dp)
+                                                        modifier = Modifier.size(16.dp)
                                                     )
                                                 }
                                             }
                                         }
                                     }
-                                    // Filler for incomplete rows
                                     repeat(5 - rowSwatches.size) {
                                         Spacer(modifier = Modifier.size(54.dp))
                                     }
@@ -216,8 +262,246 @@ fun SkinThemeDialog(
                         }
                     }
 
-                    // ── SECTION 2: WALLPAPERS / THEME SKINS ───────────────────────────
+                    // ── SECTION 2: CARD & SECTION GLASS OPACITY ───────────────────────
                     item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = appColors.surfaceElevated),
+                            shape = RoundedCornerShape(18.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, appColors.surfaceBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Card & Section Translucency",
+                                            color = appColors.textPrimary,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "Glass transparency across categories & cards",
+                                            color = appColors.textSecondary,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(appColors.accentPrimary.copy(alpha = 0.18f))
+                                            .border(1.dp, appColors.accentPrimary.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "${(cardOpacity * 100).toInt()}% Opacity",
+                                            color = appColors.accentPrimary,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.height(10.dp))
+
+                                Slider(
+                                    value = cardOpacity,
+                                    onValueChange = { viewModel?.setCardOpacity(it) },
+                                    valueRange = 0.10f..1.0f,
+                                    steps = 17,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = appColors.accentPrimary,
+                                        activeTrackColor = appColors.accentPrimary,
+                                        inactiveTrackColor = appColors.surfaceBorder
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Spacer(Modifier.height(8.dp))
+
+                                // Quick presets
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf(
+                                        "Glass 20%" to 0.20f,
+                                        "Balanced 55%" to 0.55f,
+                                        "Frosted 75%" to 0.75f,
+                                        "Solid 100%" to 1.0f
+                                    ).forEach { (label, value) ->
+                                        val isCurrent = kotlin.math.abs(cardOpacity - value) < 0.08f
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (isCurrent) appColors.accentPrimary else appColors.surface)
+                                                .clickable { viewModel?.setCardOpacity(value) }
+                                                .padding(vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                color = if (isCurrent) Color.White else appColors.textPrimary,
+                                                fontSize = 10.5.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── SECTION 3: APP FONT STYLE ─────────────────────────────────────
+                    item {
+                        Column {
+                            Text(
+                                text = "App Font Style",
+                                color = appColors.textPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                fontOptions.take(3).forEach { opt ->
+                                    val isSelected = appFontFamily.equals(opt.id, ignoreCase = true)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (isSelected) appColors.accentPrimary.copy(alpha = 0.2f) else appColors.surfaceElevated)
+                                            .border(1.2.dp, if (isSelected) appColors.accentPrimary else appColors.surfaceBorder, RoundedCornerShape(12.dp))
+                                            .clickable { viewModel?.setAppFontFamily(opt.id) }
+                                            .padding(vertical = 10.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = opt.label,
+                                            fontFamily = opt.family,
+                                            color = if (isSelected) appColors.accentPrimary else appColors.textPrimary,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                fontOptions.drop(3).forEach { opt ->
+                                    val isSelected = appFontFamily.equals(opt.id, ignoreCase = true)
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (isSelected) appColors.accentPrimary.copy(alpha = 0.2f) else appColors.surfaceElevated)
+                                            .border(1.2.dp, if (isSelected) appColors.accentPrimary else appColors.surfaceBorder, RoundedCornerShape(12.dp))
+                                            .clickable { viewModel?.setAppFontFamily(opt.id) }
+                                            .padding(vertical = 10.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = opt.label,
+                                            fontFamily = opt.family,
+                                            color = if (isSelected) appColors.accentPrimary else appColors.textPrimary,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── SECTION 4: FONT COLOR & TEXT CONTRAST ─────────────────────────
+                    item {
+                        Column {
+                            Text(
+                                text = "Font Color & Contrast",
+                                color = appColors.textPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            val colorChunks = fontColorOptions.chunked(3)
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                colorChunks.forEach { rowColors ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        rowColors.forEach { opt ->
+                                            val isSelected = appFontColor.equals(opt.id, ignoreCase = true)
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(if (isSelected) appColors.accentPrimary.copy(alpha = 0.2f) else appColors.surfaceElevated)
+                                                    .border(1.2.dp, if (isSelected) appColors.accentPrimary else appColors.surfaceBorder, RoundedCornerShape(12.dp))
+                                                .clickable { viewModel?.setAppFontColorOption(opt.id) }
+                                                    .padding(vertical = 10.dp, horizontal = 6.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(12.dp)
+                                                            .clip(CircleShape)
+                                                            .background(opt.previewColor)
+                                                            .border(0.5.dp, Color.Gray, CircleShape)
+                                                    )
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Text(
+                                                        text = opt.label,
+                                                        color = if (isSelected) appColors.accentPrimary else appColors.textPrimary,
+                                                        fontSize = 11.5.sp,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                        maxLines = 1
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        repeat(3 - rowColors.size) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ── SECTION 5: WALLPAPERS & SKINS ─────────────────────────────────
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Wallpaper Skin",
+                                color = appColors.textPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            if (currentWallpaperUri != null) {
+                                TextButton(onClick = {
+                                    viewModel?.setThemeWallpaper(null)
+                                    Toast.makeText(context, "Wallpaper cleared", Toast.LENGTH_SHORT).show()
+                                }) {
+                                    Text("Reset to Solid", color = appColors.accentPrimary, fontSize = 12.sp)
+                                }
+                            }
+                        }
+
                         Spacer(Modifier.height(8.dp))
 
                         // Category Tabs (All images, Nature, Space, Anime, Others)
@@ -249,7 +533,7 @@ fun SkinThemeDialog(
                                         Text(
                                             text = cat,
                                             color = if (isSelected) appColors.textPrimary else appColors.textSecondary,
-                                            fontSize = 14.sp,
+                                            fontSize = 13.5.sp,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                         )
                                     }
@@ -265,7 +549,7 @@ fun SkinThemeDialog(
                             wallpapers.filter { it.category.equals(selectedCategory, ignoreCase = true) }
                         }
 
-                        // Grid of Wallpapers (Custom Card + Image Cards)
+                        // Grid of Wallpapers (Custom Card + Preset Cards)
                         val allCards = listOf<SkinWallpaper?>(null) + filteredWallpapers
                         val rows = allCards.chunked(3)
 
@@ -278,7 +562,7 @@ fun SkinThemeDialog(
                                     rowItems.forEach { item ->
                                         Box(modifier = Modifier.weight(1f)) {
                                             if (item == null) {
-                                                // "Custom" gallery card matching Image 2
+                                                // "Custom" gallery card
                                                 Box(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
@@ -318,6 +602,7 @@ fun SkinThemeDialog(
                                                     }
                                                 }
                                             } else {
+                                                val isApplied = currentWallpaperUri == item.imageUrl
                                                 // Aesthetic wallpaper card
                                                 Box(
                                                     modifier = Modifier
@@ -325,9 +610,14 @@ fun SkinThemeDialog(
                                                         .aspectRatio(0.60f)
                                                         .clip(RoundedCornerShape(16.dp))
                                                         .background(appColors.surfaceElevated)
-                                                        .border(1.dp, (if (appColors.isDark) Color.White.copy(alpha = 0.15f) else appColors.surfaceBorder), RoundedCornerShape(16.dp))
+                                                        .border(
+                                                            width = if (isApplied) 2.5.dp else 1.dp,
+                                                            color = if (isApplied) appColors.accentPrimary else (if (appColors.isDark) Color.White.copy(alpha = 0.15f) else appColors.surfaceBorder),
+                                                            shape = RoundedCornerShape(16.dp)
+                                                        )
                                                         .clickable {
-                                                            Toast.makeText(context, "Applied ${item.title} skin", Toast.LENGTH_SHORT).show()
+                                                            viewModel?.setThemeWallpaper(item.imageUrl)
+                                                            Toast.makeText(context, "Applied ${item.title} wallpaper", Toast.LENGTH_SHORT).show()
                                                         }
                                                 ) {
                                                     AsyncImage(
@@ -336,11 +626,23 @@ fun SkinThemeDialog(
                                                         contentScale = ContentScale.Crop,
                                                         modifier = Modifier.fillMaxSize()
                                                     )
+                                                    if (isApplied) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .align(Alignment.TopEnd)
+                                                                .padding(6.dp)
+                                                                .size(22.dp)
+                                                                .clip(CircleShape)
+                                                                .background(appColors.accentPrimary),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
                                     }
-                                    // Filler for incomplete rows
                                     repeat(3 - rowItems.size) {
                                         Spacer(modifier = Modifier.weight(1f))
                                     }

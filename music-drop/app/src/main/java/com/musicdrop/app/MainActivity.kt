@@ -100,15 +100,42 @@ class MainActivity : ComponentActivity() {
             val viewModel: MainViewModel = viewModel()
             activeViewModel = viewModel
             val appTheme by viewModel.appTheme.collectAsState()
+            val cardOpacity by viewModel.cardOpacity.collectAsState()
+            val appFontFamily by viewModel.appFontFamily.collectAsState()
+            val appFontColorOption by viewModel.appFontColorOption.collectAsState()
+            val currentWallpaperUri by viewModel.themeWallpaperUri.collectAsState()
             val availableUpdate by viewModel.availableUpdate.collectAsState()
             val updateProgress by viewModel.updateDownloadProgress.collectAsState()
             val networkBanner by viewModel.networkStatusBanner.collectAsState()
             var showOpeningSplash by remember { mutableStateOf(shouldShowSplash) }
 
-            FileDropTheme(themeMode = appTheme) {
+            FileDropTheme(
+                themeMode = appTheme,
+                cardOpacity = cardOpacity,
+                fontFamilyName = appFontFamily,
+                fontColorOption = appFontColorOption
+            ) {
                 val appColors = LocalAppColors.current
-                Surface(modifier = Modifier.fillMaxSize(), color = appColors.background) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = if (currentWallpaperUri != null) Color.Black else appColors.background
+                ) {
                     Box(modifier = Modifier.fillMaxSize()) {
+                        if (currentWallpaperUri != null) {
+                            AsyncImage(
+                                model = currentWallpaperUri,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            // Ambient dark scrim for high contrast and readability over photos
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = if (appColors.isDark) 0.38f else 0.18f))
+                            )
+                        }
+
                         MainAppContent(viewModel = viewModel)
 
                         // Floating Offline / Online Status Banner

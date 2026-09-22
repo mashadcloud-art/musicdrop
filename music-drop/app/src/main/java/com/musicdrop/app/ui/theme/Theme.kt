@@ -8,9 +8,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontFamily
 import androidx.core.view.WindowCompat
 
 enum class AppThemeMode(val displayName: String, val subtitle: String, val isDark: Boolean) {
@@ -277,6 +279,9 @@ val RoseGoldAppColors = AppColors(
 )
 
 val LocalAppColors = compositionLocalOf { YouTubeMusicAppColors }
+val LocalCardOpacity = compositionLocalOf { 0.55f }
+val LocalCustomFontFamily = compositionLocalOf<androidx.compose.ui.text.font.FontFamily?> { null }
+val LocalCustomFontColor = compositionLocalOf<Color?> { null }
 
 private val YouTubeMusicColorScheme = darkColorScheme(
     primary = Color(0xFFFF0000),
@@ -569,6 +574,9 @@ private val RoseGoldColorScheme = lightColorScheme(
 @Composable
 fun FileDropTheme(
     themeMode: AppThemeMode = AppThemeMode.YOUTUBE_MUSIC,
+    cardOpacity: Float = 0.55f,
+    fontFamilyName: String = "DEFAULT",
+    fontColorOption: String = "DEFAULT",
     content: @Composable () -> Unit
 ) {
     val colorScheme = when (themeMode) {
@@ -590,7 +598,7 @@ fun FileDropTheme(
         AppThemeMode.ROSE_GOLD -> RoseGoldColorScheme
     }
 
-    val appColors = when (themeMode) {
+    val baseAppColors = when (themeMode) {
         AppThemeMode.YOUTUBE_MUSIC -> YouTubeMusicAppColors
         AppThemeMode.MUSIC_PULSE -> MusicPulseAppColors
         AppThemeMode.MUSIC_ORBIT -> MusicOrbitAppColors
@@ -607,6 +615,56 @@ fun FileDropTheme(
         AppThemeMode.ROYAL_PLUM -> RoyalPlumAppColors
         AppThemeMode.DEEP_NAVY -> DeepNavyAppColors
         AppThemeMode.ROSE_GOLD -> RoseGoldAppColors
+    }
+
+    val customTextPrimary = remember(fontColorOption, baseAppColors) {
+        when (fontColorOption.uppercase()) {
+            "PURE_WHITE" -> Color.White
+            "WARM_CREAM" -> Color(0xFFFFFBEB)
+            "GOLD_ACCENT" -> Color(0xFFFDE047)
+            "CYAN_ICE" -> Color(0xFF67E8F9)
+            "HIGH_CONTRAST" -> if (baseAppColors.isDark) Color.White else Color(0xFF0F172A)
+            else -> baseAppColors.textPrimary
+        }
+    }
+
+    val appColors = remember(baseAppColors, cardOpacity, customTextPrimary) {
+        baseAppColors.copy(
+            surface = baseAppColors.surface.copy(alpha = cardOpacity),
+            surfaceElevated = baseAppColors.surfaceElevated.copy(alpha = cardOpacity),
+            surfaceBorder = baseAppColors.surfaceBorder.copy(alpha = (cardOpacity * 1.35f).coerceIn(0.12f, 0.95f)),
+            textPrimary = customTextPrimary
+        )
+    }
+
+    val dynamicFamily = remember(fontFamilyName) {
+        when (fontFamilyName.uppercase()) {
+            "SERIF" -> FontFamily.Serif
+            "MONOSPACE" -> FontFamily.Monospace
+            "CURSIVE" -> FontFamily.Cursive
+            "ROUNDED", "SANS_SERIF" -> FontFamily.SansSerif
+            else -> FontFamily.Default
+        }
+    }
+
+    val dynamicTypography = remember(dynamicFamily) {
+        androidx.compose.material3.Typography(
+            displayLarge = Typography.displayLarge.copy(fontFamily = dynamicFamily),
+            displayMedium = Typography.displayMedium.copy(fontFamily = dynamicFamily),
+            displaySmall = Typography.displaySmall.copy(fontFamily = dynamicFamily),
+            headlineLarge = Typography.headlineLarge.copy(fontFamily = dynamicFamily),
+            headlineMedium = Typography.headlineMedium.copy(fontFamily = dynamicFamily),
+            headlineSmall = Typography.headlineSmall.copy(fontFamily = dynamicFamily),
+            titleLarge = Typography.titleLarge.copy(fontFamily = dynamicFamily),
+            titleMedium = Typography.titleMedium.copy(fontFamily = dynamicFamily),
+            titleSmall = Typography.titleSmall.copy(fontFamily = dynamicFamily),
+            bodyLarge = Typography.bodyLarge.copy(fontFamily = dynamicFamily),
+            bodyMedium = Typography.bodyMedium.copy(fontFamily = dynamicFamily),
+            bodySmall = Typography.bodySmall.copy(fontFamily = dynamicFamily),
+            labelLarge = Typography.labelLarge.copy(fontFamily = dynamicFamily),
+            labelMedium = Typography.labelMedium.copy(fontFamily = dynamicFamily),
+            labelSmall = Typography.labelSmall.copy(fontFamily = dynamicFamily)
+        )
     }
 
     val view = LocalView.current
@@ -630,11 +688,14 @@ fun FileDropTheme(
     CompositionLocalProvider(
         LocalAppTheme provides themeMode,
         LocalAppColors provides appColors,
+        LocalCardOpacity provides cardOpacity,
+        LocalCustomFontFamily provides dynamicFamily,
+        LocalCustomFontColor provides customTextPrimary,
         androidx.compose.material3.LocalContentColor provides appColors.textPrimary
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = Typography,
+            typography = dynamicTypography,
             content = content
         )
     }

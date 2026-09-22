@@ -1,49 +1,32 @@
 package com.musicdrop.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.SystemUpdate
-import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.musicdrop.app.ui.theme.AppThemeMode
-import com.musicdrop.app.ui.theme.CleanLightAppColors
-import com.musicdrop.app.ui.theme.CyberDarkAppColors
-import com.musicdrop.app.ui.theme.GlassmorphismAppColors
-import com.musicdrop.app.ui.theme.IosLightAppColors
-import com.musicdrop.app.ui.theme.LocalAppColors
-import com.musicdrop.app.ui.theme.MusicGreenroomAppColors
-import com.musicdrop.app.ui.theme.MusicOrbitAppColors
-import com.musicdrop.app.ui.theme.MusicPulseAppColors
-import com.musicdrop.app.ui.theme.NearbyShareAppColors
-import com.musicdrop.app.ui.theme.OledBlackAppColors
-import com.musicdrop.app.ui.theme.RetroAppColors
-import com.musicdrop.app.ui.theme.SunsetNebulaAppColors
-import com.musicdrop.app.ui.theme.TurboConnectAppColors
-import com.musicdrop.app.ui.theme.RoyalPlumAppColors
-import com.musicdrop.app.ui.theme.DeepNavyAppColors
-import com.musicdrop.app.ui.theme.RoseGoldAppColors
-import com.musicdrop.app.ui.theme.YouTubeMusicAppColors
+import com.musicdrop.app.ui.components.EqualizerDialog
+import com.musicdrop.app.ui.components.SkinThemeDialog
+import com.musicdrop.app.ui.theme.*
 import com.musicdrop.app.ui.viewmodel.MainViewModel
 
 @Composable
@@ -56,136 +39,668 @@ fun MoreSettingsScreen(
     val isDjCrossfadeEnabled by viewModel.isDjCrossfadeEnabled.collectAsState()
     val isSilenceTrimEnabled by viewModel.isSilenceTrimEnabled.collectAsState()
     val showBottomNav by viewModel.showBottomNav.collectAsState()
+    val cardOpacity by viewModel.cardOpacity.collectAsState()
+    val appFontFamily by viewModel.appFontFamily.collectAsState()
+    val appFontColor by viewModel.appFontColorOption.collectAsState()
+    val currentWallpaperUri by viewModel.themeWallpaperUri.collectAsState()
+
     var showEqDialog by remember { mutableStateOf(false) }
+    var showSkinDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(appColors.background)
     ) {
-        // Top Bar
+        // ── TOP APP BAR (Clean, Transparent, Edge-to-Edge) ─────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(appColors.surface)
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .background(appColors.surfaceElevated.copy(alpha = (cardOpacity * 0.75f).coerceIn(0.12f, 0.90f)))
+                .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = appColors.textPrimary)
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(appColors.surface.copy(alpha = 0.6f))
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = appColors.textPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Theme & Settings", color = appColors.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        "Settings",
+                        color = appColors.textPrimary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Theme, Transparency, Audio & Interface",
+                        color = appColors.textSecondary,
+                        fontSize = 11.5.sp
+                    )
+                }
             }
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.Share, contentDescription = "Share", tint = appColors.textPrimary)
+
+            // Quick Studio Palette Trigger
+            IconButton(
+                onClick = { showSkinDialog = true },
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(appColors.accentPrimary.copy(alpha = 0.18f))
+            ) {
+                Icon(
+                    Icons.Rounded.Palette,
+                    contentDescription = "Skin Studio",
+                    tint = appColors.accentPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(24.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
+            // ── SECTION 1: APPEARANCE & THEME STUDIO HERO ─────────────────────
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = appColors.surface),
-                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = appColors.surfaceElevated),
+                    shape = RoundedCornerShape(20.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, appColors.surfaceBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Info, contentDescription = "App", tint = appColors.accentPrimary)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text("Music Drop", color = appColors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                Text("Version 9.9", color = appColors.textMuted, fontSize = 13.sp)
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        // Section Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(appColors.accentPrimary.copy(alpha = 0.18f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Rounded.Palette, contentDescription = null, tint = appColors.accentPrimary, modifier = Modifier.size(20.dp))
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        "Appearance & Theme Studio",
+                                        color = appColors.textPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        "${currentTheme.displayName} • ${(cardOpacity * 100).toInt()}% Glass Opacity",
+                                        color = appColors.textSecondary,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = { showSkinDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = appColors.accentPrimary),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Full Studio", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
+
                         Spacer(modifier = Modifier.height(16.dp))
+
+                        // Quick Theme Palette Horizontal Chips
                         Text(
-                            "High quality background & screen-off music player with direct YouTube streaming, downloading, and Android Auto car support.",
-                            color = appColors.textSecondary,
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp
+                            "Instant Themes",
+                            color = appColors.textPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        val allThemes = AppThemeMode.values()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            allThemes.forEach { mode ->
+                                val isSelected = mode == currentTheme
+                                val swatch = swatchFor(mode)
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected) appColors.accentPrimary.copy(alpha = 0.22f) else appColors.surface)
+                                        .border(
+                                            width = if (isSelected) 1.5.dp else 0.8.dp,
+                                            color = if (isSelected) appColors.accentPrimary else appColors.surfaceBorder,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable { viewModel.setAppTheme(mode) }
+                                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape)
+                                            .background(swatch.accentPrimary)
+                                    )
+                                    Spacer(Modifier.width(7.dp))
+                                    Text(
+                                        text = mode.displayName,
+                                        color = if (isSelected) appColors.accentPrimary else appColors.textPrimary,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        // Glass Translucency / Opacity Slider
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    "Glass Translucency & Opacity",
+                                    color = appColors.textPrimary,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.5.sp
+                                )
+                                Text(
+                                    "Adjust transparency of category cards & sections",
+                                    color = appColors.textSecondary,
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(appColors.accentPrimary.copy(alpha = 0.15f))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    "${(cardOpacity * 100).toInt()}%",
+                                    color = appColors.accentPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Slider(
+                            value = cardOpacity,
+                            onValueChange = { viewModel.setCardOpacity(it) },
+                            valueRange = 0.10f..1.0f,
+                            steps = 17,
+                            colors = SliderDefaults.colors(
+                                thumbColor = appColors.accentPrimary,
+                                activeTrackColor = appColors.accentPrimary,
+                                inactiveTrackColor = appColors.surfaceBorder
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // 4 Opacity Preset Buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                "Crystal (20%)" to 0.20f,
+                                "Balanced (55%)" to 0.55f,
+                                "Frosted (75%)" to 0.75f,
+                                "Solid (100%)" to 1.0f
+                            ).forEach { (label, value) ->
+                                val isCurrent = kotlin.math.abs(cardOpacity - value) < 0.08f
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isCurrent) appColors.accentPrimary else appColors.surface)
+                                        .clickable { viewModel.setCardOpacity(value) }
+                                        .padding(vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = if (isCurrent) Color.White else appColors.textPrimary,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        // App Font Family Style
+                        Text(
+                            "App Font Style",
+                            color = appColors.textPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "DEFAULT" to ("Default Sans" to FontFamily.Default),
+                                "SANS_SERIF" to ("Modern Sans" to FontFamily.SansSerif),
+                                "ROUNDED" to ("Rounded" to FontFamily.SansSerif),
+                                "SERIF" to ("Serif Elegant" to FontFamily.Serif),
+                                "MONOSPACE" to ("Monospace Code" to FontFamily.Monospace)
+                            ).forEach { (id, pair) ->
+                                val isSelected = appFontFamily.equals(id, ignoreCase = true)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isSelected) appColors.accentPrimary.copy(alpha = 0.22f) else appColors.surface)
+                                        .border(
+                                            width = if (isSelected) 1.5.dp else 0.8.dp,
+                                            color = if (isSelected) appColors.accentPrimary else appColors.surfaceBorder,
+                                            shape = RoundedCornerShape(10.dp)
+                                        )
+                                        .clickable { viewModel.setAppFontFamily(id) }
+                                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = pair.first,
+                                        fontFamily = pair.second,
+                                        color = if (isSelected) appColors.accentPrimary else appColors.textPrimary,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Font Color & Text Contrast
+                        Text(
+                            "Font Color & Text Contrast",
+                            color = appColors.textPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "DEFAULT" to ("Adaptive" to appColors.textPrimary),
+                                "PURE_WHITE" to ("Pure White" to Color.White),
+                                "WARM_CREAM" to ("Warm Cream" to Color(0xFFFFFBEB)),
+                                "GOLD_ACCENT" to ("Vivid Gold" to Color(0xFFFDE047)),
+                                "CYAN_ICE" to ("Cyan Ice" to Color(0xFF67E8F9)),
+                                "HIGH_CONTRAST" to ("High Contrast" to (if (appColors.isDark) Color.White else Color(0xFF0F172A)))
+                            ).forEach { (id, pair) ->
+                                val isSelected = appFontColor.equals(id, ignoreCase = true)
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isSelected) appColors.accentPrimary.copy(alpha = 0.22f) else appColors.surface)
+                                        .border(
+                                            width = if (isSelected) 1.5.dp else 0.8.dp,
+                                            color = if (isSelected) appColors.accentPrimary else appColors.surfaceBorder,
+                                            shape = RoundedCornerShape(10.dp)
+                                        )
+                                        .clickable { viewModel.setAppFontColorOption(id) }
+                                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(pair.second)
+                                            .border(0.5.dp, Color.Gray, CircleShape)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = pair.first,
+                                        color = if (isSelected) appColors.accentPrimary else appColors.textPrimary,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // ── Android Auto & Car Display Settings ──
+            // ── SECTION 2: AUDIO QUALITY & PLAYBACK MIX ───────────────────────
+            item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = appColors.surface),
-                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = appColors.surfaceElevated),
+                    shape = RoundedCornerShape(20.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, appColors.surfaceBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+                    Column(modifier = Modifier.padding(18.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Car", tint = appColors.accentPrimary)
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFF10B981).copy(alpha = 0.18f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.GraphicEq, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(20.dp))
+                            }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
-                                Text("Android Auto & Car Display", color = appColors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Text("In-car media browser & YouTube video overlay", color = appColors.textMuted, fontSize = 12.sp)
+                                Text(
+                                    "Audio Quality & DJ Transitions",
+                                    color = appColors.textPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    "Hardware equalizer, bass booster & seamless mix",
+                                    color = appColors.textSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Audio Equalizer Action Row
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(appColors.surface)
+                                .clickable { showEqDialog = true }
+                                .padding(14.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        "Hardware Audio Equalizer",
+                                        color = appColors.textPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(Color(0xFF10B981).copy(alpha = 0.2f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("5-Band + Bass", color = Color(0xFF10B981), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "Presets: Rock, Bass, Electronic, Acoustic, Flat & Custom sliders",
+                                    color = appColors.textSecondary,
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                            Icon(Icons.Rounded.Tune, contentDescription = "Open", tint = Color(0xFF10B981), modifier = Modifier.size(22.dp))
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // DJ Overlap Crossfade
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    "DJ Overlap Crossfade (Seamless Blend)",
+                                    color = appColors.textPrimary,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "Overlap the next song before the current track finishes for an uninterrupted party mix",
+                                    color = appColors.textSecondary,
+                                    fontSize = 11.5.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                            Switch(
+                                checked = isDjCrossfadeEnabled,
+                                onCheckedChange = { viewModel.setDjCrossfadeEnabled(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = appColors.accentPrimary,
+                                    uncheckedThumbColor = appColors.textMuted,
+                                    uncheckedTrackColor = appColors.surface
+                                )
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            thickness = 0.5.dp,
+                            color = appColors.surfaceBorder.copy(alpha = 0.4f)
+                        )
+
+                        // Smart Silence Trimming
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    "Smart Silence Trimming",
+                                    color = appColors.textPrimary,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "Automatically eliminate silent intros and trailing dead air between songs",
+                                    color = appColors.textSecondary,
+                                    fontSize = 11.5.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                            Switch(
+                                checked = isSilenceTrimEnabled,
+                                onCheckedChange = { viewModel.setSilenceTrimEnabled(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = appColors.accentPrimary,
+                                    uncheckedThumbColor = appColors.textMuted,
+                                    uncheckedTrackColor = appColors.surface
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── SECTION 3: INTERFACE & NAVIGATION ─────────────────────────────
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = appColors.surfaceElevated),
+                    shape = RoundedCornerShape(20.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, appColors.surfaceBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFF3B82F6).copy(alpha = 0.18f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Rounded.Navigation, contentDescription = null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    "Interface & Navigation",
+                                    color = appColors.textPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    "Bottom navigation bar and gesture controls",
+                                    color = appColors.textSecondary,
+                                    fontSize = 12.sp
+                                )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Status Row 1: Media Browser
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    "Show Bottom Navigation Bar",
+                                    color = appColors.textPrimary,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "Display bottom tabs (Home, Explore, Library). Keep disabled for pure edge-to-edge top swiping.",
+                                    color = appColors.textSecondary,
+                                    fontSize = 11.5.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                            Switch(
+                                checked = showBottomNav,
+                                onCheckedChange = { viewModel.setShowBottomNav(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = appColors.accentPrimary,
+                                    uncheckedThumbColor = appColors.textMuted,
+                                    uncheckedTrackColor = appColors.surface
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── SECTION 4: ANDROID AUTO & CAR DISPLAY ─────────────────────────
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = appColors.surfaceElevated),
+                    shape = RoundedCornerShape(20.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, appColors.surfaceBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFF59E0B).copy(alpha = 0.18f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.DirectionsCar, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    "Android Auto & In-Car Audio",
+                                    color = appColors.textPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    "Car head-unit media browser & YouTube video overlay",
+                                    color = appColors.textSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(appColors.surface)
+                                .padding(12.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp)
+                                    .size(9.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF4CAF50))
+                                    .background(Color(0xFF10B981))
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("MusicDrop Auto Service: Ready", color = appColors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    "MusicDrop Auto Media Service: Active",
+                                    color = appColors.textPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "Automatically syncs your offline songs and online charts to the dashboard",
+                                    color = appColors.textSecondary,
+                                    fontSize = 11.5.sp
+                                )
+                            }
                         }
-                        Text(
-                            "Appears automatically in your car head unit's music browser. Browse YouTube trending, JioSaavn, and offline files.",
-                            color = appColors.textSecondary,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(start = 16.dp, top = 2.dp)
-                        )
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Status Row 2: Video Overlay
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF2196F3))
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Car Video Overlay (CarStream style)", color = appColors.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                        Text(
-                            "Projects a full YouTube WebView over Android Auto. Requires granting Accessibility Service permission on your phone.",
-                            color = appColors.textSecondary,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(start = 16.dp, top = 2.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         val context = androidx.compose.ui.platform.LocalContext.current
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Button(
+                            OutlinedButton(
                                 onClick = {
                                     try {
                                         val intent = android.content.Intent(
@@ -201,13 +716,12 @@ fun MoreSettingsScreen(
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = appColors.accentPrimary),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text("Overlay Permission", fontSize = 12.sp, maxLines = 1)
+                                Text("Overlay Permission", fontSize = 11.sp, maxLines = 1)
                             }
 
-                            OutlinedButton(
+                            Button(
                                 onClick = {
                                     try {
                                         val intent = android.content.Intent(context, com.musicdrop.app.auto.VideoOverlayService::class.java).apply {
@@ -215,269 +729,105 @@ fun MoreSettingsScreen(
                                         }
                                         context.startService(intent)
                                     } catch (e: Exception) {
-                                        android.widget.Toast.makeText(context, "Error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                                        android.widget.Toast.makeText(context, "Overlay: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = appColors.accentPrimary),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text("Test Overlay", fontSize = 12.sp, maxLines = 1)
+                                Text("Test Car Overlay", fontSize = 11.sp, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── SECTION 5: APP INFO & INSTANT UPDATER ─────────────────────────
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = appColors.surfaceElevated),
+                    shape = RoundedCornerShape(20.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, appColors.surfaceBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(appColors.accentPrimary.copy(alpha = 0.18f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = appColors.accentPrimary, modifier = Modifier.size(20.dp))
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        "MusicDrop",
+                                        color = appColors.textPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        "v${com.musicdrop.app.BuildConfig.VERSION_NAME} (Build ${com.musicdrop.app.BuildConfig.VERSION_CODE})",
+                                        color = appColors.textSecondary,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = { viewModel.checkForAppUpdate(manualToast = true) },
+                                colors = ButtonDefaults.buttonColors(containerColor = appColors.accentPrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Text("Check Update", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
+
                         Text(
-                            "💡 Tip: In phone Android Auto settings, tap 'Version' 10 times to enable Developer settings, then enable 'Unknown sources' for full sideload support.",
+                            "High-fidelity lossless music streaming, YouTube player, offline downloads, and in-car entertainment.",
                             color = appColors.textMuted,
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // ── Playback & Seamless DJ Mix ──
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = appColors.surface),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.GraphicEq, contentDescription = "DJ Mix", tint = appColors.accentPrimary)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text("Playback & Seamless DJ Mix", color = appColors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Text("Song transitions and gapless playback", color = appColors.textMuted, fontSize = 12.sp)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Toggle 1: DJ Overlap Crossfade
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text(
-                                    "DJ Overlap Crossfade (Seamless Mix)",
-                                    color = appColors.textPrimary,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    "Start next song before the current track ends for an uninterrupted DJ mashup blend.",
-                                    color = appColors.textSecondary,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
-                            }
-                            Switch(
-                                checked = isDjCrossfadeEnabled,
-                                onCheckedChange = { viewModel.setDjCrossfadeEnabled(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = appColors.accentPrimary,
-                                    uncheckedThumbColor = appColors.textMuted,
-                                    uncheckedTrackColor = appColors.surfaceElevated
-                                )
-                            )
-                        }
-
-                        Divider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            thickness = 0.5.dp,
-                            color = appColors.surfaceBorder.copy(alpha = 0.3f)
-                        )
-
-                        // Toggle 2: Silence & Dead-Space Trimming
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text(
-                                    "Smart Silence Trimming",
-                                    color = appColors.textPrimary,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    "Automatically eliminate silent lead-ins and trailing dead air between songs.",
-                                    color = appColors.textSecondary,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
-                            }
-                            Switch(
-                                checked = isSilenceTrimEnabled,
-                                onCheckedChange = { viewModel.setSilenceTrimEnabled(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = appColors.accentPrimary,
-                                    uncheckedThumbColor = appColors.textMuted,
-                                    uncheckedTrackColor = appColors.surfaceElevated
-                                )
-                            )
-                        }
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            thickness = 0.5.dp,
-                            color = appColors.surfaceBorder.copy(alpha = 0.3f)
-                        )
-
-                        // Action 3: Open Audio Equalizer
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showEqDialog = true }
-                                .padding(vertical = 4.dp)
-                        ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text(
-                                    "Audio Equalizer & Bass Boost",
-                                    color = appColors.textPrimary,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    "5-band hardware equalizer, bass booster, 3D surround sound, and genre presets.",
-                                    color = appColors.textSecondary,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
-                            }
-                            Icon(
-                                imageVector = Icons.Rounded.Tune,
-                                contentDescription = "Equalizer",
-                                tint = Color(0xFF10B981),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            thickness = 0.5.dp,
-                            color = appColors.surfaceBorder.copy(alpha = 0.3f)
-                        )
-
-                        // Toggle 4: Show Bottom Navigation Bar
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text(
-                                    "Show Bottom Navigation Bar",
-                                    color = appColors.textPrimary,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    "Display bottom tabs (Home, Explore, Library). Off by default for clean edge-to-edge top swiping.",
-                                    color = appColors.textSecondary,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
-                            }
-                            Switch(
-                                checked = showBottomNav,
-                                onCheckedChange = { viewModel.setShowBottomNav(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = appColors.accentPrimary,
-                                    uncheckedThumbColor = appColors.textMuted,
-                                    uncheckedTrackColor = appColors.surfaceElevated
-                                )
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Palette, contentDescription = null, tint = appColors.accentPrimary, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Theme", color = appColors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-            items(AppThemeMode.values().toList()) { mode ->
-                ThemeOptionRow(
-                    mode = mode,
-                    isSelected = mode == currentTheme,
-                    onSelect = { viewModel.setAppTheme(mode) }
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = appColors.accentPrimary, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("App Updates & Info", color = appColors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = appColors.surface,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, appColors.surfaceBorder.copy(alpha = 0.35f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { viewModel.checkForAppUpdate(manualToast = true) }
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("MusicDrop Version", color = appColors.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Text("v${com.musicdrop.app.BuildConfig.VERSION_NAME} (Build ${com.musicdrop.app.BuildConfig.VERSION_CODE})", color = appColors.textMuted, fontSize = 12.sp)
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = appColors.accentPrimary.copy(alpha = 0.15f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, appColors.accentPrimary.copy(alpha = 0.35f))
-                        ) {
-                            Text(
-                                text = "Check Updates",
-                                color = appColors.accentPrimary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(30.dp))
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
 
+        // Dialogs
         if (showEqDialog) {
-            com.musicdrop.app.ui.components.EqualizerDialog(
+            EqualizerDialog(
                 equalizerManager = viewModel.equalizerManager,
                 onDismiss = { showEqDialog = false }
+            )
+        }
+
+        if (showSkinDialog) {
+            SkinThemeDialog(
+                currentTheme = currentTheme,
+                onSelectTheme = { mode -> viewModel.setAppTheme(mode) },
+                onDismiss = { showSkinDialog = false },
+                viewModel = viewModel
             )
         }
     }
 }
 
-/** The dark/light preview swatch for each [AppThemeMode] — same values Theme.kt uses. */
-private fun swatchFor(mode: AppThemeMode): com.musicdrop.app.ui.theme.AppColors = when (mode) {
+/** Helper swatch color lookup for theme pill badges */
+private fun swatchFor(mode: AppThemeMode): AppColors = when (mode) {
     AppThemeMode.YOUTUBE_MUSIC -> YouTubeMusicAppColors
     AppThemeMode.MUSIC_PULSE -> MusicPulseAppColors
     AppThemeMode.MUSIC_ORBIT -> MusicOrbitAppColors
@@ -494,44 +844,4 @@ private fun swatchFor(mode: AppThemeMode): com.musicdrop.app.ui.theme.AppColors 
     AppThemeMode.ROYAL_PLUM -> RoyalPlumAppColors
     AppThemeMode.DEEP_NAVY -> DeepNavyAppColors
     AppThemeMode.ROSE_GOLD -> RoseGoldAppColors
-}
-
-@Composable
-private fun ThemeOptionRow(mode: AppThemeMode, isSelected: Boolean, onSelect: () -> Unit) {
-    val appColors = LocalAppColors.current
-    val swatch = swatchFor(mode)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (isSelected) appColors.surfaceElevated else appColors.surface)
-            .clickable { onSelect() }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // A little two-tone swatch (background + accent) previews the palette
-        // without switching to it first.
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(swatch.background),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(16.dp)
-                    .clip(CircleShape)
-                    .background(swatch.accentPrimary)
-            )
-        }
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(mode.displayName, color = appColors.textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text(mode.subtitle, color = appColors.textMuted, fontSize = 11.sp)
-        }
-        if (isSelected) {
-            Icon(Icons.Default.Check, contentDescription = "Selected", tint = appColors.accentPrimary, modifier = Modifier.size(20.dp))
-        }
-    }
 }

@@ -2165,10 +2165,9 @@ fun SpotlightArtistsSection(
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .clip(RoundedCornerShape(22.dp))
                     .background(
-                        if (appColors.isDark) Brush.verticalGradient(listOf(Color(0xFF142B32), Color(0xFF0E1E24)))
-                        else Brush.verticalGradient(listOf(appColors.surfaceElevated, appColors.surface))
+                        Brush.verticalGradient(listOf(appColors.surfaceElevated, appColors.surface))
                     )
-                    .border(1.dp, if (appColors.isDark) Color(0xFF224954) else appColors.surfaceBorder, RoundedCornerShape(22.dp))
+                    .border(1.dp, appColors.surfaceBorder, RoundedCornerShape(22.dp))
                     .padding(horizontal = 12.dp, vertical = 14.dp)
             ) {
                 Column {

@@ -63,6 +63,8 @@ import com.musicdrop.app.ui.viewmodel.MainViewModel
 import com.musicdrop.app.ui.components.SongOptionsBottomSheet
 import com.musicdrop.app.ui.components.ArtistOptionsBottomSheet
 import com.musicdrop.app.data.repository.ArtistCoverRepository
+import com.musicdrop.app.ui.theme.LocalAppColors
+import com.musicdrop.app.ui.theme.LocalCardOpacity
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -232,13 +234,8 @@ fun LibraryScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                appColors.accentPrimary.copy(alpha = if (appColors.isDark) 0.35f else 0.18f),
-                                appColors.surfaceElevated.copy(alpha = if (appColors.isDark) 0.85f else 0.92f),
-                                appColors.surface.copy(alpha = if (appColors.isDark) 0.90f else 0.95f),
-                                appColors.background.copy(alpha = if (appColors.isDark) 0.98f else 0.99f)
-                            )
+                        appColors.surfaceElevated.copy(
+                            alpha = (LocalCardOpacity.current * 0.75f).coerceIn(0.10f, 0.88f)
                         )
                     )
                     .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
@@ -863,6 +860,7 @@ private fun PlaylistsTabContent(
     onOpenUserPlaylist: (UserPlaylistItem) -> Unit
 ) {
     val context = LocalContext.current
+    val appColors = LocalAppColors.current
     val totalCount = 4 + userPlaylists.size
 
     val favouriteTracks = remember(likedMusic, allSongs) {
@@ -958,7 +956,8 @@ private fun PlaylistsTabContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF191922))
+                    .background(appColors.surfaceElevated)
+                    .border(1.dp, appColors.surfaceBorder, RoundedCornerShape(12.dp))
                     .clickable(onClick = onCreatePlaylist)
                     .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -967,13 +966,13 @@ private fun PlaylistsTabContent(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF252530)),
+                        .background(appColors.accentPrimary.copy(alpha = 0.18f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Add, contentDescription = null, tint = Color(0xFFFB8D00), modifier = Modifier.size(24.dp))
+                    Icon(Icons.Rounded.Add, contentDescription = null, tint = appColors.accentPrimary, modifier = Modifier.size(24.dp))
                 }
                 Spacer(Modifier.width(14.dp))
-                Text("Create playlist", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Create playlist", color = appColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -984,7 +983,8 @@ private fun PlaylistsTabContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF16161E))
+                    .background(appColors.surfaceElevated)
+                    .border(1.dp, appColors.surfaceBorder, RoundedCornerShape(12.dp))
                     .clickable { onOpenUserPlaylist(pl) }
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -993,18 +993,18 @@ private fun PlaylistsTabContent(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF242430)),
+                        .background(appColors.surface),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.QueueMusic, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Rounded.QueueMusic, contentDescription = null, tint = appColors.textPrimary, modifier = Modifier.size(24.dp))
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(pl.name, color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
+                    Text(pl.name, color = appColors.textPrimary, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(2.dp))
-                    Text("${pl.tracks.size} songs", color = Color.Gray, fontSize = 12.sp)
+                    Text("${pl.tracks.size} songs", color = appColors.textSecondary, fontSize = 12.sp)
                 }
-                Icon(Icons.Rounded.MoreVert, contentDescription = null, tint = Color.Gray)
+                Icon(Icons.Rounded.MoreVert, contentDescription = null, tint = appColors.textMuted)
             }
         }
 
@@ -1041,6 +1041,7 @@ private fun FoldersTabContent(
     folders: List<Pair<String, List<MediaItem>>>,
     onFolderClick: (String, List<MediaItem>) -> Unit
 ) {
+    val appColors = LocalAppColors.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
@@ -1050,7 +1051,8 @@ private fun FoldersTabContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF14141C))
+                    .background(appColors.surfaceElevated)
+                    .border(1.dp, appColors.surfaceBorder, RoundedCornerShape(12.dp))
                     .clickable { onFolderClick(folderName, trackList) }
                     .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -1059,29 +1061,29 @@ private fun FoldersTabContent(
                     modifier = Modifier
                         .size(46.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF22222E)),
+                        .background(appColors.surface),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Folder,
                         contentDescription = null,
-                        tint = Color(0xFFFFA726),
+                        tint = appColors.accentPrimary,
                         modifier = Modifier.size(26.dp)
                     )
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(folderName, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text(folderName, color = appColors.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(2.dp))
                     Text(
                         "${trackList.size} songs • ${trackList.firstOrNull()?.filePath?.substringBeforeLast('/') ?: "Internal"}",
-                        color = Color.Gray,
+                        color = appColors.textSecondary,
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Icon(Icons.Rounded.MoreVert, contentDescription = null, tint = Color.Gray)
+                Icon(Icons.Rounded.MoreVert, contentDescription = null, tint = appColors.textMuted)
             }
             Spacer(Modifier.height(10.dp))
         }
@@ -1761,20 +1763,22 @@ private fun PlaylistActionButton(
     label: String,
     onClick: () -> Unit
 ) {
+    val appColors = LocalAppColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(50.dp)
             .clip(RoundedCornerShape(25.dp))
-            .background(Color(0xFF1E1C2A))
+            .background(appColors.surfaceElevated)
+            .border(1.dp, appColors.surfaceBorder, RoundedCornerShape(25.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFFFB8D00), modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = null, tint = appColors.accentPrimary, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(10.dp))
-        Text(label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = appColors.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -1787,6 +1791,7 @@ private fun AlbumVinylCard(
     coverUri: android.net.Uri?,
     onClick: () -> Unit
 ) {
+    val appColors = LocalAppColors.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1805,21 +1810,21 @@ private fun AlbumVinylCard(
                     .align(Alignment.CenterEnd)
                     .offset(x = 12.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF151518))
-                    .border(1.dp, Color(0xFF2E2E38), CircleShape)
+                    .background(appColors.surfaceElevated)
+                    .border(1.dp, appColors.surfaceBorder, CircleShape)
             ) {
                 Box(
                     modifier = Modifier
                         .size(72.dp)
                         .align(Alignment.Center)
-                        .border(0.5.dp, Color(0xFF383845), CircleShape)
+                        .border(0.5.dp, appColors.surfaceBorder, CircleShape)
                 )
                 Box(
                     modifier = Modifier
                         .size(30.dp)
                         .align(Alignment.Center)
                         .clip(CircleShape)
-                        .background(Color(0xFF22222E))
+                        .background(appColors.surface)
                 )
             }
 
@@ -1829,7 +1834,8 @@ private fun AlbumVinylCard(
                     .fillMaxHeight()
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF22222E))
+                    .background(appColors.surfaceElevated)
+                    .border(1.dp, appColors.surfaceBorder, RoundedCornerShape(12.dp))
                     .shadow(6.dp, RoundedCornerShape(12.dp))
             ) {
                 if (coverUri != null) {
@@ -1843,7 +1849,7 @@ private fun AlbumVinylCard(
                     Icon(
                         imageVector = Icons.Rounded.Album,
                         contentDescription = null,
-                        tint = Color(0xFFFB8D00),
+                        tint = appColors.accentPrimary,
                         modifier = Modifier
                             .size(40.dp)
                             .align(Alignment.Center)
@@ -1872,7 +1878,7 @@ private fun AlbumVinylCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    color = Color.White,
+                    color = appColors.textPrimary,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -1881,7 +1887,7 @@ private fun AlbumVinylCard(
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = artist,
-                    color = Color(0xFF8E8E9B),
+                    color = appColors.textSecondary,
                     fontSize = 11.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1890,7 +1896,7 @@ private fun AlbumVinylCard(
             Icon(
                 imageVector = Icons.Rounded.MoreVert,
                 contentDescription = null,
-                tint = Color(0xFF8E8E9B),
+                tint = appColors.textMuted,
                 modifier = Modifier.size(16.dp)
             )
         }

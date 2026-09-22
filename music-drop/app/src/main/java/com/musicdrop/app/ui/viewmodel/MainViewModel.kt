@@ -3573,6 +3573,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return nextMode
     }
 
+    private val _cardOpacity = MutableStateFlow(prefs.getFloat("card_opacity", 0.55f))
+    val cardOpacity: StateFlow<Float> = _cardOpacity.asStateFlow()
+
+    fun setCardOpacity(opacity: Float) {
+        val clamped = opacity.coerceIn(0.05f, 1.0f)
+        _cardOpacity.value = clamped
+        prefs.edit().putFloat("card_opacity", clamped).apply()
+    }
+
+    private val _themeWallpaperUri = MutableStateFlow<String?>(prefs.getString("theme_wallpaper_uri", null))
+    val themeWallpaperUri: StateFlow<String?> = _themeWallpaperUri.asStateFlow()
+
+    fun setThemeWallpaper(uriOrUrl: String?) {
+        _themeWallpaperUri.value = uriOrUrl
+        if (uriOrUrl != null) {
+            prefs.edit().putString("theme_wallpaper_uri", uriOrUrl).apply()
+        } else {
+            prefs.edit().remove("theme_wallpaper_uri").apply()
+        }
+    }
+
+    private val _appFontFamily = MutableStateFlow(prefs.getString("app_font_family", "DEFAULT") ?: "DEFAULT")
+    val appFontFamily: StateFlow<String> = _appFontFamily.asStateFlow()
+
+    fun setAppFontFamily(family: String) {
+        _appFontFamily.value = family
+        prefs.edit().putString("app_font_family", family).apply()
+    }
+
+    private val _appFontColorOption = MutableStateFlow(prefs.getString("app_font_color_opt", "DEFAULT") ?: "DEFAULT")
+    val appFontColorOption: StateFlow<String> = _appFontColorOption.asStateFlow()
+
+    fun setAppFontColorOption(option: String) {
+        _appFontColorOption.value = option
+        prefs.edit().putString("app_font_color_opt", option).apply()
+    }
+
     private val _isDjCrossfadeEnabled = MutableStateFlow(prefs.getBoolean("dj_crossfade_enabled", true))
     val isDjCrossfadeEnabled: StateFlow<Boolean> = _isDjCrossfadeEnabled.asStateFlow()
 
