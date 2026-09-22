@@ -1,8 +1,8 @@
 {
-  "versionCode": 176,
-  "versionName": "1.7.5",
-  "title": "MusicDrop v1.7.5 — Fix TV Hardware Auto-Routing, Remote Control & Screen Sizing",
-  "changelog": "• Automatic TV Detection & Routing: Comprehensive multi-layer detection for Android TV, Google TV, Fire TV, Mi Box, and generic Android TV boxes, instantly launching the dedicated TV Experience without getting stuck in mobile mode\n• 100% TV Remote Control Navigation: All HUD controls (Play/Pause, Next, Previous, Seek, Rewind, Fast Forward, Download, Like) fully navigable with TV remote D-Pad, OK, and media keys\n• Fixed Speed Dial Card Sizing: Constrained card dimensions on landscape and TV displays so cards never take up the full screen or cause erratic scrolling\n• One-Touch TV Mode Switch: High-visibility 'TV Mode' toggle in the top bar allows immediate switching to TV mode anytime\n• Suppressed Mobile Player on TV: TV mode exclusively uses the high-performance native ExoPlayer overlay with no blank screens",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.5/MusicDrop-v1.7.5.apk",
+  "versionCode": 177,
+  "versionName": "1.7.6",
+  "title": "MusicDrop v1.7.6 — Pure Mobile Experience",
+  "changelog": "• Removed all experimental TV mode options and TV redirects from the mobile app, restoring a clean, fast, and pure mobile/tablet music streaming experience.",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.6/MusicDrop-v1.7.6.apk",
   "forceUpdate": false
 }

@@ -106,25 +106,6 @@
             </intent-filter>
         </activity>
 
-        <!-- ═══════════════════════════════════════════════════════════
-             TV Mode Activity — shown in the Android TV / Fire TV launcher.
-             On phones this activity immediately redirects to MainActivity.
-             ═══════════════════════════════════════════════════════════ -->
-        <activity
-            android:name=".TvModeActivity"
-            android:exported="true"
-            android:label="MusicDrop TV"
-            android:icon="@mipmap/ic_launcher"
-            android:theme="@style/Theme.FileDrop"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-            android:launchMode="singleTask">
-            <!-- Shows in Android TV / Fire TV home launcher -->
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-        </activity>
-
         <!-- AndroidX Media3 Background Audio Playback Service -->
         <service
             android:name=".playback.FileDropMediaService"

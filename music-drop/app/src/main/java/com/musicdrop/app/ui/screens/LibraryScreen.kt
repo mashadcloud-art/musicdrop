@@ -317,39 +317,8 @@ fun LibraryScreen(
                         )
                     }
 
-                    // Right: TV Mode switch, Refresh, Search, Theme/Skin Chooser & Settings Avatar
+                    // Right: Refresh, Search, Theme/Skin Chooser & Settings Avatar
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Quick switch to TV Mode button (Always accessible so users can switch instantly)
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(appColors.accentPrimary.copy(alpha = 0.18f))
-                                .clickable {
-                                    com.musicdrop.app.ui.tv.saveTvModeChoice(context, com.musicdrop.app.ui.tv.TvModeChoice.TV)
-                                    val intent = android.content.Intent(context, com.musicdrop.app.TvModeActivity::class.java)
-                                    context.startActivity(intent)
-                                    if (context is android.app.Activity) context.finish()
-                                }
-                                .padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Tv,
-                                    contentDescription = "TV Mode",
-                                    tint = appColors.accentPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "TV Mode",
-                                    color = appColors.textPrimary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(6.dp))
-
                         IconButton(
                             onClick = {
                                 viewModel.refreshAllDashboardCategories(force = true)

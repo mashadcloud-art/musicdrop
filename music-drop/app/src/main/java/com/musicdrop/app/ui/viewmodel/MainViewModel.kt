@@ -536,9 +536,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val showFullPlayer: StateFlow<Boolean> = _showFullPlayer.asStateFlow()
 
     fun openFullPlayer() {
-        if (com.musicdrop.app.ui.tv.isTvDevice(getApplication())) {
-            return
-        }
         _showFullPlayer.value = true
     }
 
