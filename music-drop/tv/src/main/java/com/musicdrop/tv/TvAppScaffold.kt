@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -65,15 +66,18 @@ fun TvAppScaffold(viewModel: TvViewModel) {
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
-                            .background(Color(0xFFFF0033), CircleShape),
+                            .width(42.dp)
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFFF0000)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("▶", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("▶", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
-                    Column {
-                        Text("MusicDrop", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        Text("TV Edition", fontSize = 12.sp, color = Color.White.copy(0.5f))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("YouTube", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Spacer(Modifier.width(4.dp))
+                        Text("TV", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF0000))
                     }
                 }
 
