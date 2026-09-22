@@ -1,7 +1,7 @@
 {
-  "versionCode": 4,
-  "versionName": "1.2.1",
-  "title": "MusicDrop TV v1.2.1 (Remote Focus & Background Fix)",
-  "changelog": "Fixed TV remote focus: background cards are now completely blocked from receiving focus or scrolling when player is open. Mapped remote control keys directly to player: OK/Enter to Play/Pause, Left/Right to Seek 10s, Next/Prev to skip tracks, Up to toggle video mode, and Back to exit player.",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/tv-v1.2.1/MusicDropTV-v1.2.1.apk"
+  "versionCode": 5,
+  "versionName": "1.2.2",
+  "title": "MusicDrop TV v1.2.2 (Card & Shelf Remote Focus Fix)",
+  "changelog": "Fixed in-between screen remote navigation: music cards (UnifiedMusicCard) across all shelves, search bar, mix preview cards, tabs, and songs now declare focusable with a 3.5dp high-contrast white focus border so the TV remote can navigate every shelf between the header and bottom bar.",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/tv-v1.2.2/MusicDropTV-v1.2.2.apk"
 }

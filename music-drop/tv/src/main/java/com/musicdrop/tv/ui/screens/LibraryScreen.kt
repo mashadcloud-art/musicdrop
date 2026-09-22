@@ -1,4 +1,4 @@
-﻿package com.musicdrop.tv.ui.screens
+package com.musicdrop.tv.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -10,6 +10,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -477,6 +479,7 @@ fun LibraryScreen(
                     // 1. Five Primary Tabs: Home, Songs, Playlists, Download, Device
                     primaryTabs.forEachIndexed { index, tab ->
                         val isSelected = pagerState.currentPage == index
+                        var isTabFocused by remember { mutableStateOf(false) }
                         Tab(
                             selected = isSelected,
                             onClick = {
@@ -486,9 +489,18 @@ fun LibraryScreen(
                             },
                             selectedContentColor = appColors.textPrimary,
                             unselectedContentColor = appColors.textSecondary,
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            modifier = Modifier
+                                .padding(vertical = 4.dp)
+                                .onFocusChanged { isTabFocused = it.isFocused }
+                                .focusable()
                         ) {
-                            val tabContentModifier = if (isSelected) {
+                            val tabContentModifier = if (isTabFocused) {
+                                Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color.White.copy(alpha = 0.22f))
+                                    .border(2.5.dp, Color.White, RoundedCornerShape(14.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            } else if (isSelected) {
                                 Modifier
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(appColors.accentPrimary.copy(alpha = if (appColors.isDark) 0.16f else 0.14f))
@@ -1628,9 +1640,19 @@ private fun SongItemRow(
         }
     }
 
+    var isRowFocused by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .onFocusChanged { isRowFocused = it.isFocused }
+            .focusable()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isRowFocused) Color.White.copy(alpha = 0.22f) else Color.Transparent)
+            .border(
+                width = if (isRowFocused) 2.5.dp else 0.dp,
+                color = if (isRowFocused) Color.White else Color.Transparent,
+                shape = RoundedCornerShape(12.dp)
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically

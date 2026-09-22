@@ -1,4 +1,4 @@
-﻿package com.musicdrop.tv.ui.screens
+package com.musicdrop.tv.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.*
@@ -8,6 +8,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -584,14 +586,21 @@ fun DiscoverScreen(
                 ) {
                     // ── TOP SEARCH QUICK-LAUNCH PILL (Navigates to dedicated Search screen) ──
                     item(key = "home_search_bar") {
+                        var isSearchFocused by remember { mutableStateOf(false) }
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 4.dp)
                                 .height(46.dp)
+                                .onFocusChanged { isSearchFocused = it.isFocused }
+                                .focusable()
                                 .clip(RoundedCornerShape(23.dp))
-                                .background(if (appColors.isDark) Color(0xFF1E1E26) else appColors.surfaceElevated)
-                                .border(1.dp, if (appColors.isDark) Color.White.copy(alpha = 0.12f) else appColors.surfaceBorder, RoundedCornerShape(23.dp))
+                                .background(if (isSearchFocused) Color.White.copy(alpha = 0.22f) else if (appColors.isDark) Color(0xFF1E1E26) else appColors.surfaceElevated)
+                                .border(
+                                    width = if (isSearchFocused) 3.dp else 1.dp,
+                                    color = if (isSearchFocused) Color.White else if (appColors.isDark) Color.White.copy(alpha = 0.12f) else appColors.surfaceBorder,
+                                    shape = RoundedCornerShape(23.dp)
+                                )
                                 .clickable { onOpenSearchWithQuery("") }
                                 .padding(horizontal = 14.dp),
                             contentAlignment = Alignment.CenterStart
@@ -2431,11 +2440,19 @@ fun YouTubeMixPreviewCard(
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                var isPlayBoxFocused by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
                         .size(72.dp)
+                        .onFocusChanged { isPlayBoxFocused = it.isFocused }
+                        .focusable()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (appColors.isDark) Color(0xFF282828) else Color(0xFFE2E4E8))
+                        .background(if (isPlayBoxFocused) Color.White.copy(alpha = 0.28f) else if (appColors.isDark) Color(0xFF282828) else Color(0xFFE2E4E8))
+                        .border(
+                            width = if (isPlayBoxFocused) 3.dp else 1.dp,
+                            color = if (isPlayBoxFocused) Color.White else Color.Transparent,
+                            shape = RoundedCornerShape(12.dp)
+                        )
                         .clickable { onPlayAll() }
                 ) {
                     AsyncImage(
@@ -2799,14 +2816,22 @@ fun UnifiedMusicCard(
 ) {
     val appColors = com.musicdrop.tv.ui.theme.LocalAppColors.current
     var showMenu by remember { mutableStateOf(false) }
+    var isFocused by remember { mutableStateOf(false) }
     val effectiveOnDelete = onDelete ?: LocalOnDeleteTrack.current?.let { handler -> { handler(track) } }
 
-    Column(modifier = Modifier.width(cardWidth)) {
+    Column(modifier = Modifier.width(cardWidth).padding(vertical = 4.dp)) {
         Box(
             modifier = Modifier
                 .size(cardWidth)
+                .onFocusChanged { isFocused = it.isFocused }
+                .focusable()
                 .clip(RoundedCornerShape(12.dp))
-                .background(appColors.surfaceElevated)
+                .background(if (isFocused) Color.White.copy(alpha = 0.28f) else appColors.surfaceElevated)
+                .border(
+                    width = if (isFocused) 3.5.dp else 1.dp,
+                    color = if (isFocused) Color.White else Color.Transparent,
+                    shape = RoundedCornerShape(12.dp)
+                )
                 .combinedClickable(
                     onClick = { onPlay() },
                     onLongClick = { showMenu = true }
