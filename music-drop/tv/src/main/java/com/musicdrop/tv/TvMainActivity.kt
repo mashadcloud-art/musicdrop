@@ -17,8 +17,10 @@ class TvMainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
-            val viewModel: TvViewModel = viewModel()
-            TvAppScaffold(viewModel = viewModel)
+            com.musicdrop.tv.ui.theme.MusicDropTvTheme {
+                val viewModel: TvViewModel = viewModel()
+                TvAppScaffold(viewModel = viewModel)
+            }
         }
     }
 }
