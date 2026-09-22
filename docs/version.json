@@ -1,8 +1,8 @@
 {
-  "versionCode": 172,
-  "versionName": "1.7.1",
-  "title": "MusicDrop v1.7.1 — TV Mode Auto-Detect & Icon",
-  "changelog": "• Distinct TV Label: Displays as 'MusicDrop TV' on Android TV / Fire TV home screens\n• Auto-Detect on TV: Automatically detects TV devices, boxes, and Firesticks on launch and prompts with the TV Mode vs Music Mode chooser\n• Header & Settings TV Switch: Easily launch TV Mode anytime from the TV button in the mobile header or in Settings\n• Enhanced TV Hardware Compatibility: Support for Amazon Fire TV sticks, Google TV, and generic Android TV boxes without touchscreens\n• Mobile phones remain 100% untouched",
-  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.1/MusicDrop-v1.7.1.apk",
+  "versionCode": 173,
+  "versionName": "1.7.2",
+  "title": "MusicDrop v1.7.2 — HD TV Video Player & TV Categories",
+  "changelog": "• HD TV Video Player: Watch YouTube music videos in full-screen HD on your TV screen with one click!\n• Video ↔ Vinyl Audio Switch: Seamlessly toggle between full-screen video mode and spinning vinyl art with TV remote\n• In-Player & TV Downloads: Download songs directly from the player overlay with a single remote click\n• TV-Optimized Card Sizing: Sleek 16:9 cards (5-6 visible across) replacing oversized mobile cards\n• TV Category Chips & Navigation: Instant mood & category switching (Trending, Bollywood, Malayalam, Tamil, Lofi, Workout, Romantic)\n• Dedicated Downloads Screen: View and play offline saved tracks from the sidebar",
+  "downloadUrl": "https://github.com/mashadcloud-art/musicdrop/releases/download/v1.7.2/MusicDrop-v1.7.2.apk",
   "forceUpdate": false
 }
